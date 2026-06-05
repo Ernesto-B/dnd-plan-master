@@ -1,0 +1,105 @@
+{
+  "encounters": [
+    {
+      "id": "E001",
+      "name": "Guild Tail — Dockside Chase",
+      "sessionId": "001",
+      "fiction": "The Lanternwood Guild has sent two enforcers to tail the party after they asked about NOXGATE. They must be dealt with before the trail goes cold — and before Lira Nox decides the party is too dangerous to approach.",
+      "createdAt": "2026-01-08T18:30:00.000Z",
+      "isDemo": true,
+      "data": {
+        "id": "E001",
+        "name": "Guild Tail — Dockside Chase",
+        "sessionId": "001",
+        "fiction": "The Lanternwood Guild has sent two enforcers to tail the party after they asked about NOXGATE. They must be dealt with before the trail goes cold — and before Lira Nox decides the party is too dangerous to approach.",
+        "winCondition": "Harwick captured or fled, enforcers surrendered, Lira Nox approaches with canal tunnel information. The party has a lead they can follow.",
+        "interestingFailure": "The party escapes but Harwick has their descriptions. The guild upgrades the threat level — patrols double, and the city guard starts asking questions. Lira Nox sends a note instead of approaching directly.",
+        "secondaryObjective": {
+          "description": "Lira Nox will flee the Dockside market if not intercepted — she carries the canal tunnel map and the NOXGATE keying mechanism. She is watching from behind the fish-drying racks.",
+          "round": "3",
+          "initiative": "5",
+          "consequence": "Lira escapes. The party must find another way to locate the NOXGATE entrance and keying mechanism — adds one full session beat to the investigation."
+        },
+        "environment": {
+          "layer1": "Market stalls along the canal wall provide half cover (5ft movement between stalls). Canal wall to the east — 10ft drop into slow-moving dark water (DC 10 Athletics to swim, or carried 20ft downstream per round). Overturned fish carts create two areas of difficult terrain in the central corridor. Civilian crowd is present — can be used for concealment or to force enemies to move cautiously.",
+          "layer2trigger": "1",
+          "layer2ongoing": "Starting round 2, the civilian crowd scatters after the first blow lands. Sightlines open across the whole market. The enforcers use the confusion to reposition — the two standard enforcers move to flank from the north stalls while Harwick advances from the south. Harwick's movement is now unimpeded by the crowd.",
+          "layer3": "The canal gate lock (Thieves' Tools DC 12) is visible on the east wall from anyone adjacent to the canal edge. Opening it while combat distracts the enforcers creates a retreat route and surprises Harwick — he doesn't know it's openable from this side. A Bard, Artificer, or any character with Sleight of Hand can attempt this as a bonus action if adjacent."
+        },
+        "enemies": [
+          {
+            "name": "Guild Enforcer × 2",
+            "role": "Push the party toward the canal wall — create a hostage situation, not a bloodbath.",
+            "isPuzzle": false,
+            "pressure": "",
+            "key": "",
+            "frontload": {}
+          },
+          {
+            "name": "Harwick the Scar",
+            "role": "Lead enforcer — grapples the most dangerous-looking PC toward the canal edge. Fights to unconsciousness. Does not surrender.",
+            "isPuzzle": true,
+            "pressure": "Harwick is trying to create a hostage situation by grappling a PC toward the 10ft canal drop. While grappling, his AC effectively rises to 16 (the grappled PC provides cover) and he cannot be targeted with area effects without risking the PC. He regenerates 0 HP — the grapple is the pressure, not durability.",
+            "key": "Breaking the grapple (DC 14 Strength — the grappled PC or an adjacent ally as an action) removes his defensive advantage immediately. Alternatively: pushing Harwick into the canal removes him from the encounter (he is not a strong swimmer in armour).",
+            "frontload": {
+              "lore": {
+                "enabled": true,
+                "skill": "History",
+                "dc": "12",
+                "info": "Harwick is a former city guard bouncer — his technique is crowd control and threat escalation, not killing. He is trying to capture, not eliminate."
+              },
+              "visual": {
+                "enabled": true,
+                "description": "Harwick stays back while the two enforcers advance. He watches the party, not the bystanders — his eyes are tracking the most dangerous-looking character specifically. His right hand is open, not on his sword. He is looking for a grab, not a fight."
+              },
+              "behaviour": {
+                "enabled": true,
+                "description": "On round 1, Harwick does not draw his weapon. He moves into melee range of the biggest PC and attempts to Grapple — both hands, no weapons. This signals to any watching player that he is using a grapple build, not a damage build."
+              },
+              "initiative": {
+                "enabled": true,
+                "description": "Your read of the situation: the scarred one isn't moving to the fight — he's moving to you specifically. He wants a body, not a body count."
+              }
+            }
+          }
+        ],
+        "naturalTasks": [
+          {
+            "name": "Player 1",
+            "playerClass": "Fighter / High-damage",
+            "task": "Primary target for Harwick's grapple — must break free or be maneuvered. Can also push Harwick into the canal.",
+            "ability": "Escape Grapple (Str DC 14), or Shove (Athletics contested) toward the canal wall."
+          },
+          {
+            "name": "Player 2",
+            "playerClass": "Rogue / Skirmisher",
+            "task": "Flank the two standard enforcers while they are distracted by the main line. Intercept Lira Nox before round 3.",
+            "ability": "Cunning Action lets them disengage and reposition to the fish-drying racks where Lira is watching."
+          },
+          {
+            "name": "Player 3",
+            "playerClass": "Cleric / Support",
+            "task": "Keep the grappled PC conscious. Alternatively — open the canal gate lock to create an escape/surprise option.",
+            "ability": "Healing Word (bonus action) keeps the main line up. Thieves' Tools or Dexterity check DC 12 for the gate."
+          },
+          {
+            "name": "Player 4",
+            "playerClass": "Bard / Controller",
+            "task": "Manage the crowd — prevent civilians from being caught in area effects. Distract Harwick to give the grappled PC advantage on the escape roll.",
+            "ability": "Vicious Mockery gives disadvantage on Harwick's next attack. Cutting Words negates his grapple attempt on a hit."
+          }
+        ],
+        "checklist": {
+          "situationComplexity": true,
+          "noProne": true,
+          "noHighAC": true,
+          "everyoneHasTask": true,
+          "discoverableRound1": true,
+          "nonViolentPath": true
+        },
+        "notes": "CONTINGENCY — If the party tries to run immediately: Harwick does not pursue past the market edge. He lets them go. But the guild now knows where they are staying. A note appears under their inn door: 'Ask your questions somewhere else.' This is a warning, not a threat — yet.\n\nCONTINGENCY — If Harwick is killed: Lira Nox is spooked — she slips away and sends a note instead of approaching. Use the note hook: 'You're digging in the right place. Canal bridge, east cat statue, midnight. — L'\n\nCONTINGENCY — If the party captures Harwick: He will not talk under normal pressure (he knows what the guild does to informants). But if a PC makes a credible offer of witness protection — somewhere outside Thornhaven — he cracks. He knows about the people in the tunnels. He is not a good person. He is a person who has seen something he cannot unsee.\n\nHARWICK STAT BLOCK (simplified): AC 14 (chain shirt), HP 38, Speed 30ft. Longsword +5 / 1d8+3. Grapple Specialist: on a successful melee hit, target is grappled (DC 14 Str to escape), Harwick uses bonus action to shove toward canal edge. Does not use ranged weapons.\n\nGUILD ENFORCER × 2 STAT BLOCK: AC 13, HP 22, Speed 30ft. Shortsword +4 / 1d6+2. Hand Crossbow +4 / 1d6+2 (range 30/120). Surrender immediately if Harwick falls."
+      },
+      "markdown": "# Encounter Plan: Guild Tail — Dockside Chase\n\n**Linked Session:** 001\n\n---\n\n## Fiction & Outcome\n\n> The Lanternwood Guild has sent two enforcers to tail the party after they asked about NOXGATE. They must be dealt with before the trail goes cold — and before Lira Nox decides the party is too dangerous to approach.\n\n**Win Condition:** Harwick captured or fled, enforcers surrendered, Lira Nox approaches with canal tunnel information. The party has a lead they can follow.\n\n**Interesting Failure:** The party escapes but Harwick has their descriptions. The guild upgrades the threat level — patrols double, and the city guard starts asking questions. Lira Nox sends a note instead of approaching directly.\n\n## Secondary Objective\n\nLira Nox will flee the Dockside market if not intercepted — she carries the canal tunnel map and the NOXGATE keying mechanism. She is watching from behind the fish-drying racks.\n\n**Countdown:** Resolves on Round 3, Initiative Count 5\n\n**Consequence if ignored:** Lira escapes. The party must find another way to locate the NOXGATE entrance and keying mechanism — adds one full session beat to the investigation.\n\n## Environment\n\n### Layer 1 — Terrain Decisions\n\nMarket stalls along the canal wall provide half cover (5ft movement between stalls). Canal wall to the east — 10ft drop into slow-moving dark water (DC 10 Athletics to swim, or carried 20ft downstream per round). Overturned fish carts create two areas of difficult terrain in the central corridor. Civilian crowd is present — can be used for concealment or to force enemies to move cautiously.\n\n### Layer 2 — Environmental Threat\n\n**Triggers:** End of round 1\n\n**Ongoing:** Starting round 2, the civilian crowd scatters after the first blow lands. Sightlines open across the whole market. The enforcers use the confusion to reposition — the two standard enforcers move to flank from the north stalls while Harwick advances from the south. Harwick's movement is now unimpeded by the crowd.\n\n### Layer 3 — For Non-Damage Dealers\n\nThe canal gate lock (Thieves' Tools DC 12) is visible on the east wall from anyone adjacent to the canal edge. Opening it while combat distracts the enforcers creates a retreat route and surprises Harwick — he doesn't know it's openable from this side. A Bard, Artificer, or any character with Sleight of Hand can attempt this as a bonus action if adjacent.\n\n## Enemies\n\n### Guild Enforcer × 2\n\n**Role:** Push the party toward the canal wall — create a hostage situation, not a bloodbath.\n\n### Harwick the Scar — Puzzle Enemy\n\n**Role:** Lead enforcer — grapples the most dangerous-looking PC toward the canal edge. Fights to unconsciousness. Does not surrender.\n\n**Mechanical Pressure:** Harwick is trying to create a hostage situation by grappling a PC toward the 10ft canal drop. While grappling, his AC effectively rises to 16 (the grappled PC provides cover) and he cannot be targeted with area effects without risking the PC. He regenerates 0 HP — the grapple is the pressure, not durability.\n\n**The Key:** Breaking the grapple (DC 14 Strength — the grappled PC or an adjacent ally as an action) removes his defensive advantage immediately. Alternatively: pushing Harwick into the canal removes him from the encounter (he is not a strong swimmer in armour).\n\n**Front-Loading:**\n\n- **Lore:** DC 12 History — Harwick is a former city guard bouncer — his technique is crowd control and threat escalation, not killing. He is trying to capture, not eliminate.\n- **Visual Tell:** Harwick stays back while the two enforcers advance. He watches the party, not the bystanders — his eyes are tracking the most dangerous-looking character specifically. His right hand is open, not on his sword. He is looking for a grab, not a fight.\n- **Behaviour Signal:** On round 1, Harwick does not draw his weapon. He moves into melee range of the biggest PC and attempts to Grapple — both hands, no weapons. This signals to any watching player that he is using a grapple build, not a damage build.\n- **Initiative Reward:** Your read of the situation: the scarred one isn't moving to the fight — he's moving to you specifically. He wants a body, not a body count.\n\n## Natural Tasks Per Player\n\n| Player | Class | Natural Task | Ability / Feature |\n|--------|-------|-------------|-------------------|\n| Player 1 | Fighter / High-damage | Primary target for Harwick's grapple — must break free or be maneuvered. Can also push Harwick into the canal. | Escape Grapple (Str DC 14), or Shove (Athletics contested) toward the canal wall. |\n| Player 2 | Rogue / Skirmisher | Flank the two standard enforcers while they are distracted by the main line. Intercept Lira Nox before round 3. | Cunning Action lets them disengage and reposition to the fish-drying racks where Lira is watching. |\n| Player 3 | Cleric / Support | Keep the grappled PC conscious. Alternatively — open the canal gate lock to create an escape/surprise option. | Healing Word (bonus action) keeps the main line up. Thieves' Tools or Dexterity check DC 12 for the gate. |\n| Player 4 | Bard / Controller | Manage the crowd — prevent civilians from being caught in area effects. Distract Harwick to give the grappled PC advantage on the escape roll. | Vicious Mockery gives disadvantage on Harwick's next attack. Cutting Words negates his grapple attempt on a hit. |\n\n## Design Checklist\n\n- [x] Difficulty from situation complexity, not capability degradation\n- [x] No prone from environmental effects (positional threat with warning instead)\n- [x] No enemy with AC 18+ as the sole difficulty mechanic\n- [x] Every player has something meaningful to do on every turn\n- [x] Key mechanic is discoverable within round 1\n- [x] At least one non-violent solution path exists\n\n## Combat Notes\n\nCONTINGENCY — If the party tries to run immediately: Harwick does not pursue past the market edge. He lets them go. But the guild now knows where they are staying. A note appears under their inn door: 'Ask your questions somewhere else.' This is a warning, not a threat — yet.\n\nCONTINGENCY — If Harwick is killed: Lira Nox is spooked — she slips away and sends a note instead of approaching. Use the note hook: 'You're digging in the right place. Canal bridge, east cat statue, midnight. — L'\n\nCONTINGENCY — If the party captures Harwick: He will not talk under normal pressure (he knows what the guild does to informants). But if a PC makes a credible offer of witness protection — somewhere outside Thornhaven — he cracks. He knows about the people in the tunnels. He is not a good person. He is a person who has seen something he cannot unsee.\n\nHARWICK STAT BLOCK (simplified): AC 14 (chain shirt), HP 38, Speed 30ft. Longsword +5 / 1d8+3. Grapple Specialist: on a successful melee hit, target is grappled (DC 14 Str to escape), Harwick uses bonus action to shove toward canal edge. Does not use ranged weapons.\n\nGUILD ENFORCER × 2 STAT BLOCK: AC 13, HP 22, Speed 30ft. Shortsword +4 / 1d6+2. Hand Crossbow +4 / 1d6+2 (range 30/120). Surrender immediately if Harwick falls.\n\n---\n\n*Generated by D&D Session Master — June 5, 2026*"
+    }
+  ]
+}

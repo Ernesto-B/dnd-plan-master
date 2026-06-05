@@ -1,0 +1,113 @@
+{
+  "sessions": [
+    {
+      "id": "001",
+      "sessionNumber": 1,
+      "date": "2026-01-08",
+      "partyLevel": 3,
+      "goal": "Discover what happened to Aldric Crale and find the trail leading into the canal tunnels beneath Thornhaven.",
+      "createdAt": "2026-01-08T18:00:00.000Z",
+      "isDemo": true,
+      "data": {
+        "sessionNumber": "1",
+        "date": "2026-01-08",
+        "partyLevel": "3",
+        "sessionGoal": "Discover what happened to Aldric Crale and find the trail leading into the canal tunnels beneath Thornhaven.",
+        "endState": "The party knows the Lanternwood Guild is moving something dangerous through the old canal network. They have Lira Nox as a tentative ally, and the sealed NOXGATE entrance is open before them. Aldric Crale is somewhere inside — alive, for now.",
+        "openingReadAloud": "The city of Thornhaven smells of river mud and burned coal tonight, a low fog crawling up from the docks. You can hear the distant toll of the harbour bell — three rings, then silence. The merchant Oswin Crale meets you in his study, hands wrapped around a cup of tea he hasn't touched. On his desk is a letter — the last one his brother sent — and the wax seal has been broken, not cut. Someone else read it first. Oswin looks up at you with the specific exhaustion of a man who has stopped sleeping. 'He would have written again by now,' he says quietly. 'He always wrote.'",
+        "threeOptionsPrompt": "You can visit Aldric's last known address in the Loom Quarter, ask around at the Anchor and Eel tavern where he was last seen drinking, or follow up on the name scrawled in the letter's margin — 'NOXGATE' — with the Thornhaven city registry.",
+        "beatOpen": "Read the opening aloud slowly. Let Oswin answer questions — he knows Aldric was investigating guild ledger irregularities but doesn't know what he found. He will describe his brother as methodical and cautious, not the type to disappear without word. Hand off the three options and let the party commit to one.",
+        "beatMiddle": "Investigation phase. The Loom Quarter: Aldric's room has been professionally tossed — drawers replaced in the wrong order, a loose floorboard re-nailed slightly crooked. One missed clue: a wax-sealed receipt from Lanternwood Imports for '14 units of perishable stock, canal route, delivery by new moon' hidden inside the hollowed spine of a ledger book. His cat is still in the room. It is hungry and will not leave. The Anchor and Eel: The barkeep Elder Thom saw Aldric leave with two men in guild colours. Won't talk until pressed (Persuasion DC 13 or buying two rounds). Key detail: Aldric didn't look frightened — he looked like a man trying very hard to look calm, which is different. NOXGATE: The city registry lists it as a defunct gate in the old canal wall, currently under lease to Lanternwood Imports for 'drainage maintenance.' The clerk says it with the practiced boredom of someone who has been told not to ask questions.",
+        "beatEscalate": "Two guild enforcers tail the party once they ask about NOXGATE — Perception DC 14 to notice. They can be confronted, fled from, or ambushed. Combat in the Dockside market: stalls for cover, the canal wall to one side (10-foot drop into slow-moving water), civilians who scatter on turn 2. The lead enforcer is Harwick, a scarred veteran who does not surrender. After the encounter, Lira Nox approaches — a guild runner who recognised the party isn't city guard. She wants out. She will trade the canal entrance location and the keying mechanism for a guarantee of safe passage.",
+        "beatClose": "The party stands at the NOXGATE entrance, canal water lapping below the stone steps. The gate swings open on its new lock. From somewhere in the dark ahead — fifty feet down, maybe more — they hear the sound of a man coughing. Rhythmic. Weakened. Then a lantern flickers on in the tunnel depths. And goes out.",
+        "npcs": [
+          {
+            "name": "Oswin Crale",
+            "faction": "Independent Merchant",
+            "situation": "His younger brother Aldric has been missing for 11 days. He hired the party because he does not trust the city guard — Captain Sel told him personally to 'wait and see,' and the investigation was quietly closed. He is holding himself together through sheer force of routine.",
+            "wants": "To know his brother is alive. He will accept difficult news over continued silence. He will not accept being managed or protected from the truth.",
+            "phrases": "'He always wrote.' / 'I'm not asking you to be heroes. Just to look.' / Calls everyone 'friend' regardless of whether he means it yet.",
+            "bodyLanguage": "Keeps both hands around a cup of tea that he never drinks. Sets it down deliberately when he is telling the full truth. Picks it up and wraps both hands around it when he is omitting something.",
+            "neverDoes": "Never renegotiates a contract once the terms are agreed. He considers it a moral failing, not a business tactic. He will not ask for a discount on services already rendered.",
+            "corneredLine": "My brother found something in those ledgers. Something the guild would pay to keep quiet — or pay more to keep buried. I think they've already decided which."
+          },
+          {
+            "name": "Captain Vara Sel",
+            "faction": "Thornhaven City Guard (Lanternwood Guild payroll, coerced)",
+            "situation": "She is on the guild's payroll — not enthusiastically. Her daughter works in a guild-adjacent debt-labour arrangement and the guild holds the contract. She closed the Crale investigation under direct pressure and is not proud of it. She will try to redirect the party with a different paying job if they seem reasonable.",
+            "wants": "For the party to leave Thornhaven, or at minimum to drop this specific investigation. She is not evil — she is cornered. She will help the party indirectly if she believes her daughter will be protected.",
+            "phrases": "'Thornhaven is a complicated city.' / 'People go missing. It's unfortunate.' / Uses the word 'protocol' to mean 'I am refusing to act and would prefer not to say so directly.'",
+            "bodyLanguage": "Stands extremely still when lying — control is the only dignity she has left. Taps her left thumb against her belt buckle when anxious; her daughter's guild token is looped to it on a cord.",
+            "neverDoes": "Never raises her voice. She has learned that visible anger transfers power to the other person.",
+            "corneredLine": "She's nine years old. She is all I have left. Do you understand what I am telling you? If the guild decides I am a liability — she goes with me. So yes. I closed the investigation. And I would do it again."
+          },
+          {
+            "name": "Lira Nox",
+            "faction": "Lanternwood Guild (runner — wants out)",
+            "situation": "A courier and small-time smuggler who has run packages for the guild for two years. She recently learned what is in the canal tunnels and wants no part of it. She has been watching for a way out since then. She approaches the party after the enforcer confrontation because she recognises they are not guard and not guild.",
+            "wants": "A guarantee she won't be handed to the guard or used as leverage against the guild. She will trade everything she knows — the canal maps, the key mechanism, Harwick's real name and employer — for a clean exit from the city.",
+            "phrases": "'I run packages. I don't ask questions. Until now.' / 'You want information? That costs something. Everything costs something.' / Whistles tunelessly and off-key when she is nervous, which is often.",
+            "bodyLanguage": "Always positions herself near the exit she entered through. Physically turns her body toward the door when she feels the conversation going wrong. Makes eye contact steadily when making a deal — breaks it immediately after.",
+            "neverDoes": "Never gives information for free — not even a direction to a place she could point at. Every piece of knowledge is a trade. This is not greed; it is how she has survived.",
+            "corneredLine": "They're keeping people down there. Not cargo. People. And whatever they're doing to them in the dark — I heard one of them once, through the gate, and I have not slept correctly since that night."
+          }
+        ],
+        "locations": [
+          {
+            "name": "Thornhaven",
+            "description": "A mid-sized river trading city on the edge of the settled frontier. Thornhaven is known for its canal network, its guild-dominated commerce, and its perpetual low fog off the water at night. The city runs on an unspoken agreement: questions are expensive, and nobody asks the ones that matter.",
+            "sensoryDetail": "The fog carries river silt and tallow candles. At night, the Lanternwood Guild lanterns — green glass, distinctive — are the only lights along the canal streets. The cobblestones are perpetually damp. Sound carries strangely in the fog.",
+            "hiddenDetail": "The old canal network beneath the city predates Thornhaven by at least 400 years — pre-Founding construction whose original purpose no historian has satisfactorily explained. The guild has been excavating and quietly mapping it for three years under cover of 'drainage maintenance permits.' The full extent of the tunnels is unknown even to them.",
+            "districts": [
+              {
+                "name": "Loom Quarter",
+                "readAloud": "The Loom Quarter is quieter than the rest of Thornhaven — a residential district that smells of lye soap and damp wool. The buildings lean toward each other above the narrow streets, laundry lines strung between them like bunting for a festival nobody has attended. Aldric Crale's address is a third-floor room above a tailor's shop. The tailor — a small, sharp-eyed woman named Maret — gives you the key without looking up from her work. 'He hasn't been back,' she says. 'I noticed because his cat keeps crying.'",
+                "pointsOfInterest": [
+                  {
+                    "name": "Aldric's Room (Third Floor)",
+                    "description": "Professionally searched — drawers replaced in the wrong order, a loose floorboard re-nailed slightly crooked. Whoever did it knew what they were looking for and almost found everything. Hidden inside the hollowed spine of a ledger book on the shelf: a wax-sealed receipt from Lanternwood Imports for '14 units of perishable stock, canal route, delivery before new moon.' The cat is real, grey, and extremely hungry. It will follow whoever feeds it."
+                  },
+                  {
+                    "name": "Maret's Fittings (Ground Floor)",
+                    "description": "Maret is 60, river-born, and has lived in this district for 40 years. She saw two men in guild green carry what she thought was a trunk down the stairs four days ago. She assumed it was furniture. She describes one of them: tall, with a scar running from his left ear to his jaw. This is Harwick — the same enforcer the party will face in the Dockside market. She also mentions the cat's name: the cat has no name. Aldric called it 'the cat.' Maret calls it 'the problem.'"
+                  }
+                ]
+              },
+              {
+                "name": "Dockside Market",
+                "readAloud": "The Dockside market runs along the canal wall — a permanent sprawl of stalls selling rope, dried fish, cheap tools, and objects with uncertain provenance. It smells of brine and cheap oil and the particular sour sweetness of the canal in summer. Gulls wheel overhead even at night, following the smell of the fish-drying racks. The Anchor and Eel sits at the far end of the market row, its painted sign crooked on one nail, its windows warm with light that seems almost intentionally unwelcoming.",
+                "pointsOfInterest": [
+                  {
+                    "name": "The Anchor and Eel Tavern",
+                    "description": "Elder Thom, the barkeep: 60s, hands like rope-work, deeply uncomfortable. He saw Aldric leave with two men in guild colours eleven nights ago. 'Not rough about it,' he'll say if pressed. 'More like escorts. Professional.' Persuasion DC 13 or buying two rounds to get the detail: Aldric didn't look scared. He looked like a man performing calm, which is a very different thing. Thom hasn't reported it because nobody in Thornhaven reports guild business and keeps their licence."
+                  },
+                  {
+                    "name": "NOXGATE (Canal Wall, East End)",
+                    "description": "A sealed iron gate set into the canal wall behind a stack of crates marked LANTERNWOOD IMPORTS — DRAINAGE MAINTENANCE. The lock is a new padlock, installed within the last six months. Beyond it: stone steps descending to water level. Carved above the arch in script that predates the city: three interlocked circles and a word in a language no one in the party recognises. From below: the occasional sound of movement, and, rarely, a flicker of green-tinged light."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "factionClocks": [
+          {
+            "factionName": "Lanternwood Guild — The Transit",
+            "goal": "Move the cargo through the canal network and complete the extraction process before the full moon festival, when city guard canal patrols triple in frequency. Each session beat that passes without party interference advances this clock by one segment.",
+            "progress": "3",
+            "max": "8",
+            "completion": "The extraction completes. Whatever the people in the tunnels possess is taken from them permanently. Aldric Crale, having seen too much, does not make it out of the tunnels. The guild covers its tracks and the canal gate is resealed with a new lock."
+          }
+        ],
+        "encounters": [
+          {
+            "name": "Guild Tail — Dockside Chase",
+            "summary": "Two guild enforcers tail the party once they ask about NOXGATE — Perception DC 14 to notice. They force a confrontation in the Dockside market. Harwick the Scar leads: grapple specialist, targets the most dangerous PC toward the canal edge. He does not surrender. The two standard enforcers will if he falls. Secondary objective: Lira Nox is watching from the fish-drying racks and will flee by round 3 if not intercepted.",
+            "encounterPlanId": "E001"
+          }
+        ],
+        "sessionNotes": "CONTINGENCY — Party skips investigation and goes straight to NOXGATE: The gate is locked (Thieves' Tools DC 15 or the enforcer key from Harwick). They can hear sounds inside without knowing what they mean. Let them in anyway. The discovery is more affecting if they lack context.\n\nCONTINGENCY — Party arrests or incapacitates Harwick before Lira makes contact: Lira still wants to reach them. She slips a note under their inn door: 'You're digging in the right place. I can help. Canal bridge, the cat statue at the east end, midnight. — L'\n\nCONTINGENCY — Party tries to leverage Captain Sel immediately: She will not break unless her daughter is explicitly protected. If the party can credibly offer that, she becomes a significant ally — she has the full canal maintenance permit records.\n\nNOTE ON THE CARGO: The cargo is people — specifically individuals with latent magical ability being held for a forced extraction process. Do not reveal this fully in Session 1. Let it be implied by Lira's reaction and the sounds from the tunnel. The full truth is Session 2 material.\n\nNOTE ON THE CAT: If any player asks what happens to Aldric's cat, let them take it. Let them name it. It becomes a recurring NPC. This is non-negotiable and extremely important."
+      }
+    }
+  ]
+}

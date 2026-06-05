@@ -1,0 +1,85 @@
+const express  = require('express');
+const fs        = require('fs').promises;
+const path      = require('path');
+const router    = express.Router();
+
+const encounterStore   = require('../services/encounterStore');
+const mdGen            = require('../services/encounterMarkdownGenerator');
+const pdfGen           = require('../services/pdfGenerator');
+const pdfTemplate      = require('../templates/encounterPdfTemplate');
+const folderPicker     = require('../services/folderPicker');
+
+function filename(id) {
+  return `encounter-${String(id).replace(/^E0*/, '').padStart(3, '0')}`;
+}
+
+router.post('/preview', async (req, res) => {
+  try {
+    const data     = req.body;
+    const markdown = mdGen.generate(data);
+    const html     = pdfTemplate.render(data);
+    const pdf      = await pdfGen.generateFromHtml(html);
+    const id       = data.id || 'new';
+    res.json({ filename: filename(id), markdown, pdf: pdf.toString('base64') });
+  } catch (err) {
+    console.error('Encounter preview error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/save-files', async (req, res) => {
+  try {
+    const { markdown, pdf, filename: fn } = req.body;
+    const folder = await folderPicker.pick();
+    if (!folder) return res.json({ cancelled: true });
+    await fs.writeFile(path.join(folder, `${fn}.md`), markdown, 'utf8');
+    await fs.writeFile(path.join(folder, `${fn}.pdf`), Buffer.from(pdf, 'base64'));
+    res.json({ success: true, path: folder });
+  } catch (err) {
+    console.error('Encounter save-files error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/', async (_req, res) => {
+  try { res.json(await encounterStore.getAllEncounters()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const enc = await encounterStore.getEncounter(req.params.id);
+    if (!enc) return res.status(404).json({ error: 'Encounter not found' });
+    res.json(enc);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const data     = req.body;
+    const markdown = mdGen.generate(data);
+    const html     = pdfTemplate.render(data);
+    const pdf      = await pdfGen.generateFromHtml(html);
+    const saved    = await encounterStore.saveEncounter(data, markdown);
+    res.json({
+      id: saved.id,
+      markdown,
+      pdf: pdf.toString('base64'),
+      filename: filename(saved.id),
+    });
+  } catch (err) {
+    console.error('Encounter save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await encounterStore.deleteEncounter(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

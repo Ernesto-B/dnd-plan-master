@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session — D&D Session Master</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<nav class="top-nav">
+  <a href="/" class="brand">⚔ D&D Session Master</a>
+  <span class="nav-sep"></span>
+  <a href="/" class="nav-link">Sessions</a>
+  <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/settings" class="nav-link">Settings</a>
+  <div class="nav-create-wrap">
+    <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
+    <div class="create-dropdown">
+      <a href="/form">Session Plan</a>
+      <a href="/encounter/new">Encounter Plan</a>
+    </div>
+  </div>
+</nav>
+
+<div class="view-wrap">
+  <div class="view-main">
+    <div class="view-actions">
+      <a href="/" class="back-link">← All Sessions</a>
+      <button class="btn btn-ghost" id="btn-edit">Edit Session</button>
+      <button class="btn btn-ghost" id="btn-export">Export Again</button>
+      <button class="btn btn-danger" id="btn-delete">Delete</button>
+    </div>
+    <div id="content">
+      <div class="empty-state"><p>Loading session…</p></div>
+    </div>
+  </div>
+  <aside id="toc-nav" class="toc-nav"></aside>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/js/dialog.js"></script>
+<script src="/js/view.js"></script>
+<script src="/js/nav.js"></script>
+</body>
+</html>

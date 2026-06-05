@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — D&D Session Master</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="top-nav">
+  <a href="/" class="brand">⚔ D&D Session Master</a>
+  <span class="nav-sep"></span>
+  <a href="/" class="nav-link">Sessions</a>
+  <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/settings" class="nav-link nav-link-active">Settings</a>
+  <div class="nav-create-wrap">
+    <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
+    <div class="create-dropdown">
+      <a href="/form">Session Plan</a>
+      <a href="/encounter/new">Encounter Plan</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <h1 class="page-title">Settings</h1>
+  <p class="page-subtitle">Configure your party roster. These names and classes are used to pre-fill the Natural Tasks table in Encounter Plans.</p>
+
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>Appearance</h2>
+  </div>
+  <div class="card">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span style="font-family:var(--font-head); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--text2);">Theme</span>
+      <button type="button" id="btn-theme-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:32px;">
+    <span class="section-num">02</span>
+    <h2>Party Roster</h2>
+  </div>
+
+  <div class="card">
+    <p style="font-family:var(--font-body); color:var(--muted); font-size:14px; margin-bottom:16px; font-style:italic;">
+      Add one row per player. Name and class are pre-filled in encounter forms — you still fill in their specific task for each encounter.
+    </p>
+    <div id="party-list"></div>
+    <button type="button" class="btn btn-add" id="btn-add-player">+ Add Player</button>
+  </div>
+
+  <div class="submit-row">
+    <button type="button" class="btn btn-submit" id="btn-save">Save Settings</button>
+    <p class="submit-note">Settings are saved locally and persist across sessions.</p>
+  </div>
+
+  <div class="section-header" style="margin-top:40px;">
+    <span class="section-num" style="background:var(--crimson); border-color:var(--danger);">!</span>
+    <h2 style="color:var(--danger);">Danger Zone</h2>
+  </div>
+  <div class="card" style="border-color: rgba(191,58,46,0.35);">
+    <p style="font-family:var(--font-body); color:var(--text2); font-size:15px; margin-bottom:16px;">
+      Clear all saved session and encounter plans from the app. This removes the data from the app only — any files you exported to your filesystem are unaffected. The demo plans will reappear on next page load.
+    </p>
+    <button type="button" class="btn btn-danger" id="btn-clear-data">Clear All Data</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="/js/dialog.js"></script>
+<script src="/js/settings.js"></script>
+<script src="/js/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "dnd-session-master",
+  "version": "1.0.0",
+  "description": "D&D Session Planning Tool — form to markdown + print-ready PDF",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^22.0.0"
+  }
+}
