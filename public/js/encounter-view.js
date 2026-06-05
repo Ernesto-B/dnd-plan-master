@@ -14,7 +14,9 @@
 
   document.title = `${encounter.name} — D&D Session Master`;
   content.innerHTML = `<div class="markdown-body">${marked.parse(encounter.markdown || '')}</div>`;
-  buildTOC();
+  buildMarkdownToc();
+  mountTagEditor(id, encounter.data?.tags || [], '/api/encounters');
+  await renderLinkedSessions(id);
 
   document.getElementById('btn-edit').addEventListener('click', () => {
     location.href = `/encounter/edit/${id}`;
@@ -79,52 +81,38 @@ async function deleteEncounter(id) {
   }
 }
 
-function buildTOC() {
-  const nav = document.getElementById('toc-nav');
-  if (!nav) return;
-  const headings = [...document.querySelectorAll('.markdown-body h2, .markdown-body h3')];
-  if (headings.length < 2) return;
-  const slugCount = {};
-  headings.forEach(h => {
-    let slug = h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    slugCount[slug] = (slugCount[slug] || 0) + 1;
-    if (slugCount[slug] > 1) slug += `-${slugCount[slug]}`;
-    h.id = slug;
-  });
-  const ul = document.createElement('ul');
-  headings.forEach(h => {
-    const li = document.createElement('li');
-    const a  = document.createElement('a');
-    a.href = `#${h.id}`;
-    a.textContent = h.textContent.trim();
-    a.className = h.tagName === 'H3' ? 'toc-h3' : 'toc-h2';
-    a.addEventListener('click', e => {
-      e.preventDefault();
-      window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' });
-    });
-    li.appendChild(a);
-    ul.appendChild(li);
-  });
-  const title = document.createElement('p');
-  title.className = 'toc-title';
-  title.textContent = 'Contents';
-  nav.appendChild(title);
-  nav.appendChild(ul);
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        nav.querySelectorAll('a').forEach(a => a.classList.remove('toc-active'));
-        const active = nav.querySelector(`a[href="#${entry.target.id}"]`);
-        if (active) active.classList.add('toc-active');
-      }
-    });
-  }, { rootMargin: '-5% 0px -80% 0px', threshold: 0 });
-  headings.forEach(h => observer.observe(h));
-}
+async function renderLinkedSessions(id) {
+  const content = document.getElementById('content');
+  if (!content) return;
 
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => { t.className = 'toast'; }, 5000);
+  let links = [];
+  try {
+    const res = await fetch(`/api/encounters/${id}/links`);
+    if (!res.ok) throw new Error('Could not load linked sessions');
+    links = await res.json();
+  } catch {
+    return;
+  }
+
+  const section = document.createElement('div');
+  section.className = 'linked-panel';
+
+  const listHtml = links.length
+    ? links.map(link => {
+        const label = link.sessionNumber ? `Session ${String(link.sessionNumber).padStart(3, '0')}` : link.id;
+        return `
+          <a class="linked-item" href="${link.exists ? `/view/${link.id}` : '#'}"${link.exists ? '' : ' aria-disabled="true"'}>
+            <span class="linked-item-title">${escHtml(label)}</span>
+            <span class="linked-item-meta">${escHtml(link.goal || link.id)}${link.exists ? '' : ' · missing session'}</span>
+          </a>
+        `;
+      }).join('')
+    : '<p class="linked-empty">No linked sessions yet.</p>';
+
+  section.innerHTML = `
+    <div class="linked-panel-head">Linked Sessions</div>
+    <div class="linked-panel-list">${listHtml}</div>
+  `;
+
+  content.prepend(section);
 }

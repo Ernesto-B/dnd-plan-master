@@ -1,10 +1,9 @@
 const fs = require('fs').promises;
-const path = require('path');
+const { getDataFile, getWritableDataDir } = require('./appPaths');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const SETTINGS_FILE = getDataFile('settings.json');
 
-const DEFAULTS = { party: [] };
+const DEFAULTS = { party: [], theme: 'dark', autosaveEnabled: true };
 
 async function getSettings() {
   try {
@@ -16,7 +15,7 @@ async function getSettings() {
 }
 
 async function saveSettings(settings) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(getWritableDataDir(), { recursive: true });
   const merged = { ...DEFAULTS, ...settings };
   await fs.writeFile(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');
   return merged;

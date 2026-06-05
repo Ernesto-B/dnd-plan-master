@@ -14,16 +14,45 @@
 
   document.title = `Session ${id} — D&D Session Master`;
   content.innerHTML = `<div class="markdown-body">${marked.parse(session.markdown || '')}</div>`;
-  buildTOC();
+  buildMarkdownToc();
+  mountTagEditor(id, session.data?.tags || [], '/api/sessions');
+  await renderLinkedEncounters(id);
 
   document.getElementById('btn-edit').addEventListener('click', () => {
     location.href = `/form?edit=${id}`;
   });
 
+  document.getElementById('btn-export-packet').addEventListener('click', () => exportPacket(id));
   document.getElementById('btn-export').addEventListener('click', () => exportFiles(session));
 
   document.getElementById('btn-delete').addEventListener('click', () => deleteSession(id));
 })();
+
+async function exportPacket(id) {
+  const btn = document.getElementById('btn-export-packet');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Building packet…';
+
+  try {
+    const res = await fetch(`/api/sessions/${id}/export-packet`, { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Packet export failed');
+
+    if (result.cancelled) {
+      showToast('No folder selected — packet export canceled.', 'success');
+    } else {
+      const skipped = result.missingEncounterCount
+        ? ` ${result.missingEncounterCount} missing linked plan(s) were skipped.`
+        : '';
+      showToast(`Saved session packet with ${result.exportedEncounterCount} linked encounter plan(s) → ${result.path}.${skipped}`, 'success');
+    }
+  } catch (err) {
+    showToast('Packet export failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Export Packet';
+  }
+}
 
 async function exportFiles(session) {
   const btn = document.getElementById('btn-export');
@@ -85,59 +114,35 @@ async function deleteSession(id) {
   }
 }
 
-function buildTOC() {
-  const nav = document.getElementById('toc-nav');
-  if (!nav) return;
+async function renderLinkedEncounters(id) {
+  const content = document.getElementById('content');
+  if (!content) return;
 
-  const headings = [...document.querySelectorAll('.markdown-body h2, .markdown-body h3')];
-  if (headings.length < 2) return;
+  let links = [];
+  try {
+    const res = await fetch(`/api/sessions/${id}/links`);
+    if (!res.ok) throw new Error('Could not load linked encounters');
+    links = await res.json();
+  } catch {
+    return;
+  }
 
-  const slugCount = {};
-  headings.forEach(h => {
-    let slug = h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    slugCount[slug] = (slugCount[slug] || 0) + 1;
-    if (slugCount[slug] > 1) slug += `-${slugCount[slug]}`;
-    h.id = slug;
-  });
+  const section = document.createElement('div');
+  section.className = 'linked-panel';
 
-  const ul = document.createElement('ul');
-  headings.forEach(h => {
-    const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.href = `#${h.id}`;
-    a.textContent = h.textContent.trim();
-    a.className = h.tagName === 'H3' ? 'toc-h3' : 'toc-h2';
-    a.addEventListener('click', e => {
-      e.preventDefault();
-      const top = h.getBoundingClientRect().top + window.scrollY - 72;
-      window.scrollTo({ top, behavior: 'smooth' });
-    });
-    li.appendChild(a);
-    ul.appendChild(li);
-  });
+  const listHtml = links.length
+    ? links.map(link => `
+        <a class="linked-item" href="${link.exists ? `/encounter/view/${link.id}` : '#'}"${link.exists ? '' : ' aria-disabled="true"'}>
+          <span class="linked-item-title">${escHtml(link.name || link.id)}</span>
+          <span class="linked-item-meta">${escHtml(link.id)}${link.exists ? '' : ' · missing plan'}</span>
+        </a>
+      `).join('')
+    : '<p class="linked-empty">No linked encounter plans yet.</p>';
 
-  const title = document.createElement('p');
-  title.className = 'toc-title';
-  title.textContent = 'Contents';
-  nav.appendChild(title);
-  nav.appendChild(ul);
+  section.innerHTML = `
+    <div class="linked-panel-head">Linked Encounter Plans</div>
+    <div class="linked-panel-list">${listHtml}</div>
+  `;
 
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        nav.querySelectorAll('a').forEach(a => a.classList.remove('toc-active'));
-        const active = nav.querySelector(`a[href="#${entry.target.id}"]`);
-        if (active) active.classList.add('toc-active');
-      }
-    });
-  }, { rootMargin: '-5% 0px -80% 0px', threshold: 0 });
-
-  headings.forEach(h => observer.observe(h));
-}
-
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => { t.className = 'toast'; }, 5000);
+  content.prepend(section);
 }

@@ -4,9 +4,21 @@ const path    = require('path');
 const router  = express.Router();
 
 const sessionStore       = require('../services/sessionStore');
+const encounterStore     = require('../services/encounterStore');
 const markdownGenerator  = require('../services/markdownGenerator');
+const encounterMdGen     = require('../services/encounterMarkdownGenerator');
 const pdfGenerator       = require('../services/pdfGenerator');
 const folderPicker       = require('../services/folderPicker');
+const planRelations      = require('../services/planRelations');
+const encounterPdfTemplate = require('../templates/encounterPdfTemplate');
+
+function sessionFilename(session) {
+  return `session-${String(session.sessionNumber).padStart(3, '0')}`;
+}
+
+function encounterFilename(id) {
+  return `encounter-${String(id).replace(/^[eE]-?0*/i, '')}`;
+}
 
 // Generate preview without saving to the store
 router.post('/preview', async (req, res) => {
@@ -40,10 +52,75 @@ router.post('/save-files', async (req, res) => {
   }
 });
 
+router.post('/:id/export-packet', async (req, res) => {
+  try {
+    const session = await sessionStore.getSession(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const folder = await folderPicker.pick();
+    if (!folder) return res.json({ cancelled: true });
+
+    const sessionMarkdown = markdownGenerator.generate(session.data);
+    const sessionPdf = await pdfGenerator.generate(session.data);
+    const sessionBase = sessionFilename(session);
+
+    await fs.writeFile(path.join(folder, `${sessionBase}.md`), sessionMarkdown, 'utf8');
+    await fs.writeFile(path.join(folder, `${sessionBase}.pdf`), sessionPdf);
+
+    const links = await planRelations.getSessionLinks(session.id);
+    let exportedEncounterCount = 0;
+    let missingEncounterCount = 0;
+
+    for (const link of links) {
+      const encounter = await encounterStore.getEncounter(link.id);
+      if (!encounter) {
+        missingEncounterCount++;
+        continue;
+      }
+
+      const encounterMarkdown = encounterMdGen.generate(encounter.data);
+      const encounterPdf = await pdfGenerator.generateFromHtml(encounterPdfTemplate.render(encounter.data));
+      const encounterBase = encounterFilename(encounter.id);
+
+      await fs.writeFile(path.join(folder, `${encounterBase}.md`), encounterMarkdown, 'utf8');
+      await fs.writeFile(path.join(folder, `${encounterBase}.pdf`), encounterPdf);
+      exportedEncounterCount++;
+    }
+
+    res.json({
+      success: true,
+      path: folder,
+      sessionBase,
+      exportedEncounterCount,
+      missingEncounterCount,
+    });
+  } catch (err) {
+    console.error('Export-packet error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // List all sessions (summary only)
 router.get('/', async (_req, res) => {
   try {
-    res.json(await sessionStore.getAllSessions());
+    const [summaries, sessions, encounters] = await Promise.all([
+      sessionStore.getAllSessions(),
+      sessionStore.getAllFull(),
+      encounterStore.getAllFull(),
+    ]);
+    const index = planRelations.buildRelationIndex(sessions, encounters);
+    res.json(summaries.map(session => ({
+      ...session,
+      linkedEncounterCount: index.sessionToEncounters.get(session.id)?.size || 0,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:id/links', async (req, res) => {
+  try {
+    res.json(await planRelations.getSessionLinks(req.params.id));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -72,11 +149,22 @@ router.post('/', async (req, res) => {
       sessionNumber: saved.sessionNumber,
       markdown,
       pdf:           pdf.toString('base64'),
-      filename:      `session-${String(saved.sessionNumber).padStart(3, '0')}`,
+      filename:      sessionFilename(saved),
     });
   } catch (err) {
     console.error('Save error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Update tags
+router.patch('/:id/tags', async (req, res) => {
+  try {
+    const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    await sessionStore.updateTags(req.params.id, tags);
+    res.json({ success: true, tags });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
 });
 

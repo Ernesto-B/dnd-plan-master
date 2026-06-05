@@ -4,13 +4,15 @@ const path      = require('path');
 const router    = express.Router();
 
 const encounterStore   = require('../services/encounterStore');
+const sessionStore     = require('../services/sessionStore');
 const mdGen            = require('../services/encounterMarkdownGenerator');
 const pdfGen           = require('../services/pdfGenerator');
 const pdfTemplate      = require('../templates/encounterPdfTemplate');
 const folderPicker     = require('../services/folderPicker');
+const planRelations    = require('../services/planRelations');
 
 function filename(id) {
-  return `encounter-${String(id).replace(/^E0*/, '').padStart(3, '0')}`;
+  return `encounter-${String(id).replace(/^[eE]-?0*/i, '')}`;
 }
 
 router.post('/preview', async (req, res) => {
@@ -42,8 +44,27 @@ router.post('/save-files', async (req, res) => {
 });
 
 router.get('/', async (_req, res) => {
-  try { res.json(await encounterStore.getAllEncounters()); }
+  try {
+    const [summaries, sessions, encounters] = await Promise.all([
+      encounterStore.getAllEncounters(),
+      sessionStore.getAllFull(),
+      encounterStore.getAllFull(),
+    ]);
+    const index = planRelations.buildRelationIndex(sessions, encounters);
+    res.json(summaries.map(encounter => ({
+      ...encounter,
+      linkedSessionCount: index.encounterToSessions.get(encounter.id)?.size || 0,
+    })));
+  }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/links', async (req, res) => {
+  try {
+    res.json(await planRelations.getEncounterLinks(req.params.id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id', async (req, res) => {
@@ -70,6 +91,16 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Encounter save error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/tags', async (req, res) => {
+  try {
+    const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    await encounterStore.updateTags(req.params.id, tags);
+    res.json({ success: true, tags });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
 });
 

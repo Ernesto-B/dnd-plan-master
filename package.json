@@ -1,13 +1,63 @@
 {
   "name": "dnd-session-master",
   "version": "1.0.0",
+  "author": "Ernesto Barreto",
   "description": "D&D Session Planning Tool — form to markdown + print-ready PDF",
-  "main": "src/app.js",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node src/app.js"
+    "start": "npm run start:web",
+    "start:web": "node src/app.js",
+    "start:desktop": "electron .",
+    "build:desktop": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.2.8",
+    "@fontsource/cinzel-decorative": "^5.2.8",
+    "@fontsource/crimson-pro": "^5.2.8",
     "express": "^4.18.2",
+    "marked": "^18.0.5",
     "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {
+    "electron": "^42.3.3",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.ernestobarreto.dndsessionmaster",
+    "productName": "D&D Session Master",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "publish": null,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "src/**/*",
+      "data/*.seed.json",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
   }
 }

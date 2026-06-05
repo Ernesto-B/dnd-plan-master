@@ -1,9 +1,8 @@
 const fs = require('fs').promises;
-const path = require('path');
+const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const ENCOUNTERS_FILE = path.join(DATA_DIR, 'encounters.json');
-const SEED_FILE = path.join(DATA_DIR, 'encounters.seed.json');
+const ENCOUNTERS_FILE = getDataFile('encounters.json');
+const SEED_FILE = getSeedFile('encounters.seed.json');
 
 async function readStore() {
   try {
@@ -31,8 +30,27 @@ async function seedStore() {
 }
 
 async function writeStore(store) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(getWritableDataDir(), { recursive: true });
   await fs.writeFile(ENCOUNTERS_FILE, JSON.stringify(store, null, 2), 'utf8');
+}
+
+async function getAllFull() {
+  const store = await readStore();
+  return store.encounters;
+}
+
+async function importEncounters(incoming) {
+  const store = await readStore();
+  let count = 0;
+  for (const e of incoming) {
+    if (!e.id) continue;
+    if (!store.encounters.find(x => x.id === e.id)) {
+      store.encounters.push(e);
+      count++;
+    }
+  }
+  if (count > 0) await writeStore(store);
+  return count;
 }
 
 async function getAllEncounters() {
@@ -44,7 +62,18 @@ async function getAllEncounters() {
     fiction: e.fiction,
     createdAt: e.createdAt,
     isDemo: e.isDemo || false,
+    tags: e.tags || [],
   }));
+}
+
+async function updateTags(id, tags) {
+  const store = await readStore();
+  const idx = store.encounters.findIndex(e => e.id === id);
+  if (idx < 0) throw new Error(`Encounter ${id} not found`);
+  store.encounters[idx].tags = tags;
+  if (store.encounters[idx].data) store.encounters[idx].data.tags = tags;
+  await writeStore(store);
+  return tags;
 }
 
 async function getEncounter(id) {
@@ -52,9 +81,13 @@ async function getEncounter(id) {
   return store.encounters.find(e => e.id === id) || null;
 }
 
+function randomId() {
+  return 'e-' + Math.random().toString(36).slice(2, 8);
+}
+
 async function saveEncounter(data, markdown) {
   const store = await readStore();
-  const id = data.id || `E${String(store.encounters.length + 1).padStart(3, '0')}`;
+  const id = data.id || randomId();
 
   const encounter = {
     id,
@@ -62,12 +95,14 @@ async function saveEncounter(data, markdown) {
     sessionId: data.sessionId || null,
     fiction: data.fiction,
     createdAt: new Date().toISOString(),
-    data,
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    data: { ...data, id },
     markdown,
   };
 
   const idx = store.encounters.findIndex(e => e.id === id);
   if (idx >= 0) {
+    encounter.createdAt = store.encounters[idx].createdAt;
     store.encounters[idx] = encounter;
   } else {
     store.encounters.push(encounter);
@@ -85,4 +120,4 @@ async function deleteEncounter(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllEncounters, getEncounter, saveEncounter, deleteEncounter };
+module.exports = { getAllEncounters, getAllFull, importEncounters, getEncounter, saveEncounter, deleteEncounter, updateTags };

@@ -1,9 +1,8 @@
 const fs = require('fs').promises;
-const path = require('path');
+const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
-const SEED_FILE = path.join(DATA_DIR, 'seed.json');
+const SESSIONS_FILE = getDataFile('sessions.json');
+const SEED_FILE = getSeedFile('seed.json');
 
 async function readStore() {
   try {
@@ -31,8 +30,30 @@ async function seedStore() {
 }
 
 async function writeStore(store) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(getWritableDataDir(), { recursive: true });
   await fs.writeFile(SESSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+}
+
+async function getAllFull() {
+  const store = await readStore();
+  return store.sessions;
+}
+
+async function importSessions(incoming) {
+  const store = await readStore();
+  let count = 0;
+  for (const s of incoming) {
+    if (!s.id) continue;
+    if (!store.sessions.find(x => x.id === s.id)) {
+      store.sessions.push(s);
+      count++;
+    }
+  }
+  if (count > 0) {
+    store.sessions.sort((a, b) => (a.sessionNumber || 0) - (b.sessionNumber || 0));
+    await writeStore(store);
+  }
+  return count;
 }
 
 async function getAllSessions() {
@@ -45,7 +66,18 @@ async function getAllSessions() {
     goal: s.goal,
     createdAt: s.createdAt,
     isDemo: s.isDemo || false,
+    tags: s.tags || [],
   }));
+}
+
+async function updateTags(id, tags) {
+  const store = await readStore();
+  const idx = store.sessions.findIndex(s => s.id === id);
+  if (idx < 0) throw new Error(`Session ${id} not found`);
+  store.sessions[idx].tags = tags;
+  if (store.sessions[idx].data) store.sessions[idx].data.tags = tags;
+  await writeStore(store);
+  return tags;
 }
 
 async function getSession(id) {
@@ -53,10 +85,17 @@ async function getSession(id) {
   return store.sessions.find(s => s.id === id) || null;
 }
 
+function randomId() {
+  return 's-' + Math.random().toString(36).slice(2, 8);
+}
+
 async function saveSession(data, markdown) {
   const store = await readStore();
-  const sessionNumber = parseInt(data.sessionNumber) || (store.sessions.length + 1);
-  const id = String(sessionNumber).padStart(3, '0');
+  const sessionNumber = (data.sessionNumber != null && data.sessionNumber !== '')
+    ? data.sessionNumber
+    : (store.sessions.length + 1);
+  // Preserve existing ID on edit; generate random ID for new sessions
+  const id = data.id || randomId();
 
   const session = {
     id,
@@ -65,18 +104,20 @@ async function saveSession(data, markdown) {
     partyLevel: data.partyLevel,
     goal: data.sessionGoal,
     createdAt: new Date().toISOString(),
-    data,
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    data: { ...data, id },
     markdown,
   };
 
   const idx = store.sessions.findIndex(s => s.id === id);
   if (idx >= 0) {
+    session.createdAt = store.sessions[idx].createdAt;
     store.sessions[idx] = session;
   } else {
     store.sessions.push(session);
   }
 
-  store.sessions.sort((a, b) => a.sessionNumber - b.sessionNumber);
+  store.sessions.sort((a, b) => parseFloat(a.sessionNumber) - parseFloat(b.sessionNumber));
   await writeStore(store);
   return session;
 }
@@ -89,4 +130,4 @@ async function deleteSession(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllSessions, getSession, saveSession, deleteSession };
+module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags };

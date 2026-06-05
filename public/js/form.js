@@ -10,6 +10,9 @@ let pendingPdfB64       = null;
 let pendingMarkdown     = null;
 let pendingFilename     = null;
 let pendingPdfBlobUrl   = null;
+let editSessionId       = null;
+let autosaveEnabled     = true;
+let draftSaveTimer      = null;
 
 // ─── Generic card management ──────────────────────────────────────────────────
 function addCard(type, listId, makeFn, btnId, data = {}) {
@@ -308,6 +311,9 @@ function h(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ─── Tag input ────────────────────────────────────────────────────────────────
+const tagInput = new TagInput(document.getElementById('tag-input-container'));
+
 // ─── Wire up Add buttons ──────────────────────────────────────────────────────
 document.getElementById('btn-add-npc').addEventListener('click', () =>
   addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc'));
@@ -326,6 +332,7 @@ function v(id) { return (document.getElementById(id)?.value ?? '').trim(); }
 
 function collectFormData() {
   return {
+    id:                 editSessionId || undefined,
     sessionNumber:      v('sessionNumber'),
     date:               v('date'),
     partyLevel:         v('partyLevel'),
@@ -338,6 +345,7 @@ function collectFormData() {
     beatEscalate:       v('beatEscalate'),
     beatClose:          v('beatClose'),
     sessionNotes:       v('sessionNotes'),
+    tags:               tagInput.getTags(),
     npcs:               collectNPCs(),
     locations:          collectLocations(),
     factionClocks:      collectClocks(),
@@ -401,6 +409,45 @@ function collectEncounters() {
   }));
 }
 
+function getDraftKey() {
+  return editSessionId ? `dnd-draft-session:${editSessionId}` : 'dnd-draft-session:new';
+}
+
+function clearDraft(key = getDraftKey()) {
+  localStorage.removeItem(key);
+}
+
+function scheduleDraftSave() {
+  if (!autosaveEnabled) return;
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(saveDraftNow, 700);
+}
+
+function saveDraftNow() {
+  if (!autosaveEnabled) return;
+  try {
+    localStorage.setItem(getDraftKey(), JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      data: collectFormData(),
+    }));
+  } catch {}
+}
+
+function resetDynamicSections() {
+  counts.npc = 0;
+  counts.location = 0;
+  counts.clock = 0;
+  counts.encounter = 0;
+  document.getElementById('npc-list').innerHTML = '';
+  document.getElementById('location-list').innerHTML = '';
+  document.getElementById('clock-list').innerHTML = '';
+  document.getElementById('encounter-list').innerHTML = '';
+  ['btn-add-npc', 'btn-add-location', 'btn-add-clock', 'btn-add-encounter'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = '';
+  });
+}
+
 // ─── Edit mode — pre-fill from existing session ───────────────────────────────
 async function initEditMode() {
   const editId = new URLSearchParams(location.search).get('edit');
@@ -420,10 +467,12 @@ async function initEditMode() {
     return;
   }
 
+  editSessionId = editId;
   populateForm(session.data || {});
 }
 
 function populateForm(data) {
+  resetDynamicSections();
   const set = (id, val) => {
     const el = document.getElementById(id);
     if (el && val != null) el.value = val;
@@ -441,11 +490,37 @@ function populateForm(data) {
   set('beatEscalate',  data.beatEscalate);
   set('beatClose',     data.beatClose);
   set('sessionNotes',  data.sessionNotes);
+  if (data.tags) tagInput.setTags(data.tags);
 
   (data.npcs || []).forEach(d => addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc', d));
   (data.locations || []).forEach(d => addCard('location', 'location-list', makeLocationCard, 'btn-add-location', d));
   (data.factionClocks || []).forEach(d => addCard('clock', 'clock-list', makeClockCard, 'btn-add-clock', d));
   (data.encounters || []).forEach(d => addCard('encounter', 'encounter-list', makeEncounterCard, 'btn-add-encounter', d));
+}
+
+async function restoreDraftIfAvailable() {
+  const raw = localStorage.getItem(getDraftKey());
+  if (!raw) return;
+
+  let draft;
+  try {
+    draft = JSON.parse(raw);
+  } catch {
+    clearDraft();
+    return;
+  }
+
+  const label = draft.updatedAt ? new Date(draft.updatedAt).toLocaleString() : 'a previous session';
+  const ok = await showConfirm(`Restore autosaved draft from ${label}?`, {
+    title: 'Restore Draft',
+    confirmLabel: 'Restore',
+  });
+  if (!ok) return;
+
+  document.getElementById('session-form').reset();
+  tagInput.setTags([]);
+  populateForm(draft.data || {});
+  showToast('Draft restored.', 'success');
 }
 
 // ─── Preview Modal ────────────────────────────────────────────────────────────
@@ -544,6 +619,7 @@ document.getElementById('btn-save-app').addEventListener('click', async () => {
     const saved = await saveRes.json();
     if (!saveRes.ok) throw new Error(saved.error || 'Save failed');
 
+    clearDraft();
     closeModal();
     showToast('Session saved. Export files from the view page any time.', 'success');
     setTimeout(() => { location.href = `/view/${saved.id}`; }, 1200);
@@ -589,6 +665,7 @@ document.getElementById('btn-save-confirm').addEventListener('click', async () =
       showToast(`Saved ${saved.filename}.md and ${saved.filename}.pdf → ${fileResult.path}`, 'success');
     }
 
+    clearDraft();
     closeModal();
     setTimeout(() => { location.href = `/view/${saved.id}`; }, 1400);
   } catch (err) {
@@ -666,6 +743,25 @@ function buildSectionNav() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.getElementById('date').valueAsDate = new Date();
-initEditMode();
-buildSectionNav();
+async function initFormPage() {
+  document.getElementById('date').valueAsDate = new Date();
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) {
+      const settings = await res.json();
+      autosaveEnabled = settings.autosaveEnabled !== false;
+    }
+  } catch {}
+
+  await initEditMode();
+  buildSectionNav();
+  await restoreDraftIfAvailable();
+
+  const form = document.getElementById('session-form');
+  form.addEventListener('input', scheduleDraftSave);
+  form.addEventListener('change', scheduleDraftSave);
+  document.getElementById('session-tag-input-container').addEventListener('click', scheduleDraftSave);
+  document.getElementById('session-tag-input-container').addEventListener('keydown', scheduleDraftSave);
+}
+
+initFormPage();

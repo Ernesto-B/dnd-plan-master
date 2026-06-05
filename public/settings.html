@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings — D&D Session Master</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -40,6 +37,11 @@
       <span style="font-family:var(--font-head); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--text2);">Theme</span>
       <button type="button" id="btn-theme-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
     </div>
+    <div style="display:flex; align-items:center; gap:16px; margin-top:14px;">
+      <span style="font-family:var(--font-head); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--text2);">Draft Autosave</span>
+      <button type="button" id="btn-autosave-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
+    </div>
+    <p class="settings-hint" style="margin-top:12px;">When enabled, the session and encounter forms keep a local draft and offer to restore it if you come back later.</p>
   </div>
 
   <div class="section-header" style="margin-top:32px;">
@@ -58,6 +60,55 @@
   <div class="submit-row">
     <button type="button" class="btn btn-submit" id="btn-save">Save Settings</button>
     <p class="submit-note">Settings are saved locally and persist across sessions.</p>
+  </div>
+
+  <div class="section-header" style="margin-top:40px;">
+    <span class="section-num">03</span>
+    <h2>Export &amp; Import</h2>
+  </div>
+  <div class="card">
+    <h3 class="settings-subhead">Export Plans</h3>
+    <p class="settings-hint">Select plans to bundle into a JSON file you can share or import on another device.</p>
+    <div class="export-controls">
+      <button type="button" class="btn btn-ghost" id="btn-select-all">Select All</button>
+      <button type="button" class="btn btn-ghost" id="btn-select-related">Select All Related</button>
+      <button type="button" class="btn btn-ghost" id="btn-deselect-all">Deselect All</button>
+    </div>
+    <div id="export-list" class="export-list">
+      <p style="color:var(--muted); font-size:14px; font-family:var(--font-body);">Loading plans…</p>
+    </div>
+    <div style="margin-top:14px;">
+      <button type="button" class="btn btn-primary" id="btn-export-json" disabled>Export Selected (0)</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3 class="settings-subhead">Import Plans</h3>
+    <p class="settings-hint">Import a previously exported JSON file. Existing plans are never overwritten — only new IDs are added.</p>
+    <div class="import-row">
+      <label class="btn btn-ghost" for="import-file-input" style="cursor:pointer;">Choose File</label>
+      <input type="file" id="import-file-input" accept=".json" style="display:none;">
+      <span id="import-filename" class="import-filename">No file selected</span>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="button" class="btn btn-primary" id="btn-import-json" disabled>Import</button>
+    </div>
+    <div id="import-preview" class="settings-hint" style="margin-top:12px;"></div>
+  </div>
+
+  <div class="section-header" style="margin-top:40px;">
+    <span class="section-num">04</span>
+    <h2>Backups</h2>
+  </div>
+  <div class="card">
+    <h3 class="settings-subhead">Local Backup Snapshots</h3>
+    <p class="settings-hint">Create a full local backup snapshot of sessions, encounters, and settings. You can restore any snapshot later.</p>
+    <div class="export-controls">
+      <button type="button" class="btn btn-primary" id="btn-create-backup">Create Backup Snapshot</button>
+    </div>
+    <div id="backup-list" class="export-list" style="margin-top:12px;">
+      <p style="color:var(--muted); font-size:14px; font-family:var(--font-body);">Loading backups…</p>
+    </div>
   </div>
 
   <div class="section-header" style="margin-top:40px;">

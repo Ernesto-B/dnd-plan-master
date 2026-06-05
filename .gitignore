@@ -1,4 +1,8 @@
 node_modules/
 data/sessions.json
+data/encounters.json
+data/settings.json
+dist/
+builder-debug.yml
 .DS_Store
 Agents.md

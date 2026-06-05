@@ -8,6 +8,8 @@ let pendingPdfB64    = null;
 let pendingMarkdown  = null;
 let pendingFilename  = null;
 let pendingPdfBlobUrl = null;
+let autosaveEnabled   = true;
+let draftSaveTimer    = null;
 
 // ─── HTML escape helper ───────────────────────────────────────────────────────
 function h(str) {
@@ -285,7 +287,41 @@ function collectFormData() {
       nonViolentPath:      chk('nonViolentPath'),
     },
     notes: g('enc-notes'),
+    tags:  encTagInput.getTags(),
   };
+}
+
+function getDraftKey() {
+  const editId = document.getElementById('enc-name').dataset.editId;
+  return editId ? `dnd-draft-encounter:${editId}` : 'dnd-draft-encounter:new';
+}
+
+function clearDraft(key = getDraftKey()) {
+  localStorage.removeItem(key);
+}
+
+function scheduleDraftSave() {
+  if (!autosaveEnabled) return;
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(saveDraftNow, 700);
+}
+
+function saveDraftNow() {
+  if (!autosaveEnabled) return;
+  try {
+    localStorage.setItem(getDraftKey(), JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      data: collectFormData(),
+    }));
+  } catch {}
+}
+
+function resetEncounterFormState() {
+  enemyCount = 0;
+  taskCount = 0;
+  document.getElementById('enemy-list').innerHTML = '';
+  document.getElementById('task-list').innerHTML = '';
+  document.getElementById('btn-add-enemy').style.display = '';
 }
 
 // ─── Edit mode ────────────────────────────────────────────────────────────────
@@ -305,6 +341,7 @@ async function initEditMode() {
 }
 
 function populateForm(data, editId) {
+  resetEncounterFormState();
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
 
   document.getElementById('enc-name').value = data.name || '';
@@ -335,6 +372,7 @@ function populateForm(data, editId) {
   });
 
   document.getElementById('enc-notes').value = data.notes || '';
+  if (data.tags) encTagInput.setTags(data.tags);
 
   // Set session dropdown after sessions load
   if (data.sessionId) {
@@ -345,6 +383,31 @@ function populateForm(data, editId) {
       }
     }, 500);
   }
+}
+
+async function restoreDraftIfAvailable() {
+  const raw = localStorage.getItem(getDraftKey());
+  if (!raw) return;
+
+  let draft;
+  try {
+    draft = JSON.parse(raw);
+  } catch {
+    clearDraft();
+    return;
+  }
+
+  const label = draft.updatedAt ? new Date(draft.updatedAt).toLocaleString() : 'a previous session';
+  const ok = await showConfirm(`Restore autosaved draft from ${label}?`, {
+    title: 'Restore Draft',
+    confirmLabel: 'Restore',
+  });
+  if (!ok) return;
+
+  document.getElementById('encounter-form').reset();
+  encTagInput.setTags([]);
+  populateForm(draft.data || {}, draft.data?.id);
+  showToast('Draft restored.', 'success');
 }
 
 // ─── Preview modal ────────────────────────────────────────────────────────────
@@ -417,6 +480,9 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { t.className = 'toast'; }, 5000);
 }
 
+// ─── Tag input ────────────────────────────────────────────────────────────────
+const encTagInput = new TagInput(document.getElementById('enc-tag-input-container'));
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.getElementById('btn-add-enemy').addEventListener('click', () => addEnemy());
 document.getElementById('btn-add-task').addEventListener('click', () => addTask());
@@ -480,6 +546,7 @@ document.getElementById('btn-save-app').addEventListener('click', async () => {
     const saved = await saveRes.json();
     if (!saveRes.ok) throw new Error(saved.error || 'Save failed');
 
+    clearDraft();
     document.getElementById('preview-modal').classList.add('hidden');
     showToast('Encounter plan saved. Export files from the view page any time.', 'success');
     setTimeout(() => { location.href = `/encounter/view/${saved.id}`; }, 1200);
@@ -523,6 +590,7 @@ document.getElementById('btn-save-confirm').addEventListener('click', async () =
     } else {
       showToast(`Saved ${pendingFilename}.md and .pdf → ${fileResult.path}`, 'success');
     }
+    clearDraft();
     setTimeout(() => { location.href = `/encounter/view/${saved.id}`; }, 1200);
   } catch (err) {
     showToast('Save error: ' + err.message, 'error');
@@ -533,15 +601,28 @@ document.getElementById('btn-save-confirm').addEventListener('click', async () =
 });
 
 // Load sessions + init
-loadSessionOptions(null);
-buildSectionNav();
-initEditMode().then(async () => {
-  // Pre-fill natural tasks from party settings if no tasks yet (new form)
+async function initEncounterFormPage() {
+  let settings = {};
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) settings = await res.json();
+  } catch {}
+
+  autosaveEnabled = settings.autosaveEnabled !== false;
+  await loadSessionOptions(null);
+  buildSectionNav();
+  await initEditMode();
+  await restoreDraftIfAvailable();
+
   if (taskCount === 0 && !location.pathname.includes('/edit/')) {
-    try {
-      const res = await fetch('/api/settings');
-      const settings = await res.json();
-      (settings.party || []).forEach(p => addTask({ name: p.name, playerClass: p.playerClass }));
-    } catch { /* settings unavailable */ }
+    (settings.party || []).forEach(p => addTask({ name: p.name, playerClass: p.playerClass }));
   }
-});
+
+  const form = document.getElementById('encounter-form');
+  form.addEventListener('input', scheduleDraftSave);
+  form.addEventListener('change', scheduleDraftSave);
+  document.getElementById('enc-tag-input-container').addEventListener('click', scheduleDraftSave);
+  document.getElementById('enc-tag-input-container').addEventListener('keydown', scheduleDraftSave);
+}
+
+initEncounterFormPage();

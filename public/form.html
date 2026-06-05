@@ -4,12 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>New Session — D&D Session Master</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/vendor/marked.js"></script>
 </head>
 <body>
 
@@ -53,6 +50,11 @@
         <div class="field">
           <label for="partyLevel">Party Level</label>
           <input type="number" id="partyLevel" name="partyLevel" min="1" max="20" placeholder="5">
+        </div>
+        <div class="field full">
+          <label>Tags</label>
+          <span class="hint">Press Enter or comma to add. Click a tag to remove.</span>
+          <div id="tag-input-container"></div>
         </div>
       </div>
     </div>
@@ -204,6 +206,7 @@
 
 <div id="toast" class="toast"></div>
 
+<script src="/js/tags.js"></script>
 <script src="/js/form.js"></script>
 <script src="/js/nav.js"></script>
 </body>

@@ -1,6 +1,28 @@
 const { exec } = require('child_process');
 
+function isElectronRuntime() {
+  return !!(process.versions && process.versions.electron);
+}
+
+async function pickElectronFolder() {
+  const { dialog } = require('electron');
+  const result = await dialog.showOpenDialog({
+    title: 'Choose where to save your D&D session files',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return null;
+  }
+
+  return result.filePaths[0];
+}
+
 function pick() {
+  if (isElectronRuntime()) {
+    return pickElectronFolder();
+  }
+
   return new Promise((resolve) => {
     let cmd;
 

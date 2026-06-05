@@ -1,16 +1,17 @@
+let allSessions = [];
+
 (async function () {
   const container = document.getElementById('sessions-container');
 
-  let sessions;
   try {
     const res = await fetch('/api/sessions');
-    sessions = await res.json();
+    allSessions = await res.json();
   } catch {
     container.innerHTML = '<div class="empty-state"><p>Could not load sessions.</p></div>';
     return;
   }
 
-  if (!sessions.length) {
+  if (!allSessions.length) {
     container.innerHTML = `
       <div class="empty-state">
         <p>No sessions yet. Plan your first one!</p>
@@ -19,20 +20,60 @@
     return;
   }
 
-  renderTable(sessions);
+  renderTable(allSessions);
+  initSearch({
+    containerId: 'search-bar',
+    getAllItems: () => allSessions,
+    renderFn: renderTable,
+    fields: [
+      s => s.id,
+      s => String(s.sessionNumber),
+      s => s.goal,
+      s => (s.tags || []).join(' '),
+    ],
+    dateField: s => s.createdAt,
+  });
+  initContextMenu({
+    containerId: 'sessions-container',
+    type: 'session',
+    apiBase: '/api/sessions',
+    getAllItems: () => allSessions,
+    onDelete: (id) => { allSessions = allSessions.filter(s => s.id !== id); },
+    onTagsUpdate: (id, tags) => { const s = allSessions.find(x => x.id === id); if (s) s.tags = tags; },
+  });
 })();
 
-function renderTable(sessions) {
+function renderTable(sessions, isFiltered) {
+  if (window.exitSelectMode) window.exitSelectMode();
   const container = document.getElementById('sessions-container');
+
+  if (!sessions.length) {
+    container.innerHTML = isFiltered
+      ? `<div class="empty-state"><p>No sessions match your search.</p></div>`
+      : `<div class="empty-state">
+           <p>No sessions yet. Plan your first one!</p>
+           <a href="/form" class="btn btn-primary">+ New Session</a>
+         </div>`;
+    return;
+  }
+
   const rows = sessions.map(s => {
-    const num  = String(s.sessionNumber).padStart(3, '0');
-    const date = s.date
+    const numRaw = String(s.sessionNumber ?? '?');
+    const num    = numRaw.includes('.') ? numRaw : numRaw.padStart(3, '0');
+    const date   = s.date
       ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
       : '—';
     const demoBadge = s.isDemo ? ' <span class="demo-badge">Demo</span>' : '';
+    const linkedChip = s.linkedEncounterCount ? ` <span class="link-count-chip">${s.linkedEncounterCount} linked encounter${s.linkedEncounterCount === 1 ? '' : 's'}</span>` : '';
+    const tagChips  = tagChipsHtml(s.tags);
     return `
       <tr class="session-row" data-id="${s.id}">
-        <td class="clickable"><span class="session-num">#${num}</span>${demoBadge}</td>
+        <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
+        <td class="clickable">
+          <span class="session-num">#${num}</span>${demoBadge}${linkedChip}
+          <br><span class="item-id-small">${escHtml(s.id)}</span>
+          ${tagChips ? '<br>' + tagChips : ''}
+        </td>
         <td class="clickable session-date">${date}</td>
         <td class="clickable session-level">Lv ${s.partyLevel || '?'}</td>
         <td class="clickable session-goal">${escHtml(s.goal || '')}</td>
@@ -46,6 +87,7 @@ function renderTable(sessions) {
     <table class="sessions-table">
       <thead>
         <tr>
+          <th class="checkbox-cell"></th>
           <th>Session</th>
           <th>Date</th>
           <th>Party Level</th>
@@ -56,15 +98,14 @@ function renderTable(sessions) {
       <tbody>${rows}</tbody>
     </table>`;
 
-  // Row click → navigate
   container.querySelectorAll('.clickable').forEach(td => {
     td.style.cursor = 'pointer';
     td.addEventListener('click', () => {
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
       location.href = `/view/${td.closest('tr').dataset.id}`;
     });
   });
 
-  // Delete buttons
   container.querySelectorAll('.btn-delete-row').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -79,14 +120,10 @@ function renderTable(sessions) {
       try {
         const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
+        allSessions = allSessions.filter(s => s.id !== id);
         btn.closest('tr').remove();
-        // Show empty state if no rows left
         if (!document.querySelector('.session-row')) {
-          document.getElementById('sessions-container').innerHTML = `
-            <div class="empty-state">
-              <p>No sessions yet. Plan your first one!</p>
-              <a href="/form" class="btn btn-primary">+ New Session</a>
-            </div>`;
+          container.innerHTML = `<div class="empty-state"><p>No sessions yet. Plan your first one!</p><a href="/form" class="btn btn-primary">+ New Session</a></div>`;
         }
       } catch (err) {
         showToast('Delete failed: ' + err.message, 'error');
@@ -99,6 +136,13 @@ function escHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function tagChipsHtml(tags, max = 3) {
+  if (!tags || !tags.length) return '';
+  const visible = tags.slice(0, max).map(t => `<span class="tag-chip">${escHtml(t)}</span>`);
+  if (tags.length > max) visible.push(`<span class="tag-chip overflow">+${tags.length - max}</span>`);
+  return visible.join(' ');
 }
 
 function showToast(msg, type = 'success') {
