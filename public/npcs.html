@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Session — D&D Session Master</title>
+  <title>NPCs — D&D Session Master</title>
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
-  <script src="/vendor/marked.js"></script>
 </head>
 <body>
 
@@ -15,7 +14,7 @@
   <span class="nav-sep"></span>
   <a href="/" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
-  <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/npcs" class="nav-link nav-link-active">NPCs</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
@@ -27,28 +26,29 @@
   </div>
 </nav>
 
-<div class="view-wrap">
-  <div class="view-main">
-    <div class="view-actions">
-      <a href="/" class="back-link">← All Sessions</a>
-      <button class="btn btn-ghost" id="btn-edit">Edit Session</button>
-      <button class="btn btn-ghost" id="btn-export-packet">Export Packet</button>
-      <button class="btn btn-ghost" id="btn-export">Export Again</button>
-      <button class="btn btn-danger" id="btn-delete">Delete</button>
-    </div>
-    <div id="content">
-      <div class="empty-state"><p>Loading session…</p></div>
-    </div>
+<div class="container wide">
+  <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; margin-top:8px;">
+    <h1 class="page-title">NPCs</h1>
+    <a href="/npc/new" class="btn btn-primary">+ New NPC</a>
   </div>
-  <aside id="toc-nav" class="toc-nav"></aside>
+  <p class="page-subtitle">Characters your players will meet — click any row to view their full profile.</p>
+
+  <div id="search-bar"></div>
+  <div id="ms-toolbar"></div>
+  <div id="npcs-container">
+    <div class="empty-state"><p>Loading NPCs…</p></div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
+<script src="/js/search.js"></script>
+<script src="/js/context-menu.js"></script>
+<script src="/js/hover-preview.js"></script>
 <script src="/js/shortcuts.js"></script>
-<script src="/js/view.js"></script>
+<script src="/js/npcs.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

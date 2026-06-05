@@ -50,7 +50,9 @@ function makeNPCCard(n, d = {}) {
   card.innerHTML = `
     <div class="card-header">
       <span class="card-title">NPC ${n}</span>
-      <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      <div class="card-header-actions">
+        <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      </div>
     </div>
     <div class="form-grid">
       <div class="field">
@@ -98,7 +100,9 @@ function makeLocationCard(n, d = {}) {
   card.innerHTML = `
     <div class="card-header">
       <span class="card-title">Location ${n}</span>
-      <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      <div class="card-header-actions">
+        <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      </div>
     </div>
     <div class="form-grid">
       <div class="field full">
@@ -227,7 +231,9 @@ function makeClockCard(n, d = {}) {
   card.innerHTML = `
     <div class="card-header">
       <span class="card-title">Faction Clock ${n}</span>
-      <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      <div class="card-header-actions">
+        <button type="button" class="btn btn-danger remove-btn">Remove</button>
+      </div>
     </div>
     <div class="form-grid">
       <div class="field full">
@@ -311,6 +317,43 @@ function h(str) {
     .replace(/"/g, '&quot;');
 }
 
+function nonEmpty(value) {
+  return String(value == null ? '' : value).trim().length > 0;
+}
+
+function extractNPCCard(card) {
+  return {
+    name:         card.querySelector('.npc-name')?.value.trim() ?? '',
+    faction:      card.querySelector('.npc-faction')?.value.trim() ?? '',
+    situation:    card.querySelector('.npc-situation')?.value.trim() ?? '',
+    wants:        card.querySelector('.npc-wants')?.value.trim() ?? '',
+    phrases:      card.querySelector('.npc-phrases')?.value.trim() ?? '',
+    bodyLanguage: card.querySelector('.npc-body-language')?.value.trim() ?? '',
+    neverDoes:    card.querySelector('.npc-never-does')?.value.trim() ?? '',
+    corneredLine: card.querySelector('.npc-cornered')?.value.trim() ?? '',
+  };
+}
+
+function extractLocationCard(card) {
+  return {
+    name:          card.querySelector('.loc-name')?.value.trim() ?? '',
+    description:   card.querySelector('.loc-description')?.value.trim() ?? '',
+    sensoryDetail: card.querySelector('.loc-sensory')?.value.trim() ?? '',
+    hiddenDetail:  card.querySelector('.loc-hidden')?.value.trim() ?? '',
+    districts:     collectDistricts(card),
+  };
+}
+
+function extractClockCard(card) {
+  return {
+    factionName: card.querySelector('.clock-faction')?.value.trim() ?? '',
+    goal:        card.querySelector('.clock-goal')?.value.trim() ?? '',
+    progress:    card.querySelector('.clock-progress')?.value.trim() ?? '0',
+    max:         card.querySelector('.clock-max')?.value.trim() ?? '8',
+    completion:  card.querySelector('.clock-completion')?.value.trim() ?? '',
+  };
+}
+
 // ─── Tag input ────────────────────────────────────────────────────────────────
 const tagInput = new TagInput(document.getElementById('tag-input-container'));
 
@@ -344,8 +387,14 @@ function collectFormData() {
     beatMiddle:         v('beatMiddle'),
     beatEscalate:       v('beatEscalate'),
     beatClose:          v('beatClose'),
+    sessionRecap:       v('sessionRecap'),
+    worldStateChanges:  v('worldStateChanges'),
+    unresolvedThreads:  v('unresolvedThreads'),
+    npcStatusChanges:   v('npcStatusChanges'),
+    treasureRewardsLog: v('treasureRewardsLog'),
     sessionNotes:       v('sessionNotes'),
     tags:               tagInput.getTags(),
+    linkedNpcs:         Array.from(document.getElementById('session-linked-npcs')?.selectedOptions || []).map(o => o.value),
     npcs:               collectNPCs(),
     locations:          collectLocations(),
     factionClocks:      collectClocks(),
@@ -354,26 +403,11 @@ function collectFormData() {
 }
 
 function collectNPCs() {
-  return Array.from(document.querySelectorAll('.npc-card')).map(c => ({
-    name:         c.querySelector('.npc-name')?.value.trim()         ?? '',
-    faction:      c.querySelector('.npc-faction')?.value.trim()      ?? '',
-    situation:    c.querySelector('.npc-situation')?.value.trim()    ?? '',
-    wants:        c.querySelector('.npc-wants')?.value.trim()        ?? '',
-    phrases:      c.querySelector('.npc-phrases')?.value.trim()      ?? '',
-    bodyLanguage: c.querySelector('.npc-body-language')?.value.trim() ?? '',
-    neverDoes:    c.querySelector('.npc-never-does')?.value.trim()   ?? '',
-    corneredLine: c.querySelector('.npc-cornered')?.value.trim()     ?? '',
-  }));
+  return Array.from(document.querySelectorAll('.npc-card')).map(extractNPCCard);
 }
 
 function collectLocations() {
-  return Array.from(document.querySelectorAll('.location-card')).map(c => ({
-    name:         c.querySelector('.loc-name')?.value.trim()         ?? '',
-    description:  c.querySelector('.loc-description')?.value.trim() ?? '',
-    sensoryDetail: c.querySelector('.loc-sensory')?.value.trim()    ?? '',
-    hiddenDetail: c.querySelector('.loc-hidden')?.value.trim()       ?? '',
-    districts:    collectDistricts(c),
-  }));
+  return Array.from(document.querySelectorAll('.location-card')).map(extractLocationCard);
 }
 
 function collectDistricts(locationCard) {
@@ -392,13 +426,7 @@ function collectPOIs(districtCard) {
 }
 
 function collectClocks() {
-  return Array.from(document.querySelectorAll('.clock-card')).map(c => ({
-    factionName: c.querySelector('.clock-faction')?.value.trim()    ?? '',
-    goal:        c.querySelector('.clock-goal')?.value.trim()       ?? '',
-    progress:    c.querySelector('.clock-progress')?.value.trim()   ?? '0',
-    max:         c.querySelector('.clock-max')?.value.trim()        ?? '8',
-    completion:  c.querySelector('.clock-completion')?.value.trim() ?? '',
-  }));
+  return Array.from(document.querySelectorAll('.clock-card')).map(extractClockCard);
 }
 
 function collectEncounters() {
@@ -456,6 +484,8 @@ async function initEditMode() {
   document.getElementById('page-title').textContent = `Edit Session ${editId}`;
   document.getElementById('page-subtitle').textContent = 'Make your changes, then preview and save.';
   document.getElementById('btn-submit').textContent = 'Preview Changes';
+  const backLink = document.getElementById('form-back-link');
+  if (backLink) { backLink.href = `/view/${editId}`; backLink.textContent = '← Back to Session'; }
 
   let session;
   try {
@@ -469,6 +499,7 @@ async function initEditMode() {
 
   editSessionId = editId;
   populateForm(session.data || {});
+  if (window.autoResizeAll) window.autoResizeAll();
 }
 
 function populateForm(data) {
@@ -489,8 +520,20 @@ function populateForm(data) {
   set('beatMiddle',    data.beatMiddle);
   set('beatEscalate',  data.beatEscalate);
   set('beatClose',     data.beatClose);
+  set('sessionRecap',  data.sessionRecap);
+  set('worldStateChanges', data.worldStateChanges);
+  set('unresolvedThreads', data.unresolvedThreads);
+  set('npcStatusChanges', data.npcStatusChanges);
+  set('treasureRewardsLog', data.treasureRewardsLog);
   set('sessionNotes',  data.sessionNotes);
   if (data.tags) tagInput.setTags(data.tags);
+
+  const linkedSelect = document.getElementById('session-linked-npcs');
+  if (linkedSelect && data.linkedNpcs?.length) {
+    Array.from(linkedSelect.options).forEach(o => {
+      o.selected = data.linkedNpcs.includes(o.value);
+    });
+  }
 
   (data.npcs || []).forEach(d => addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc', d));
   (data.locations || []).forEach(d => addCard('location', 'location-list', makeLocationCard, 'btn-add-location', d));
@@ -520,6 +563,7 @@ async function restoreDraftIfAvailable() {
   document.getElementById('session-form').reset();
   tagInput.setTags([]);
   populateForm(draft.data || {});
+  if (window.autoResizeAll) window.autoResizeAll();
   showToast('Draft restored.', 'success');
 }
 
@@ -693,11 +737,12 @@ function buildSectionNav() {
     { id: 's-info',       num: '01', label: 'Session Info'      },
     { id: 's-hook',       num: '02', label: 'Goal & Hook'        },
     { id: 's-beats',      num: '03', label: 'Session Beats'      },
-    { id: 's-npcs',       num: '04', label: 'NPCs'               },
-    { id: 's-locations',  num: '05', label: 'Locations'          },
-    { id: 's-clocks',     num: '06', label: 'Faction Clocks'     },
-    { id: 's-encounters', num: '07', label: 'Combat'             },
-    { id: 's-notes',      num: '08', label: 'Session Notes'      },
+    { id: 's-continuity', num: '04', label: 'Continuity'         },
+    { id: 's-npcs',       num: '05', label: 'NPCs'               },
+    { id: 's-locations',  num: '06', label: 'Locations'          },
+    { id: 's-clocks',     num: '07', label: 'Faction Clocks'     },
+    { id: 's-encounters', num: '08', label: 'Combat'             },
+    { id: 's-notes',      num: '09', label: 'Session Notes'      },
   ];
 
   const ul = document.createElement('ul');
@@ -742,6 +787,20 @@ function buildSectionNav() {
   });
 }
 
+// ─── Linked NPC select ────────────────────────────────────────────────────────
+async function loadLinkedNpcOptions() {
+  const select = document.getElementById('session-linked-npcs');
+  if (!select) return;
+  try {
+    const res = await fetch('/api/npcs');
+    if (!res.ok) return;
+    const npcs = await res.json();
+    select.innerHTML = npcs.length
+      ? npcs.map(n => `<option value="${n.id}">${n.name}${n.nickname ? ` "${n.nickname}"` : ''}</option>`).join('')
+      : '<option disabled>No NPCs created yet</option>';
+  } catch {}
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function initFormPage() {
   document.getElementById('date').valueAsDate = new Date();
@@ -753,6 +812,7 @@ async function initFormPage() {
     }
   } catch {}
 
+  await loadLinkedNpcOptions();
   await initEditMode();
   buildSectionNav();
   await restoreDraftIfAvailable();
@@ -760,8 +820,8 @@ async function initFormPage() {
   const form = document.getElementById('session-form');
   form.addEventListener('input', scheduleDraftSave);
   form.addEventListener('change', scheduleDraftSave);
-  document.getElementById('session-tag-input-container').addEventListener('click', scheduleDraftSave);
-  document.getElementById('session-tag-input-container').addEventListener('keydown', scheduleDraftSave);
+  document.getElementById('tag-input-container').addEventListener('click', scheduleDraftSave);
+  document.getElementById('tag-input-container').addEventListener('keydown', scheduleDraftSave);
 }
 
 initFormPage();

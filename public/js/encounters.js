@@ -34,13 +34,26 @@ let allEncounters = [];
     ],
     dateField: e => e.createdAt,
   });
+  initHoverPreview({
+    containerId: 'encounters-container',
+    type: 'encounter',
+    apiBase: '/api/encounters',
+  });
   initContextMenu({
     containerId: 'encounters-container',
     type: 'encounter',
     apiBase: '/api/encounters',
     getAllItems: () => allEncounters,
     onDelete: (id) => { allEncounters = allEncounters.filter(e => e.id !== id); },
-    onTagsUpdate: (id, tags) => { const e = allEncounters.find(x => x.id === id); if (e) e.tags = tags; },
+    onTagsUpdate: (id, tags) => {
+      const enc = allEncounters.find(x => x.id === id);
+      if (enc) enc.tags = tags;
+      const row = document.querySelector(`#encounters-container .session-row[data-id="${CSS.escape(id)}"]`);
+      if (row) {
+        const wrap = row.querySelector('.tags-wrap');
+        if (wrap) wrap.innerHTML = tags && tags.length ? '<br>' + tagChipsHtml(tags) : '';
+      }
+    },
   });
 })();
 
@@ -71,14 +84,14 @@ function renderTable(encounters, isFiltered) {
         <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
         <td class="clickable">
           <span class="session-num">${escHtml(e.id)}</span>${demoBadge}${linkedChip}
-          ${tagChips ? '<br>' + tagChips : ''}
+          <span class="tags-wrap">${tagChips ? '<br>' + tagChips : ''}</span>
         </td>
         <td class="clickable session-goal">${escHtml(e.name || '')}</td>
         <td class="clickable session-date">${session}</td>
         <td class="clickable session-date">${date}</td>
         <td class="clickable session-goal">${escHtml(e.fiction || '')}</td>
         <td class="action-cell">
-          <button class="btn-delete-row" data-id="${e.id}" title="Delete">✕</button>
+          <button class="btn-more-row" data-id="${e.id}" title="More options">⋮</button>
         </td>
       </tr>`;
   }).join('');
@@ -87,7 +100,7 @@ function renderTable(encounters, isFiltered) {
     <table class="sessions-table">
       <thead>
         <tr>
-          <th class="checkbox-cell"></th>
+          <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible encounters"></th>
           <th>ID</th>
           <th>Encounter Name</th>
           <th>Session</th>
@@ -107,33 +120,6 @@ function renderTable(encounters, isFiltered) {
     });
   });
 
-  container.querySelectorAll('.btn-delete-row').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const { id } = btn.dataset;
-      const ok = await showConfirm(`Delete Encounter Plan ${id}? This cannot be undone.`, {
-        title: 'Delete Encounter Plan',
-        confirmLabel: 'Delete',
-        danger: true,
-      });
-      if (!ok) return;
-      try {
-        const res = await fetch(`/api/encounters/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-        allEncounters = allEncounters.filter(enc => enc.id !== id);
-        btn.closest('tr').remove();
-        if (!document.querySelector('.session-row')) {
-          document.getElementById('encounters-container').innerHTML = `
-            <div class="empty-state">
-              <p>No encounter plans yet.</p>
-              <a href="/encounter/new" class="btn btn-primary">+ New Encounter Plan</a>
-            </div>`;
-        }
-      } catch (err) {
-        showToast('Delete failed: ' + err.message, 'error');
-      }
-    });
-  });
 }
 
 function escHtml(str) {

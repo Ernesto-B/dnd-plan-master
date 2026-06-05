@@ -15,18 +15,23 @@
   <span class="nav-sep"></span>
   <a href="/" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
       <a href="/form">Session Plan</a>
       <a href="/encounter/new">Encounter Plan</a>
+      <a href="/npc/new">NPC</a>
     </div>
   </div>
 </nav>
 
 <div class="form-outer">
   <div class="form-main">
+  <div class="view-actions" style="margin-bottom: 16px;">
+    <a href="/" class="back-link" id="form-back-link">← All Sessions</a>
+  </div>
   <h1 class="page-title" id="page-title">New Session Plan</h1>
   <p class="page-subtitle" id="page-subtitle">Fill in the fields below, then click Preview to review your PDF before choosing where to save it.</p>
 
@@ -119,41 +124,83 @@
       </div>
     </div>
 
-    <!-- S4: NPCs -->
-    <div class="section-header" id="s-npcs">
+    <!-- S4: Continuity -->
+    <div class="section-header" id="s-continuity">
       <span class="section-num">04</span>
+      <h2>Campaign Continuity</h2>
+    </div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field full">
+          <label for="sessionRecap">Session Recap</label>
+          <span class="hint">A quick summary of what actually happened, for future prep and callback continuity.</span>
+          <textarea id="sessionRecap" name="sessionRecap" style="min-height:120px;" placeholder="The party exposed the false priest, lost track of Mira in the smoke, and secured a partial map to the Ember Vault."></textarea>
+        </div>
+        <div class="field full">
+          <label for="worldStateChanges">World-State Changes</label>
+          <span class="hint">One change per line. Record what is different in the world because of this session.</span>
+          <textarea id="worldStateChanges" name="worldStateChanges" class="short" placeholder="The harbor is under curfew.&#10;The Syndicate now knows the party has the map fragment."></textarea>
+        </div>
+        <div class="field full">
+          <label for="unresolvedThreads">Unresolved Threads</label>
+          <span class="hint">Open questions, promised consequences, and hooks you need to pay off later.</span>
+          <textarea id="unresolvedThreads" name="unresolvedThreads" class="short" placeholder="What did Mira trade to get the vault key?&#10;Who warned the guards before the raid?"></textarea>
+        </div>
+        <div class="field full">
+          <label for="npcStatusChanges">NPC Status Changes</label>
+          <span class="hint">Track alliances, injuries, betrayals, deaths, missing persons, and major attitude shifts.</span>
+          <textarea id="npcStatusChanges" name="npcStatusChanges" class="short" placeholder="Captain Vey is suspicious of the party.&#10;Harwick lost an eye and now wants revenge."></textarea>
+        </div>
+        <div class="field full">
+          <label for="treasureRewardsLog">Treasure &amp; Rewards Log</label>
+          <span class="hint">List gold, items, favors, titles, clues, and any other earned rewards.</span>
+          <textarea id="treasureRewardsLog" name="treasureRewardsLog" class="short" placeholder="450 gp split four ways.&#10;Ember Vault map fragment.&#10;Dockmaster's favor owed."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- S5: NPCs -->
+    <div class="section-header" id="s-npcs">
+      <span class="section-num">05</span>
       <h2>NPCs</h2>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="field">
+        <label for="session-linked-npcs">Linked NPCs</label>
+        <span class="hint">Select NPCs from your database to associate with this session. Hold ⌘/Ctrl to select multiple.</span>
+        <select id="session-linked-npcs" multiple size="5"></select>
+      </div>
     </div>
     <div id="npc-list"></div>
     <button type="button" class="btn btn-add" id="btn-add-npc">+ Add NPC</button>
 
-    <!-- S5: Locations -->
+    <!-- S6: Locations -->
     <div class="section-header" id="s-locations">
-      <span class="section-num">05</span>
+      <span class="section-num">06</span>
       <h2>Locations</h2>
     </div>
     <div id="location-list"></div>
     <button type="button" class="btn btn-add" id="btn-add-location">+ Add Location</button>
 
-    <!-- S6: Faction Clocks -->
+    <!-- S7: Faction Clocks -->
     <div class="section-header" id="s-clocks">
-      <span class="section-num">06</span>
+      <span class="section-num">07</span>
       <h2>Faction Clocks</h2>
     </div>
     <div id="clock-list"></div>
     <button type="button" class="btn btn-add" id="btn-add-clock">+ Add Faction Clock</button>
 
-    <!-- S7: Combat Encounters -->
+    <!-- S8: Combat Encounters -->
     <div class="section-header" id="s-encounters">
-      <span class="section-num">07</span>
+      <span class="section-num">08</span>
       <h2>Combat Encounters</h2>
     </div>
     <div id="encounter-list"></div>
     <button type="button" class="btn btn-add" id="btn-add-encounter">+ Add Encounter</button>
 
-    <!-- S8: Session Notes -->
+    <!-- S9: Session Notes -->
     <div class="section-header" id="s-notes">
-      <span class="section-num">08</span>
+      <span class="section-num">09</span>
       <h2>Session Notes</h2>
     </div>
     <div class="card">
@@ -206,7 +253,10 @@
 
 <div id="toast" class="toast"></div>
 
+<script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/shortcuts.js"></script>
 <script src="/js/form.js"></script>
 <script src="/js/nav.js"></script>
 </body>

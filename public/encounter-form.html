@@ -15,18 +15,23 @@
   <span class="nav-sep"></span>
   <a href="/" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
       <a href="/form">Session Plan</a>
       <a href="/encounter/new">Encounter Plan</a>
+      <a href="/npc/new">NPC</a>
     </div>
   </div>
 </nav>
 
 <div class="form-outer">
   <div class="form-main">
+  <div class="view-actions" style="margin-bottom: 16px;">
+    <a href="/encounters" class="back-link" id="form-back-link">← All Encounters</a>
+  </div>
   <h1 class="page-title" id="page-title">New Encounter Plan</h1>
   <p class="page-subtitle" id="page-subtitle">Design a combat encounter using the complete 8-step framework.</p>
 
@@ -230,7 +235,11 @@
 </div>
 
 <div id="toast" class="toast"></div>
+
+<script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/shortcuts.js"></script>
 <script src="/js/encounter-form.js"></script>
 <script src="/js/nav.js"></script>
 </body>

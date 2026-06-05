@@ -15,6 +15,59 @@ function escNl(str) {
   return esc(str).replace(/\n/g, '<br>');
 }
 
+function splitLines(str) {
+  return String(str || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function renderContinuityList(items) {
+  if (!items.length) return '';
+  return `<ul class="continuity-list">${items.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`;
+}
+
+function renderContinuity(data) {
+  const worldStateChanges = splitLines(data.worldStateChanges);
+  const unresolvedThreads = splitLines(data.unresolvedThreads);
+  const npcStatusChanges = splitLines(data.npcStatusChanges);
+  const treasureRewardsLog = splitLines(data.treasureRewardsLog);
+
+  if (!data.sessionRecap && !worldStateChanges.length && !unresolvedThreads.length && !npcStatusChanges.length && !treasureRewardsLog.length) {
+    return '';
+  }
+
+  return `
+    <div class="section">
+      <div class="section-head">Campaign Continuity</div>
+      ${data.sessionRecap ? `
+        <div class="continuity-block">
+          <div class="continuity-title">Session Recap</div>
+          <div>${escNl(data.sessionRecap)}</div>
+        </div>` : ''}
+      ${worldStateChanges.length ? `
+        <div class="continuity-block">
+          <div class="continuity-title">World-State Changes</div>
+          ${renderContinuityList(worldStateChanges)}
+        </div>` : ''}
+      ${unresolvedThreads.length ? `
+        <div class="continuity-block">
+          <div class="continuity-title">Unresolved Threads</div>
+          ${renderContinuityList(unresolvedThreads)}
+        </div>` : ''}
+      ${npcStatusChanges.length ? `
+        <div class="continuity-block">
+          <div class="continuity-title">NPC Status Changes</div>
+          ${renderContinuityList(npcStatusChanges)}
+        </div>` : ''}
+      ${treasureRewardsLog.length ? `
+        <div class="continuity-block">
+          <div class="continuity-title">Treasure &amp; Rewards</div>
+          ${renderContinuityList(treasureRewardsLog)}
+        </div>` : ''}
+    </div>`;
+}
+
 function renderNPCs(npcs) {
   const valid = (npcs || []).filter(n => n.name);
   if (!valid.length) return '';
@@ -273,6 +326,25 @@ function render(data) {
   }
   .clock-label { font-size: 7pt; color: #666; }
 
+  .continuity-block {
+    padding: 3px 5px 3px 6px;
+    border-left: 2px solid #c9a87c;
+    margin-bottom: 4px;
+    font-size: 7.8pt;
+    line-height: 1.32;
+  }
+  .continuity-block:last-child { margin-bottom: 0; }
+  .continuity-title {
+    font-weight: bold;
+    color: #2b1400;
+    margin-bottom: 1px;
+  }
+  .continuity-list {
+    margin: 2px 0 0 14px;
+    padding: 0;
+  }
+  .continuity-list li { margin-bottom: 1px; }
+
   .notes-section { margin-top: 7px; page-break-inside: avoid; }
   .notes-content {
     font-size: 8pt;
@@ -335,6 +407,7 @@ ${(data.openingReadAloud || data.threeOptionsPrompt) ? `
         </tr>
       </table>
     </div>
+    ${renderContinuity(data)}
     ${renderEncounters(data.encounters)}
   </div>
   <div class="col-right">

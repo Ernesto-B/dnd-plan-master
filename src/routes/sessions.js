@@ -10,6 +10,7 @@ const encounterMdGen     = require('../services/encounterMarkdownGenerator');
 const pdfGenerator       = require('../services/pdfGenerator');
 const folderPicker       = require('../services/folderPicker');
 const planRelations      = require('../services/planRelations');
+const npcStore           = require('../services/npcStore');
 const encounterPdfTemplate = require('../templates/encounterPdfTemplate');
 
 function sessionFilename(session) {
@@ -118,9 +119,65 @@ router.get('/', async (_req, res) => {
   }
 });
 
+router.get('/campaign', async (_req, res) => {
+  try {
+    const sessions = await sessionStore.getAllFull();
+    const payload = sessions.map(session => {
+      const data = session.data || {};
+      const toList = (value) => String(value || '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      return {
+        id: session.id,
+        sessionNumber: session.sessionNumber,
+        date: session.date,
+        partyLevel: session.partyLevel,
+        goal: session.goal,
+        createdAt: session.createdAt,
+        tags: session.tags || [],
+        continuity: {
+          sessionRecap: String(data.sessionRecap || '').trim(),
+          worldStateChanges: toList(data.worldStateChanges),
+          unresolvedThreads: toList(data.unresolvedThreads),
+          npcStatusChanges: toList(data.npcStatusChanges),
+          treasureRewardsLog: toList(data.treasureRewardsLog),
+        },
+      };
+    }).filter(session => {
+      const continuity = session.continuity;
+      return continuity.sessionRecap
+        || continuity.worldStateChanges.length
+        || continuity.unresolvedThreads.length
+        || continuity.npcStatusChanges.length
+        || continuity.treasureRewardsLog.length;
+    });
+
+    res.json(payload);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id/links', async (req, res) => {
   try {
     res.json(await planRelations.getSessionLinks(req.params.id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:id/linked-npcs', async (req, res) => {
+  try {
+    const session = await sessionStore.getSession(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const ids = session.data?.linkedNpcs || [];
+    const results = await Promise.all(ids.map(async id => {
+      const npc = await npcStore.getNpc(id);
+      return { id, name: npc?.name || id, nickname: npc?.nickname || '', exists: !!npc };
+    }));
+    res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

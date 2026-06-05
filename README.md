@@ -166,58 +166,62 @@ The app already covers the core planning loop well: create, save, export, and re
 
 High-value additions to consider next:
 
-1. Session prep from reusable building blocks
-- Reusable NPC library
-- Reusable location library
-- Reusable faction/clock templates
-- Reusable encounter templates
+- [x] 1. Session prep from reusable building blocks
+  - [x] Reusable NPC library
+  - [x] Reusable location library
+  - [x] Reusable faction/clock templates
+  - [x] Reusable encounter templates
 
-2. Better cross-linking between plans
-- Link encounters to sessions both ways
-- Link NPCs, locations, and factions across sessions
-- Show where an entity or plan has been used before
+- [ ] 2. Better cross-linking between plans
+  - [x] Link encounters to sessions both ways
+  - [ ] Link NPCs, locations, and factions across sessions
+  - [x] Show where an entity or plan has been used before
 
-3. Campaign timeline and continuity tracking
-- Session recap field
-- World-state changes
-- Unresolved threads
-- NPC status changes
-- Treasure and rewards log
+- [x] 3. Campaign timeline and continuity tracking
+  - [x] Session recap field
+  - [x] World-state changes
+  - [x] Unresolved threads
+  - [x] NPC status changes
+  - [x] Treasure and rewards log
 
-4. Running-the-session mode
-- Collapsible sections
-- Pin important notes
-- Initiative scratchpad
-- Live checklist or beats tracker
-- Reveal-only-what-I-need presentation
+- [ ] 4. Running-the-session mode
+  - [ ] Collapsible sections
+  - [ ] Pin important notes
+  - [ ] Initiative scratchpad
+  - [ ] Live checklist or beats tracker
+  - [ ] Reveal-only-what-I-need presentation
 
-5. Search and filtering depth
-- Global search across sessions, encounters, tags, NPC names, and locations
-- Filters by arc, date, level, faction, or unresolved status
-- Saved searches or quick filters
+- [ ] 5. Search and filtering depth
+  - [ ] Global search across sessions, encounters, tags, NPC names, and locations
+  - [ ] Filters by arc, date, level, faction, or unresolved status
+  - [ ] Saved searches or quick filters
 
-6. Relationships and campaign graph
-- NPC to faction, session, location, and encounter links
-- Relationship notes between entities
+- [ ] 6. Relationships and campaign graph
+  - [ ] NPC to faction, session, location, and encounter links
+  - [ ] Relationship notes between entities
 
-7. Stronger export and print support
-- One-click session packet export
-- Combined export of a session and its linked encounters
-- Print-friendly DM table mode
+- [ ] 7. Stronger export and print support
+  - [x] One-click session packet export
+  - [x] Combined export of a session and its linked encounters
+  - [ ] Print-friendly DM table mode
 
-8. Autosave and draft recovery
-- Save unfinished forms automatically
-- Restore drafts after a restart or crash
-- Optional toggle in settings
+- [x] 8. Autosave and draft recovery
+  - [x] Save unfinished forms automatically
+  - [x] Restore drafts after a restart or crash
+  - [x] Optional toggle in settings
 
-9. Better settings and backup safety
-- Safer backup and restore workflows
-- Import preview with duplicate handling
-- Restorable backup snapshots
+- [x] 9. Better settings and backup safety
+  - [x] Safer backup and restore workflows
+  - [x] Import preview with duplicate handling
+  - [x] Restorable backup snapshots
+  - [x] Scheduled backup snapshots
 
-10. Campaign-level structure
-- Multiple campaigns
-- Separate data per campaign
-- Campaign-specific NPCs, party, and settings
+- [ ] 10. Campaign-level structure
+  - [ ] Multiple campaigns
+  - [ ] Separate data per campaign
+  - [ ] Campaign-specific NPCs, party, and settings
+
+- [ ] 11. Keyboard shortcuts and faster navigation
+  - [ ] Shortcuts for creating plans, saving drafts, opening search, and jumping between sections
 
 Compared with other campaign planning tools, the biggest remaining gaps are multi-campaign organization, entity databases instead of only document-style plans, timeline/history views, stronger live-play tooling, and player-knowledge versus DM-knowledge separation.

@@ -16,6 +16,7 @@
   content.innerHTML = `<div class="markdown-body">${marked.parse(session.markdown || '')}</div>`;
   buildMarkdownToc();
   mountTagEditor(id, session.data?.tags || [], '/api/sessions');
+  await renderLinkedNpcs(id);
   await renderLinkedEncounters(id);
 
   document.getElementById('btn-edit').addEventListener('click', () => {
@@ -141,6 +142,39 @@ async function renderLinkedEncounters(id) {
 
   section.innerHTML = `
     <div class="linked-panel-head">Linked Encounter Plans</div>
+    <div class="linked-panel-list">${listHtml}</div>
+  `;
+
+  content.prepend(section);
+}
+
+async function renderLinkedNpcs(id) {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  let npcs = [];
+  try {
+    const res = await fetch(`/api/sessions/${id}/linked-npcs`);
+    if (!res.ok) throw new Error();
+    npcs = await res.json();
+  } catch {
+    return;
+  }
+
+  if (!npcs.length) return;
+
+  const section = document.createElement('div');
+  section.className = 'linked-panel';
+
+  const listHtml = npcs.map(npc => `
+    <a class="linked-item" href="${npc.exists ? `/npc/view/${npc.id}` : '#'}"${npc.exists ? '' : ' aria-disabled="true"'}>
+      <span class="linked-item-title">${escHtml(npc.name)}${npc.nickname ? ` <span class="linked-item-sub">"${escHtml(npc.nickname)}"</span>` : ''}</span>
+      <span class="linked-item-meta">${escHtml(npc.id)}${npc.exists ? '' : ' · missing'}</span>
+    </a>
+  `).join('');
+
+  section.innerHTML = `
+    <div class="linked-panel-head">Linked NPCs</div>
     <div class="linked-panel-list">${listHtml}</div>
   `;
 

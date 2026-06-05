@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Session — D&D Session Master</title>
+  <title>NPC — D&D Session Master</title>
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
-  <script src="/vendor/marked.js"></script>
 </head>
 <body>
 
@@ -15,7 +14,7 @@
   <span class="nav-sep"></span>
   <a href="/" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
-  <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/npcs" class="nav-link nav-link-active">NPCs</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
@@ -30,14 +29,12 @@
 <div class="view-wrap">
   <div class="view-main">
     <div class="view-actions">
-      <a href="/" class="back-link">← All Sessions</a>
-      <button class="btn btn-ghost" id="btn-edit">Edit Session</button>
-      <button class="btn btn-ghost" id="btn-export-packet">Export Packet</button>
-      <button class="btn btn-ghost" id="btn-export">Export Again</button>
+      <a href="/npcs" class="back-link">← All NPCs</a>
+      <button class="btn btn-ghost" id="btn-edit">Edit NPC</button>
       <button class="btn btn-danger" id="btn-delete">Delete</button>
     </div>
-    <div id="content">
-      <div class="empty-state"><p>Loading session…</p></div>
+    <div id="npc-content">
+      <div class="empty-state"><p>Loading NPC…</p></div>
     </div>
   </div>
   <aside id="toc-nav" class="toc-nav"></aside>
@@ -48,7 +45,7 @@
 <script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
 <script src="/js/shortcuts.js"></script>
-<script src="/js/view.js"></script>
+<script src="/js/npc-view.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

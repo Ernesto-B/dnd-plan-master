@@ -1,0 +1,34 @@
+{
+  "npcs": [
+    {
+      "id": "n-001",
+      "name": "Barrin Soot",
+      "nickname": "The Sweep",
+      "commonPhrase": "\"Everyone passes through here eventually. I just keep the fire going.\"",
+      "appearance": "A stocky, ash-stained dwarf in his middle years. His beard is kept short and practical, singed at the edges. He moves between tables with the quiet efficiency of someone who has done this for decades, eyes always tracking the room without appearing to.",
+      "skillDescriptions": {
+        "perception": "You notice Barrin glance at the door every time it opens — and at a specific corner table where a cloaked figure has been nursing the same drink for two hours.",
+        "insight": "He's friendly enough, but his smile never quite reaches his eyes. He's measuring you the same way a merchant measures a stranger's coin.",
+        "investigation": "The back of his left hand bears a faded brand — a guild mark, mostly obscured by a burn scar that looks deliberate."
+      },
+      "situation": "Runs the Ashen Hearth tavern in the lower docks district. He's been there thirty years and knows every face in the ward — and more importantly, every secret.",
+      "wantsNeeds": "Wants: To be left alone to run his business in peace. Needs: Someone to deal with the new guild enforcers leaning on him for 'protection money.'",
+      "secretObstacle": "He's been quietly feeding information to a rival faction to keep the guild at bay — which means he now owes two groups favors he can't repay.",
+      "carrying": [
+        "ring of keys (tavern, cellar, back office)",
+        "small folded note, blank (ready to write)",
+        "coin pouch (modest, daily earnings)"
+      ],
+      "linkedSessions": [],
+      "linkedEncounters": [],
+      "tags": [
+        "tavern keeper",
+        "contact",
+        "docks",
+        "dwarf"
+      ],
+      "createdAt": "2026-01-08T10:00:00.000Z",
+      "isDemo": true
+    }
+  ]
+}

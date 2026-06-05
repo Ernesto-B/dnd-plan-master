@@ -33,13 +33,26 @@ let allSessions = [];
     ],
     dateField: s => s.createdAt,
   });
+  initHoverPreview({
+    containerId: 'sessions-container',
+    type: 'session',
+    apiBase: '/api/sessions',
+  });
   initContextMenu({
     containerId: 'sessions-container',
     type: 'session',
     apiBase: '/api/sessions',
     getAllItems: () => allSessions,
     onDelete: (id) => { allSessions = allSessions.filter(s => s.id !== id); },
-    onTagsUpdate: (id, tags) => { const s = allSessions.find(x => x.id === id); if (s) s.tags = tags; },
+    onTagsUpdate: (id, tags) => {
+      const s = allSessions.find(x => x.id === id);
+      if (s) s.tags = tags;
+      const row = document.querySelector(`#sessions-container .session-row[data-id="${CSS.escape(id)}"]`);
+      if (row) {
+        const wrap = row.querySelector('.tags-wrap');
+        if (wrap) wrap.innerHTML = tags && tags.length ? '<br>' + tagChipsHtml(tags) : '';
+      }
+    },
   });
 })();
 
@@ -71,14 +84,13 @@ function renderTable(sessions, isFiltered) {
         <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
         <td class="clickable">
           <span class="session-num">#${num}</span>${demoBadge}${linkedChip}
-          <br><span class="item-id-small">${escHtml(s.id)}</span>
-          ${tagChips ? '<br>' + tagChips : ''}
+          <span class="tags-wrap">${tagChips ? '<br>' + tagChips : ''}</span>
         </td>
         <td class="clickable session-date">${date}</td>
         <td class="clickable session-level">Lv ${s.partyLevel || '?'}</td>
         <td class="clickable session-goal">${escHtml(s.goal || '')}</td>
         <td class="action-cell">
-          <button class="btn-delete-row" data-id="${s.id}" data-num="${num}" title="Delete session">✕</button>
+          <button class="btn-more-row" data-id="${s.id}" title="More options">⋮</button>
         </td>
       </tr>`;
   }).join('');
@@ -87,7 +99,7 @@ function renderTable(sessions, isFiltered) {
     <table class="sessions-table">
       <thead>
         <tr>
-          <th class="checkbox-cell"></th>
+          <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible sessions"></th>
           <th>Session</th>
           <th>Date</th>
           <th>Party Level</th>
@@ -106,30 +118,6 @@ function renderTable(sessions, isFiltered) {
     });
   });
 
-  container.querySelectorAll('.btn-delete-row').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const { id, num } = btn.dataset;
-      const ok = await showConfirm(`Delete Session ${num}? This cannot be undone.`, {
-        title: 'Delete Session',
-        confirmLabel: 'Delete',
-        danger: true,
-      });
-      if (!ok) return;
-
-      try {
-        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-        allSessions = allSessions.filter(s => s.id !== id);
-        btn.closest('tr').remove();
-        if (!document.querySelector('.session-row')) {
-          container.innerHTML = `<div class="empty-state"><p>No sessions yet. Plan your first one!</p><a href="/form" class="btn btn-primary">+ New Session</a></div>`;
-        }
-      } catch (err) {
-        showToast('Delete failed: ' + err.message, 'error');
-      }
-    });
-  });
 }
 
 function escHtml(str) {

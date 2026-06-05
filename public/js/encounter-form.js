@@ -18,6 +18,10 @@ function h(str) {
   return d.innerHTML;
 }
 
+function nonEmpty(value) {
+  return String(value == null ? '' : value).trim().length > 0;
+}
+
 // ─── Sessions dropdown ────────────────────────────────────────────────────────
 async function loadSessionOptions(selectedId) {
   try {
@@ -335,8 +339,11 @@ async function initEditMode() {
     if (!res.ok) return;
     const enc = await res.json();
     populateForm(enc.data, editId);
+    if (window.autoResizeAll) window.autoResizeAll();
     document.getElementById('page-title').textContent = 'Edit Encounter Plan';
     document.getElementById('page-subtitle').textContent = 'Update the encounter plan, then preview and save.';
+    const backLink = document.getElementById('form-back-link');
+    if (backLink) { backLink.href = `/encounter/view/${editId}`; backLink.textContent = '← Back to Encounter'; }
   } catch { /* not in edit mode */ }
 }
 
@@ -407,6 +414,7 @@ async function restoreDraftIfAvailable() {
   document.getElementById('encounter-form').reset();
   encTagInput.setTags([]);
   populateForm(draft.data || {}, draft.data?.id);
+  if (window.autoResizeAll) window.autoResizeAll();
   showToast('Draft restored.', 'success');
 }
 

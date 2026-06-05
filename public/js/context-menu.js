@@ -99,11 +99,22 @@
       showMenu(e.clientX, e.clientY);
     });
 
-    // Clicks in select mode toggle checkboxes; otherwise let clickable TDs navigate
+    // ⋮ button → open context menu at button position
     container.addEventListener('click', (e) => {
+      const moreBtn = e.target.closest('.btn-more-row');
+      if (moreBtn) {
+        e.stopPropagation();
+        ctxId = moreBtn.dataset.id;
+        const rect = moreBtn.getBoundingClientRect();
+        showMenu(rect.right, rect.bottom + 2);
+        return;
+      }
+      if (e.target.classList.contains('select-all-checkbox')) {
+        setAllVisibleSelection(e.target.checked);
+        return;
+      }
       if (!selectMode) return;
       if (e.target.classList.contains('row-checkbox')) {
-        // native checkbox click — just sync state
         updateSelection();
         return;
       }
@@ -141,10 +152,22 @@
     menu.classList.add('visible');
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     const vw = window.innerWidth,  vh = window.innerHeight;
-    menuX = Math.min(x + 4, vw - mw - 8);
-    menuY = Math.min(y + 4, vh - mh - 8);
-    menu.style.left = `${menuX}px`;
-    menu.style.top  = `${menuY}px`;
+    const pad = 8;
+
+    // Prefer right; flip left if it would overflow
+    let left = x + 4;
+    if (left + mw > vw - pad) left = x - mw - 4;
+    left = Math.max(pad, Math.min(left, vw - mw - pad));
+
+    // Prefer below; flip above if it would overflow
+    let top = y + 4;
+    if (top + mh > vh - pad) top = y - mh - 4;
+    top = Math.max(pad, Math.min(top, vh - mh - pad));
+
+    menuX = left;
+    menuY = top;
+    menu.style.left = `${left}px`;
+    menu.style.top  = `${top}px`;
   }
 
   function hideMenu() { menu.classList.remove('visible'); }
@@ -155,11 +178,15 @@
     if (!wrap) return;
     wrap.innerHTML = `
       <span class="ms-count" id="ms-count">0 selected</span>
+      <button class="btn btn-ghost ms-btn" id="ms-select-all">Select All Visible</button>
+      <button class="btn btn-ghost ms-btn" id="ms-clear-all">Clear Visible</button>
       <button class="btn btn-ghost ms-btn" id="ms-delete" disabled>Delete</button>
       <button class="btn btn-ghost ms-btn" id="ms-export" disabled>Export JSON</button>
       <button class="btn btn-ghost ms-btn" id="ms-tag" disabled>Tag…</button>
       <button class="btn btn-ghost ms-exit" id="ms-exit">✕ Exit Selection</button>`;
 
+    document.getElementById('ms-select-all').addEventListener('click', () => setAllVisibleSelection(true));
+    document.getElementById('ms-clear-all').addEventListener('click', () => setAllVisibleSelection(false));
     document.getElementById('ms-delete').addEventListener('click', () => deleteItems([...selectedIds]));
     document.getElementById('ms-export').addEventListener('click', () => exportItems([...selectedIds]));
     document.getElementById('ms-tag').addEventListener('click', () => openTagPanel([...selectedIds], [], true));
@@ -186,6 +213,16 @@
     }
   }
 
+  function setAllVisibleSelection(checked) {
+    const container = document.getElementById(cfg.containerId);
+    if (!container) return;
+    if (checked && !selectMode) enterSelectMode();
+    container.querySelectorAll('.session-row .row-checkbox').forEach(cb => {
+      cb.checked = checked;
+    });
+    updateSelection();
+  }
+
   function updateSelection() {
     const container = document.getElementById(cfg.containerId);
     if (!container) return;
@@ -203,6 +240,15 @@
       const btn = document.getElementById(btnId);
       if (btn) btn.disabled = n === 0;
     });
+
+    const rowCheckboxes = [...container.querySelectorAll('.session-row .row-checkbox')];
+    const selectAll = container.querySelector('.select-all-checkbox');
+    if (selectAll) {
+      const total = rowCheckboxes.length;
+      const checkedCount = rowCheckboxes.filter(cb => cb.checked).length;
+      selectAll.checked = total > 0 && checkedCount === total;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < total;
+    }
   }
 
   // ─── Delete ──────────────────────────────────────────────────────────────────
@@ -284,8 +330,9 @@
     tagPanel.style.top  = '-9999px';
     tagPanel.classList.add('visible');
     const pw = tagPanel.offsetWidth, ph = tagPanel.offsetHeight;
-    tagPanel.style.left = `${Math.min(menuX, vw - pw - 12)}px`;
-    tagPanel.style.top  = `${Math.min(menuY, vh - ph - 12)}px`;
+    const pad = 8;
+    tagPanel.style.left = `${Math.max(pad, Math.min(menuX, vw - pw - pad))}px`;
+    tagPanel.style.top  = `${Math.max(pad, Math.min(menuY, vh - ph - pad))}px`;
   }
 
   function hideTagPanel() {

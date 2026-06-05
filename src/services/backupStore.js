@@ -7,6 +7,7 @@ const settingsStore = require('./settingsStore');
 const { getWritableDataDir, getDataFile } = require('./appPaths');
 
 const BACKUP_DIR = path.join(getWritableDataDir(), 'backups');
+const MAX_BACKUPS = 20;
 
 function backupFilePath(name) {
   return path.join(BACKUP_DIR, name);
@@ -32,7 +33,14 @@ async function createBackup() {
 
   const name = backupName();
   await fs.writeFile(backupFilePath(name), JSON.stringify(payload, null, 2), 'utf8');
+  await pruneOldBackups();
   return { name, createdAt: payload.createdAt };
+}
+
+async function pruneOldBackups() {
+  const names = (await fs.readdir(BACKUP_DIR)).filter(name => name.endsWith('.json')).sort().reverse();
+  const extra = names.slice(MAX_BACKUPS);
+  await Promise.allSettled(extra.map(name => fs.unlink(backupFilePath(name))));
 }
 
 async function listBackups() {

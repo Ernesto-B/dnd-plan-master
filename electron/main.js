@@ -2,6 +2,7 @@ const path = require('path');
 const { app, BrowserWindow } = require('electron');
 
 const { startServer } = require('../src/server');
+const backupScheduler = require('../src/services/backupScheduler');
 
 let mainWindow = null;
 let localServer = null;
@@ -56,6 +57,7 @@ async function shutdownServer() {
   await shuttingDownServer;
   shuttingDownServer = null;
   localServer = null;
+  backupScheduler.stop();
 }
 
 app.whenReady().then(async () => {

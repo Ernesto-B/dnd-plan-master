@@ -14,37 +14,64 @@
   <span class="nav-sep"></span>
   <a href="/" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
   <a href="/settings" class="nav-link nav-link-active">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
       <a href="/form">Session Plan</a>
       <a href="/encounter/new">Encounter Plan</a>
+      <a href="/npc/new">NPC</a>
     </div>
   </div>
 </nav>
 
-<div class="container">
+<div class="settings-wrap">
+  <div class="settings-main">
   <h1 class="page-title">Settings</h1>
   <p class="page-subtitle">Configure your party roster. These names and classes are used to pre-fill the Natural Tasks table in Encounter Plans.</p>
 
-  <div class="section-header">
+  <div class="section-header" id="settings-appearance">
     <span class="section-num">01</span>
     <h2>Appearance</h2>
   </div>
   <div class="card">
-    <div style="display:flex; align-items:center; gap:16px;">
-      <span style="font-family:var(--font-head); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--text2);">Theme</span>
+    <div class="settings-inline-row">
+      <span class="settings-inline-label">Theme</span>
       <button type="button" id="btn-theme-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
     </div>
-    <div style="display:flex; align-items:center; gap:16px; margin-top:14px;">
-      <span style="font-family:var(--font-head); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--text2);">Draft Autosave</span>
+    <div class="settings-inline-row settings-inline-wrap" style="margin-top:14px;">
+      <span class="settings-inline-label">UI Scale</span>
+      <button type="button" id="btn-ui-scale-down" class="btn btn-ghost" style="min-width:48px;">A-</button>
+      <input type="range" id="ui-scale-range" min="0.85" max="1.25" step="0.05" style="width:180px;">
+      <button type="button" id="btn-ui-scale-up" class="btn btn-ghost" style="min-width:48px;">A+</button>
+      <span id="ui-scale-value" class="settings-inline-meta" style="min-width:52px;">100%</span>
+      <button type="button" id="btn-ui-scale-reset" class="btn btn-ghost">Reset</button>
+    </div>
+    <p class="settings-hint" style="margin-top:10px;">Adjust the size of the entire interface, including fonts, controls, and layout density.</p>
+    <div class="settings-inline-row" style="margin-top:14px;">
+      <span class="settings-inline-label">Draft Autosave</span>
       <button type="button" id="btn-autosave-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
     </div>
     <p class="settings-hint" style="margin-top:12px;">When enabled, the session and encounter forms keep a local draft and offer to restore it if you come back later.</p>
+    <div class="settings-inline-row" style="margin-top:16px;">
+      <span class="settings-inline-label">Hover Preview</span>
+      <button type="button" id="btn-hover-preview-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
+    </div>
+    <div id="hover-delay-row" class="settings-inline-row settings-inline-tight" style="margin-top:10px;">
+      <span class="settings-inline-label">Preview Delay</span>
+      <input type="number" id="hover-delay-input" min="100" max="5000" step="100" style="width:70px; padding:4px 8px; background:var(--input-bg); border:1px solid var(--border2); border-radius:4px; color:var(--text1); font-family:var(--font-body);">
+      <span class="settings-inline-meta">ms (100–5000)</span>
+    </div>
+    <p class="settings-hint" style="margin-top:10px;">When enabled, hovering over a row shows a quick preview after the configured delay.</p>
+    <div class="settings-inline-row" style="margin-top:16px;">
+      <span class="settings-inline-label">Keyboard Shortcuts</span>
+      <button type="button" id="btn-shortcuts-modal" class="btn btn-ghost" style="min-width:160px;">View / Change</button>
+    </div>
+    <p class="settings-hint" style="margin-top:10px;">Open a dedicated shortcuts editor to review, change, and reset keybindings without cluttering this page.</p>
   </div>
 
-  <div class="section-header" style="margin-top:32px;">
+  <div class="section-header" id="settings-party" style="margin-top:32px;">
     <span class="section-num">02</span>
     <h2>Party Roster</h2>
   </div>
@@ -62,13 +89,14 @@
     <p class="submit-note">Settings are saved locally and persist across sessions.</p>
   </div>
 
-  <div class="section-header" style="margin-top:40px;">
+  <div class="section-header" id="settings-export-import" style="margin-top:40px;">
     <span class="section-num">03</span>
     <h2>Export &amp; Import</h2>
   </div>
   <div class="card">
     <h3 class="settings-subhead">Export Plans</h3>
     <p class="settings-hint">Select plans to bundle into a JSON file you can share or import on another device.</p>
+    <div id="export-search-bar"></div>
     <div class="export-controls">
       <button type="button" class="btn btn-ghost" id="btn-select-all">Select All</button>
       <button type="button" class="btn btn-ghost" id="btn-select-related">Select All Related</button>
@@ -96,13 +124,23 @@
     <div id="import-preview" class="settings-hint" style="margin-top:12px;"></div>
   </div>
 
-  <div class="section-header" style="margin-top:40px;">
+  <div class="section-header" id="settings-backups" style="margin-top:40px;">
     <span class="section-num">04</span>
     <h2>Backups</h2>
   </div>
   <div class="card">
     <h3 class="settings-subhead">Local Backup Snapshots</h3>
     <p class="settings-hint">Create a full local backup snapshot of sessions, encounters, and settings. You can restore any snapshot later.</p>
+    <div class="settings-inline-row settings-inline-wrap" style="margin-bottom:14px;">
+      <span class="settings-inline-label">Scheduled Backups</span>
+      <button type="button" id="btn-scheduled-backups-toggle" class="btn btn-ghost" style="min-width:120px;"></button>
+      <label class="settings-inline-control">
+        Every
+        <input type="number" id="scheduled-backup-hours" min="1" max="168" step="1" style="width:84px;">
+        hours
+      </label>
+    </div>
+    <p class="settings-hint" style="margin-bottom:12px;">When enabled, the app creates backup snapshots automatically in the background while it is running. Old snapshots are pruned automatically.</p>
     <div class="export-controls">
       <button type="button" class="btn btn-primary" id="btn-create-backup">Create Backup Snapshot</button>
     </div>
@@ -111,7 +149,7 @@
     </div>
   </div>
 
-  <div class="section-header" style="margin-top:40px;">
+  <div class="section-header" id="settings-danger" style="margin-top:40px;">
     <span class="section-num" style="background:var(--crimson); border-color:var(--danger);">!</span>
     <h2 style="color:var(--danger);">Danger Zone</h2>
   </div>
@@ -121,10 +159,35 @@
     </p>
     <button type="button" class="btn btn-danger" id="btn-clear-data">Clear All Data</button>
   </div>
+  </div>
+  <aside id="settings-nav" class="section-nav"></aside>
+</div>
+
+<div id="shortcut-modal-overlay" class="shortcut-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
+  <div class="shortcut-modal-box">
+    <div class="shortcut-modal-head">
+      <div>
+        <h3 id="shortcut-modal-title" class="shortcut-modal-title">Keyboard Shortcuts</h3>
+        <p class="shortcut-modal-subtitle">Choose shortcuts that feel natural for your workflow. Changes apply immediately after saving.</p>
+      </div>
+      <button type="button" class="btn btn-ghost" id="btn-close-shortcuts">✕ Close</button>
+    </div>
+    <div id="shortcut-duplicate-warning" class="shortcut-warning hidden"></div>
+    <div id="shortcut-list" class="shortcut-list"></div>
+    <div class="shortcut-modal-footer">
+      <button type="button" class="btn btn-ghost" id="btn-reset-shortcuts">Reset to Defaults</button>
+      <div class="shortcut-footer-actions">
+        <button type="button" class="btn btn-ghost" id="btn-cancel-shortcuts">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-shortcuts">Save Shortcuts</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
 <script src="/js/dialog.js"></script>
+<script src="/js/search.js"></script>
+<script src="/js/shortcuts.js"></script>
 <script src="/js/settings.js"></script>
 <script src="/js/nav.js"></script>
 </body>

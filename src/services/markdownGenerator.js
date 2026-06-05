@@ -6,6 +6,13 @@ function safe(str) {
   return String(str == null ? '' : str).trim();
 }
 
+function linesList(str) {
+  return safe(str)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
 function generate(data) {
   const num = pad(data.sessionNumber || 0);
   const lines = [];
@@ -49,6 +56,54 @@ function generate(data) {
   lines.push(`| **Escalate** | 70–100 min | ${safe(data.beatEscalate).replace(/\n/g, ' ')} |`);
   lines.push(`| **Close** | 100–120 min | ${safe(data.beatClose).replace(/\n/g, ' ')} |`);
   lines.push('');
+
+  // Campaign Continuity
+  const worldStateChanges = linesList(data.worldStateChanges);
+  const unresolvedThreads = linesList(data.unresolvedThreads);
+  const npcStatusChanges = linesList(data.npcStatusChanges);
+  const treasureRewardsLog = linesList(data.treasureRewardsLog);
+  const hasContinuity = [
+    data.sessionRecap,
+    worldStateChanges.length,
+    unresolvedThreads.length,
+    npcStatusChanges.length,
+    treasureRewardsLog.length,
+  ].some(Boolean);
+
+  if (hasContinuity) {
+    lines.push('## Campaign Continuity');
+    lines.push('');
+    if (data.sessionRecap) {
+      lines.push('### Session Recap');
+      lines.push('');
+      lines.push(safe(data.sessionRecap));
+      lines.push('');
+    }
+    if (worldStateChanges.length) {
+      lines.push('### World-State Changes');
+      lines.push('');
+      worldStateChanges.forEach(item => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (unresolvedThreads.length) {
+      lines.push('### Unresolved Threads');
+      lines.push('');
+      unresolvedThreads.forEach(item => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (npcStatusChanges.length) {
+      lines.push('### NPC Status Changes');
+      lines.push('');
+      npcStatusChanges.forEach(item => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (treasureRewardsLog.length) {
+      lines.push('### Treasure & Rewards');
+      lines.push('');
+      treasureRewardsLog.forEach(item => lines.push(`- ${item}`));
+      lines.push('');
+    }
+  }
 
   // NPCs
   const npcs = (data.npcs || []).filter(n => n.name);
