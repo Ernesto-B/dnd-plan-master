@@ -9,6 +9,7 @@
   const autosaveBtn = document.getElementById('btn-autosave-toggle');
   const scheduledBackupsBtn = document.getElementById('btn-scheduled-backups-toggle');
   const scheduledBackupHoursInput = document.getElementById('scheduled-backup-hours');
+  const settingsSaveStatus = document.getElementById('settings-save-status');
   const shortcutDefs = window.Shortcuts ? window.Shortcuts.getDefinitions() : [];
   const defaultShortcuts = window.Shortcuts ? window.Shortcuts.getDefaultShortcuts() : {};
   let autosaveEnabled = true;
@@ -17,7 +18,10 @@
   let currentShortcuts = window.Shortcuts ? window.Shortcuts.loadStoredShortcuts() : {};
   let draftShortcuts = { ...currentShortcuts };
   let capturingShortcutAction = null;
-  let appearanceSaveTimer = null;
+  let settingsSaveTimer = null;
+  let settingsSaveInFlight = false;
+  let settingsSaveQueued = false;
+  let settingsLoaded = false;
 
   function applyScheduledBackups(enabled) {
     scheduledBackupsEnabled = !!enabled;
@@ -29,22 +33,6 @@
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('dnd-theme', t);
     themeBtn.textContent = t === 'dark' ? '☀ Switch to Light' : '☽ Switch to Dark';
-  }
-
-  function scheduleAppearanceSave() {
-    clearTimeout(appearanceSaveTimer);
-    appearanceSaveTimer = setTimeout(async () => {
-      try {
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            theme: document.documentElement.getAttribute('data-theme') || 'dark',
-            uiScale,
-          }),
-        });
-      } catch {}
-    }, 150);
   }
 
   function clampUiScale(value) {
@@ -68,22 +56,109 @@
     autosaveBtn.textContent = autosaveEnabled ? 'On' : 'Off';
   }
 
+  function setSettingsSaveStatus(message, tone = 'idle') {
+    if (!settingsSaveStatus) return;
+    settingsSaveStatus.textContent = message;
+    settingsSaveStatus.dataset.state = tone;
+  }
+
+  function collectPartyRows() {
+    return [...list.querySelectorAll('.party-row')].map(row => ({
+      name: row.querySelector('.player-name').value.trim(),
+      playerClass: row.querySelector('.player-class').value.trim(),
+    })).filter(p => p.name || p.playerClass);
+  }
+
+  function collectSettingsPayload() {
+    return {
+      party: collectPartyRows(),
+      theme: document.documentElement.getAttribute('data-theme') || 'dark',
+      uiScale,
+      autosaveEnabled,
+      scheduledBackupsEnabled,
+      scheduledBackupIntervalHours: Number(scheduledBackupHoursInput.value) || 24,
+      shortcuts: currentShortcuts,
+    };
+  }
+
+  function scheduleSettingsSave(delay = 180) {
+    if (!settingsLoaded) return;
+    clearTimeout(settingsSaveTimer);
+    setSettingsSaveStatus('Saving changes…', 'saving');
+    settingsSaveTimer = setTimeout(() => {
+      saveSettings(false).catch(() => {});
+    }, delay);
+  }
+
+  async function saveSettings(showToastOnSuccess = false) {
+    if (!settingsLoaded) return;
+    if (settingsSaveInFlight) {
+      settingsSaveQueued = true;
+      return;
+    }
+
+    settingsSaveInFlight = true;
+    setSettingsSaveStatus('Saving changes…', 'saving');
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectSettingsPayload()),
+      });
+      const saved = await res.json();
+      if (!res.ok) throw new Error(saved.error || 'Save failed');
+
+      if (saved.shortcuts) {
+        currentShortcuts = window.Shortcuts ? window.Shortcuts.saveStoredShortcuts(saved.shortcuts) : saved.shortcuts;
+      }
+      if (saved.autosaveEnabled !== undefined) applyAutosave(saved.autosaveEnabled);
+      if (saved.scheduledBackupsEnabled !== undefined) applyScheduledBackups(saved.scheduledBackupsEnabled);
+      if (saved.scheduledBackupIntervalHours !== undefined) scheduledBackupHoursInput.value = saved.scheduledBackupIntervalHours;
+      setSettingsSaveStatus('Changes saved.', 'saved');
+      if (showToastOnSuccess) showToast('Settings saved.', 'success');
+    } catch (err) {
+      setSettingsSaveStatus('Could not save changes.', 'error');
+      throw err;
+    } finally {
+      settingsSaveInFlight = false;
+      if (settingsSaveQueued) {
+        settingsSaveQueued = false;
+        scheduleSettingsSave(75);
+      }
+    }
+  }
+
   applyTheme(localStorage.getItem('dnd-theme') || 'dark');
   applyUiScale(localStorage.getItem('dnd-ui-scale') || '1');
   themeBtn.addEventListener('click', () => {
     applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-    scheduleAppearanceSave();
+    scheduleSettingsSave();
   });
-  uiScaleRange.addEventListener('input', () => applyUiScale(uiScaleRange.value));
-  uiScaleRange.addEventListener('change', () => scheduleAppearanceSave());
-  uiScaleDownBtn.addEventListener('click', () => applyUiScale(uiScale - 0.05));
-  uiScaleDownBtn.addEventListener('click', () => scheduleAppearanceSave());
-  uiScaleUpBtn.addEventListener('click', () => applyUiScale(uiScale + 0.05));
-  uiScaleUpBtn.addEventListener('click', () => scheduleAppearanceSave());
-  uiScaleResetBtn.addEventListener('click', () => applyUiScale(1));
-  uiScaleResetBtn.addEventListener('click', () => scheduleAppearanceSave());
-  autosaveBtn.addEventListener('click', () => applyAutosave(!autosaveEnabled));
-  scheduledBackupsBtn.addEventListener('click', () => applyScheduledBackups(!scheduledBackupsEnabled));
+  uiScaleRange.addEventListener('input', () => {
+    applyUiScale(uiScaleRange.value);
+    scheduleSettingsSave();
+  });
+  uiScaleDownBtn.addEventListener('click', () => {
+    applyUiScale(uiScale - 0.05);
+    scheduleSettingsSave();
+  });
+  uiScaleUpBtn.addEventListener('click', () => {
+    applyUiScale(uiScale + 0.05);
+    scheduleSettingsSave();
+  });
+  uiScaleResetBtn.addEventListener('click', () => {
+    applyUiScale(1);
+    scheduleSettingsSave();
+  });
+  autosaveBtn.addEventListener('click', () => {
+    applyAutosave(!autosaveEnabled);
+    scheduleSettingsSave();
+  });
+  scheduledBackupsBtn.addEventListener('click', () => {
+    applyScheduledBackups(!scheduledBackupsEnabled);
+    scheduleSettingsSave();
+  });
 
   // ─── Hover preview (localStorage only — no server needed) ─────────────────
   const hoverPreviewBtn = document.getElementById('btn-hover-preview-toggle');
@@ -130,7 +205,10 @@
       <div class="field" style="align-self:flex-end; padding-bottom:2px;">
         <button type="button" class="btn btn-ghost remove-btn" style="color:var(--danger);">✕</button>
       </div>`;
-    row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
+    row.querySelector('.remove-btn').addEventListener('click', () => {
+      row.remove();
+      scheduleSettingsSave();
+    });
     return row;
   }
 
@@ -278,15 +356,30 @@
       : currentShortcuts;
     scheduledBackupHoursInput.value = settings.scheduledBackupIntervalHours || 24;
     (settings.party || []).forEach(p => list.appendChild(makePlayerRow(p)));
+    settingsLoaded = true;
+    setSettingsSaveStatus('Changes save automatically.', 'idle');
   } catch {
     // start empty
     applyAutosave(true);
     applyScheduledBackups(false);
     scheduledBackupHoursInput.value = 24;
+    settingsLoaded = true;
+    setSettingsSaveStatus('Changes save automatically.', 'idle');
   }
 
   document.getElementById('btn-add-player').addEventListener('click', () => {
     list.appendChild(makePlayerRow());
+    scheduleSettingsSave();
+  });
+
+  list.addEventListener('input', event => {
+    if (!event.target.matches('.player-name, .player-class')) return;
+    scheduleSettingsSave();
+  });
+
+  list.addEventListener('change', event => {
+    if (!event.target.matches('.player-name, .player-class')) return;
+    scheduleSettingsSave();
   });
 
   document.getElementById('btn-shortcuts-modal').addEventListener('click', openShortcutModal);
@@ -340,31 +433,11 @@
     }
   }, true);
 
-  document.getElementById('btn-save').addEventListener('click', async () => {
-    const party = [...list.querySelectorAll('.party-row')].map(row => ({
-      name: row.querySelector('.player-name').value.trim(),
-      playerClass: row.querySelector('.player-class').value.trim(),
-    })).filter(p => p.name || p.playerClass);
-
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          party,
-          theme: document.documentElement.getAttribute('data-theme') || 'dark',
-          uiScale,
-          autosaveEnabled,
-          scheduledBackupsEnabled,
-          scheduledBackupIntervalHours: Number(scheduledBackupHoursInput.value) || 24,
-          shortcuts: currentShortcuts,
-        }),
-      });
-      if (!res.ok) throw new Error('Save failed');
-      showToast('Settings saved.', 'success');
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error');
-    }
+  scheduledBackupHoursInput.addEventListener('input', () => {
+    scheduleSettingsSave();
+  });
+  scheduledBackupHoursInput.addEventListener('change', () => {
+    scheduleSettingsSave();
   });
 
   document.getElementById('btn-clear-data').addEventListener('click', async () => {

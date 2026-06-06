@@ -31,6 +31,7 @@ const SKILL_PREFIXES = {
   const content = document.getElementById('npc-content');
 
   let npc;
+  let linkedEncounterDetails = [];
   try {
     const res = await fetch(`/api/npcs/${id}`);
     if (!res.ok) throw new Error('Not found');
@@ -41,22 +42,113 @@ const SKILL_PREFIXES = {
   }
 
   document.title = `${npc.name} — D&D Session Master`;
-  content.innerHTML = buildHTML(npc);
+
+  // Fetch linked session details in parallel with rendering
+  let linkedSessionDetails = [];
+  if ((npc.linkedSessions && npc.linkedSessions.length) || (npc.linkedEncounters && npc.linkedEncounters.length)) {
+    try {
+      const [sessionRes, encounterRes] = await Promise.all([
+        fetch(`/api/npcs/${id}/linked-sessions`),
+        fetch(`/api/npcs/${id}/linked-encounters`),
+      ]);
+      if (sessionRes.ok) linkedSessionDetails = await sessionRes.json();
+      if (encounterRes.ok) linkedEncounterDetails = await encounterRes.json();
+    } catch {}
+  }
+
+  content.innerHTML = buildHTML(npc, linkedSessionDetails);
 
   // Build TOC
   buildToc();
 
   // Tags
-  mountTagEditor(id, npc.tags || [], '/api/npcs');
+  mountTagEditor(id, npc.tags || [], '/api/npcs', '#tags-anchor');
+  setupConnectionsPanel(npc, linkedSessionDetails, linkedEncounterDetails);
 
   // Link buttons
   document.getElementById('btn-edit').addEventListener('click', () => {
     location.href = `/npc/edit/${id}`;
   });
   document.getElementById('btn-delete').addEventListener('click', () => deleteNpc(id));
+
+  document.getElementById('btn-export').addEventListener('click', () => {
+    ExportDialog.open({
+      title: 'Export NPC',
+      loadFiles: async () => {
+        const res = await fetch('/api/npcs/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(npc),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Generation failed');
+        return [{ filename: result.filename, type: 'npc', markdown: result.markdown, pdf: result.pdf }];
+      },
+    });
+  });
+
+  document.getElementById('btn-export-connections').addEventListener('click', () => {
+    ExportDialog.open({
+      title: 'Export NPC with Connections',
+      loadFiles: async () => {
+        const files = [];
+
+        const npcRes = await fetch('/api/npcs/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(npc),
+        });
+        const npcResult = await npcRes.json();
+        if (!npcRes.ok) throw new Error(npcResult.error || 'Generation failed');
+        files.push({ filename: npcResult.filename, type: 'npc', markdown: npcResult.markdown, pdf: npcResult.pdf });
+
+        const sessionJobs = (linkedSessionDetails || [])
+          .filter(s => s.exists !== false)
+          .map(async sess => {
+            const sessRes = await fetch(`/api/sessions/${encodeURIComponent(sess.id)}`);
+            if (!sessRes.ok) return null;
+            const sessData = await sessRes.json();
+            const genRes = await fetch('/api/sessions/preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sessData.data),
+            });
+            const genResult = await genRes.json();
+            if (!genRes.ok) return null;
+            return { filename: genResult.filename, type: 'session', markdown: genResult.markdown, pdf: genResult.pdf };
+          });
+
+        const encounterJobs = (linkedEncounterDetails || [])
+          .filter(e => e.exists !== false)
+          .map(async enc => {
+            const encRes = await fetch(`/api/encounters/${encodeURIComponent(enc.id)}`);
+            if (!encRes.ok) return null;
+            const encData = await encRes.json();
+            const genRes = await fetch('/api/encounters/preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(encData.data),
+            });
+            const genResult = await genRes.json();
+            if (!genRes.ok) return null;
+            return { filename: genResult.filename, type: 'encounter', markdown: genResult.markdown, pdf: genResult.pdf };
+          });
+
+        const [sessResults, encResults] = await Promise.all([
+          Promise.allSettled(sessionJobs),
+          Promise.allSettled(encounterJobs),
+        ]);
+
+        sessResults.forEach(r => { if (r.status === 'fulfilled' && r.value) files.push(r.value); });
+        encResults.forEach(r => { if (r.status === 'fulfilled' && r.value) files.push(r.value); });
+
+        return files;
+      },
+    });
+  });
 })();
 
-function buildHTML(npc) {
+function buildHTML(npc, linkedSessionDetails = []) {
   const parts = [];
 
   // ─── Header ────────────────────────────────────────────────────────────────
@@ -126,20 +218,6 @@ function buildHTML(npc) {
     </div>`);
   }
 
-  // ─── Linked Plans ────────────────────────────────────────────────────────────
-  const hasLinks = (npc.linkedSessions && npc.linkedSessions.length) ||
-                   (npc.linkedEncounters && npc.linkedEncounters.length);
-  if (hasLinks) {
-    const sessionLinks = (npc.linkedSessions || []).map(id =>
-      `<a href="/view/${esc(id)}" class="npc-link-chip">Session ${esc(id)}</a>`).join('');
-    const encLinks = (npc.linkedEncounters || []).map(id =>
-      `<a href="/encounter/view/${esc(id)}" class="npc-link-chip">Encounter ${esc(id)}</a>`).join('');
-    parts.push(`<div class="npc-view-section" id="npc-section-links">
-      <div class="npc-view-section-label">Linked Plans</div>
-      <div class="npc-link-chips">${sessionLinks}${encLinks}</div>
-    </div>`);
-  }
-
   return `<div class="npc-view-body">${parts.join('\n')}</div>`;
 }
 
@@ -153,7 +231,6 @@ function buildToc() {
     ['npc-section-core',       'Core'],
     ['npc-section-skills',     'Skill Triggers'],
     ['npc-section-carrying',   'Carrying'],
-    ['npc-section-links',      'Linked Plans'],
   ];
   const links = sections
     .filter(([id]) => document.getElementById(id))
@@ -175,6 +252,40 @@ function mountTagEditor(id, initialTags, apiBase) {
     },
   });
 }
+
+function setupConnectionsPanel(npc, linkedSessionDetails, linkedEncounterDetails) {
+  const btn = document.getElementById('btn-connections');
+  if (!btn || !window.RecordConnectionsPanel) return;
+  btn.addEventListener('click', () => {
+    window.RecordConnectionsPanel.open({
+      title: `${npc.name} Connections`,
+      subtitle: 'All sessions and encounter plans currently linked to this NPC.',
+      sections: [
+        {
+          title: 'Linked Sessions',
+          empty: 'No linked sessions yet.',
+          items: (linkedSessionDetails || []).map(session => ({
+            label: session.sessionNumber ? `Session ${String(session.sessionNumber).padStart(3, '0')}` : session.id,
+            meta: `${session.goal || session.id}${session.exists ? '' : ' · missing session'}`,
+            url: `/view/${session.id}`,
+            exists: session.exists,
+          })),
+        },
+        {
+          title: 'Linked Encounter Plans',
+          empty: 'No linked encounter plans yet.',
+          items: (linkedEncounterDetails || []).map(encounter => ({
+            label: encounter.name || encounter.id,
+            meta: `${encounter.id}${encounter.fiction ? ` · ${encounter.fiction.slice(0, 72)}` : ''}${encounter.exists ? '' : ' · missing plan'}`,
+            url: `/encounter/view/${encounter.id}`,
+            exists: encounter.exists,
+          })),
+        },
+      ],
+    });
+  });
+}
+
 
 async function deleteNpc(id) {
   const ok = await showConfirm('Delete this NPC? This cannot be undone.', {

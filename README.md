@@ -1,15 +1,16 @@
 # D&D Session Master
 
-A local web and desktop app for planning D&D sessions. Fill out a structured form and generate a clean print-ready PDF + Markdown file for each session.
+A local web and desktop app for planning D&D sessions. Fill out structured forms and generate clean, print-ready PDF + Markdown files for sessions, encounters, and NPCs.
 
 ## Requirements
 
 - Node.js 18 or later
 - npm
+
 ## Install
 
 ```bash
-cd dnd-session-master
+cd dnd-plan-master
 npm install
 ```
 
@@ -61,12 +62,10 @@ Notes:
 - `npm run build:desktop` creates an unpacked app bundle for local smoke testing.
 - `npm run dist` creates installable/release artifacts in `dist/`.
 - Current configured outputs are:
-- macOS: `.dmg` and `.zip`
-- Windows: `NSIS` installer `.exe` and portable `.exe`
+  - macOS: `.dmg` and `.zip`
+  - Windows: `NSIS` installer `.exe` and portable `.exe`
 
 ## Release Workflow
-
-Recommended release workflow:
 
 1. Run `npm install`
 2. Run `npm run start:desktop` and smoke test create/view/export flows
@@ -78,75 +77,111 @@ Practical notes:
 - Build mac releases on a Mac.
 - Build Windows releases on Windows.
 - Unsigned builds are fine for local use, but macOS Gatekeeper and Windows SmartScreen may warn when distributing to other machines.
-- Adding an app icon and code signing should be the next distribution polish step when you are ready.
 
 ## Usage
 
 | Page | URL | Description |
 |------|-----|-------------|
-| Sessions Index | `localhost:3000` | Lists all saved sessions. Click any row to view it. |
-| New Session | `localhost:3000/form` | The planning form. |
-| View Session | `localhost:3000/view/:id` | Renders the session as formatted markdown. |
+| Sessions | `localhost:3000` | Lists all saved sessions. Click any row to view. |
+| New Session | `localhost:3000/form` | Session planning form (9 sections). |
+| View Session | `localhost:3000/view/:id` | Renders session as formatted markdown. Shows linked encounters and NPCs. |
+| Encounters | `localhost:3000/encounters` | Lists all encounter plans. |
+| New Encounter | `localhost:3000/encounter/new` | 8-step encounter design form. |
+| View Encounter | `localhost:3000/encounter/view/:id` | Renders encounter plan. |
+| NPCs | `localhost:3000/npcs` | NPC database — browse, search, and manage all NPCs. |
+| New NPC | `localhost:3000/npc/new` | Full NPC creation form (identity, voice, skills, inventory). |
+| View NPC | `localhost:3000/npc/view/:id` | NPC profile with hover-preview support. |
+| Campaign | `localhost:3000/campaign` | Campaign-level overview and continuity tracking. |
+| Settings | `localhost:3000/settings` | Party roster, theme, autosave, export/import, and backups. |
 
 ### Creating a session
 
 1. Go to `localhost:3000/form`
-2. Fill in the sections (Session Info, Goal, Beats, NPCs, Locations, etc.)
-3. Click **Generate & Save Files**
-4. A native folder picker opens — choose where to save the files
-5. Two files are written to your chosen folder:
-   - `session-001.md` — well-structured markdown for reference
-   - `session-001.pdf` — compact 1–2 page print-ready reference sheet
+2. Fill in the sections (Session Info, Goal & Hook, Beats, Continuity, NPCs, Locations, Faction Clocks, Combat, Notes)
+3. In the NPCs section, select any existing NPCs from the database to link them to the session
+4. Click **Preview Session**
+5. Review the PDF and Markdown preview, then choose **Save to App** or **Save + Export Files**
 
-Session data is stored locally. In web mode it uses the repo `data/` folder; in desktop mode it uses the OS app-data directory for the app.
+Session data is stored locally. In web mode it uses the repo `data/` folder; in desktop mode it uses the OS app-data directory.
 
-### File picker note
+### Theme and scale persistence
 
-The folder picker is handled locally by the app server in web mode and by Electron in desktop mode.
+Theme (dark/light) and UI scale are saved server-side and restored across Electron restarts — they do not depend on localStorage or port number.
 
 ## Project Structure
 
 ```
-dnd-session-master/
+dnd-plan-master/
 ├── src/
-│   ├── app.js                    # Web server launcher
-│   ├── createApp.js              # Shared Express app factory
-│   ├── server.js                 # Shared server bootstrap
+│   ├── app.js                          # Web server launcher
+│   ├── createApp.js                    # Shared Express app factory
+│   ├── server.js                       # Shared server bootstrap
 │   ├── routes/
-│   │   ├── sessions.js           # Session API routes
-│   │   ├── encounters.js         # Encounter API routes
-│   │   └── settings.js           # Settings API routes
+│   │   ├── sessions.js                 # Session CRUD + linked-npcs, links, export-packet
+│   │   ├── encounters.js               # Encounter CRUD + session linking
+│   │   ├── npcs.js                     # NPC CRUD
+│   │   └── settings.js                 # Settings read/write
 │   ├── services/
-│   │   ├── appPaths.js           # Web vs Electron path handling
-│   │   ├── sessionStore.js       # Session JSON store
-│   │   ├── encounterStore.js     # Encounter JSON store
-│   │   ├── markdownGenerator.js  # Session markdown rendering
+│   │   ├── appPaths.js                 # Web vs Electron data path resolution
+│   │   ├── sessionStore.js             # Session JSON store
+│   │   ├── encounterStore.js           # Encounter JSON store
+│   │   ├── npcStore.js                 # NPC JSON store
+│   │   ├── settingsStore.js            # Settings JSON store
+│   │   ├── planRelations.js            # Session ↔ encounter link index
+│   │   ├── markdownGenerator.js        # Session markdown rendering
 │   │   ├── encounterMarkdownGenerator.js
-│   │   ├── pdfGenerator.js       # Runtime-aware PDF generation
-│   │   └── electronPdfGenerator.js
+│   │   ├── pdfGenerator.js             # Runtime-aware PDF generation
+│   │   ├── electronPdfGenerator.js
+│   │   ├── folderPicker.js             # Native folder picker (web + Electron)
+│   │   ├── backupScheduler.js          # Scheduled backup snapshots
+│   │   ├── backupStore.js              # Backup read/write/restore
+│   │   └── templateLibrary.js          # Template storage (internal, UI removed)
 │   └── templates/
 │       ├── pdfTemplate.js
 │       └── encounterPdfTemplate.js
 ├── electron/
-│   └── main.js                   # Electron desktop entrypoint
+│   └── main.js                         # Electron desktop entrypoint
 ├── public/
-│   ├── index.html                # Sessions index page
-│   ├── form.html                 # New session form
-│   ├── view.html                 # Session viewer
-│   ├── fonts/                    # Bundled local fonts
+│   ├── index.html                      # Sessions index
+│   ├── form.html                       # Session form
+│   ├── view.html                       # Session viewer
+│   ├── encounters.html                 # Encounters index
+│   ├── encounter-form.html             # Encounter form
+│   ├── encounter-view.html             # Encounter viewer
+│   ├── npcs.html                       # NPC index
+│   ├── npc-form.html                   # NPC form
+│   ├── npc-view.html                   # NPC viewer
+│   ├── campaign.html                   # Campaign overview
+│   ├── settings.html                   # Settings page
+│   ├── fonts/                          # Bundled local fonts
 │   ├── css/style.css
 │   └── js/
-│       ├── form.js
-│       ├── encounter-form.js
-│       ├── index.js
-│       ├── encounters.js
-│       ├── view.js
-│       ├── encounter-view.js
-│       ├── search.js
-│       └── tags.js
+│       ├── form.js                     # Session form logic
+│       ├── view.js                     # Session viewer (linked encounters + NPCs)
+│       ├── encounter-form.js           # Encounter form logic
+│       ├── encounter-view.js           # Encounter viewer
+│       ├── npc-form.js                 # NPC form logic
+│       ├── npc-view.js                 # NPC viewer
+│       ├── npcs.js                     # NPC index page
+│       ├── encounters.js               # Encounters index page
+│       ├── index.js                    # Sessions index page
+│       ├── settings.js                 # Settings page
+│       ├── context-menu.js             # Right-click / ⋮ context menu (all list pages)
+│       ├── hover-preview.js            # Hover card previews for sessions, encounters, NPCs
+│       ├── form-utils.js               # Auto-resize textareas, section TOC, char counts
+│       ├── search.js                   # Search and filter logic
+│       ├── tags.js                     # TagInput widget + escHtml
+│       ├── dialog.js                   # Confirm/alert modal
+│       ├── nav.js                      # Create-new dropdown nav
+│       ├── shortcuts.js                # Keyboard shortcuts
+│       └── theme.js                    # Synchronous theme + scale restore before paint
 ├── data/
-│   ├── seed.json
-│   └── encounters.seed.json
+│   ├── seed.json                       # Default session seed data
+│   ├── sessions.json                   # Live session store
+│   ├── encounters.seed.json
+│   ├── encounters.json                 # Live encounter store
+│   ├── npcs.seed.json
+│   └── npcs.json                       # Live NPC store
 └── package.json
 ```
 
@@ -160,68 +195,32 @@ The PDF uses a two-column, print-optimized layout:
 
 Designed for Letter paper at ~8.2pt font — fits 1–2 pages for a fully-populated session.
 
-## Future Improvements
+## Feature Status
 
-The app already covers the core planning loop well: create, save, export, and revisit. The biggest remaining opportunities are around live session support, continuity tracking, and faster retrieval as a campaign grows.
+- [x] Session planning (9-section structured form)
+- [x] Encounter planning (8-step design framework)
+- [x] NPC database — full CRUD with identity, voice, skills, and inventory
+- [x] Link encounters to sessions both ways
+- [x] Link NPCs to sessions
+- [x] Hover-preview cards for sessions, encounters, and NPCs in list views
+- [x] Campaign continuity fields (recap, world-state, threads, NPC status, treasure log)
+- [x] Right-click context menu with select mode and bulk operations
+- [x] Autosave and draft recovery
+- [x] Theme (dark/light) and UI scale — persisted across Electron restarts
+- [x] Settings: party roster, autosave toggle, export/import, backup snapshots
+- [x] One-click session packet export (session + all linked encounter PDFs)
+- [ ] View keybindings by pressing '?'
+- [ ] Running-the-session mode (collapsible sections, initiative tracker, beats tracker)
+- [ ] Global search across sessions, encounters, NPCs, tags, and locations
+- [ ] NPC/location/faction relationship graph
+- [ ] Multi-campaign support
+- [ ] Per-campaign settings
+- [ ] Campaign export/import
+- [ ] Tabs/windows support
+- [ ] Locations (new page, forms, etc). Can link with sessions/encounters/NPCs
+- [ ] Entity connections map/visualizing/searching/etc.
 
-High-value additions to consider next:
-
-- [x] 1. Session prep from reusable building blocks
-  - [x] Reusable NPC library
-  - [x] Reusable location library
-  - [x] Reusable faction/clock templates
-  - [x] Reusable encounter templates
-
-- [ ] 2. Better cross-linking between plans
-  - [x] Link encounters to sessions both ways
-  - [ ] Link NPCs, locations, and factions across sessions
-  - [x] Show where an entity or plan has been used before
-
-- [x] 3. Campaign timeline and continuity tracking
-  - [x] Session recap field
-  - [x] World-state changes
-  - [x] Unresolved threads
-  - [x] NPC status changes
-  - [x] Treasure and rewards log
-
-- [ ] 4. Running-the-session mode
-  - [ ] Collapsible sections
-  - [ ] Pin important notes
-  - [ ] Initiative scratchpad
-  - [ ] Live checklist or beats tracker
-  - [ ] Reveal-only-what-I-need presentation
-
-- [ ] 5. Search and filtering depth
-  - [ ] Global search across sessions, encounters, tags, NPC names, and locations
-  - [ ] Filters by arc, date, level, faction, or unresolved status
-  - [ ] Saved searches or quick filters
-
-- [ ] 6. Relationships and campaign graph
-  - [ ] NPC to faction, session, location, and encounter links
-  - [ ] Relationship notes between entities
-
-- [ ] 7. Stronger export and print support
-  - [x] One-click session packet export
-  - [x] Combined export of a session and its linked encounters
-  - [ ] Print-friendly DM table mode
-
-- [x] 8. Autosave and draft recovery
-  - [x] Save unfinished forms automatically
-  - [x] Restore drafts after a restart or crash
-  - [x] Optional toggle in settings
-
-- [x] 9. Better settings and backup safety
-  - [x] Safer backup and restore workflows
-  - [x] Import preview with duplicate handling
-  - [x] Restorable backup snapshots
-  - [x] Scheduled backup snapshots
-
-- [ ] 10. Campaign-level structure
-  - [ ] Multiple campaigns
-  - [ ] Separate data per campaign
-  - [ ] Campaign-specific NPCs, party, and settings
-
-- [ ] 11. Keyboard shortcuts and faster navigation
-  - [ ] Shortcuts for creating plans, saving drafts, opening search, and jumping between sections
-
-Compared with other campaign planning tools, the biggest remaining gaps are multi-campaign organization, entity databases instead of only document-style plans, timeline/history views, stronger live-play tooling, and player-knowledge versus DM-knowledge separation.
+## Known Bugs and Improvements
+- Buttons in settings page look greyed out even though they aren't
+- Save settings button in settings page should be easier to see. Do we even need this? Can we not just apply/save changes as soon as they are made?
+- Verify campaign page working & integrations with other functionality

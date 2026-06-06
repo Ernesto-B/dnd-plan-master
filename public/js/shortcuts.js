@@ -129,6 +129,81 @@
     return document.querySelector('#btn-save:not([disabled]), #btn-submit:not([disabled])');
   }
 
+  function escHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildHelpModal() {
+    if (document.getElementById('shortcuts-help-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'shortcuts-help-overlay';
+    overlay.className = 'shortcut-modal-overlay shortcut-help-overlay hidden';
+    overlay.innerHTML = `
+      <div class="shortcut-modal-box shortcut-help-box" role="dialog" aria-modal="true" aria-labelledby="shortcut-help-title">
+        <div class="shortcut-modal-head">
+          <div>
+            <h3 id="shortcut-help-title" class="shortcut-modal-title">Keyboard Shortcuts</h3>
+            <p class="shortcut-modal-subtitle">Press ? from anywhere to open this panel. Press Esc to close.</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="btn-close-shortcuts-help">✕ Close</button>
+        </div>
+        <div class="shortcut-help-intro">
+          <span class="shortcut-help-badge">Live bindings</span>
+          <p>These are the current app shortcuts. Custom bindings saved in Settings are shown here automatically.</p>
+        </div>
+        <div id="shortcut-help-list" class="shortcut-help-list"></div>
+        <div class="shortcut-help-footer">
+          <a class="btn btn-primary" href="/settings#settings-appearance">Open Settings</a>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) closeHelpModal();
+    });
+    overlay.querySelector('#btn-close-shortcuts-help').addEventListener('click', closeHelpModal);
+  }
+
+  function renderHelpModal() {
+    const list = document.getElementById('shortcut-help-list');
+    if (!list) return;
+
+    const shortcuts = loadStoredShortcuts();
+    list.innerHTML = DEFINITIONS.map(def => {
+      const combo = shortcuts[def.action] || def.defaultCombo || '';
+      return `
+        <div class="shortcut-help-row">
+          <div class="shortcut-help-meta">
+            <div class="shortcut-help-label">${escHtml(def.label)}</div>
+            <div class="shortcut-help-desc">${escHtml(def.description)}</div>
+          </div>
+          <div class="shortcut-help-key">${escHtml(combo)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openHelpModal() {
+    buildHelpModal();
+    renderHelpModal();
+    const overlay = document.getElementById('shortcuts-help-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    const closeBtn = document.getElementById('btn-close-shortcuts-help');
+    closeBtn?.focus();
+  }
+
+  function closeHelpModal() {
+    const overlay = document.getElementById('shortcuts-help-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+  }
+
   function handleShortcutAction(action) {
     const routes = {
       newSession: '/form',
@@ -164,6 +239,11 @@
     return false;
   }
 
+  function isHelpShortcut(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+    return event.key === '?' || (event.shiftKey && event.code === 'Slash' && (event.key === '/' || event.key === '?'));
+  }
+
   function installRuntime() {
     let shortcuts = loadStoredShortcuts();
 
@@ -177,6 +257,8 @@
       shortcuts = loadStoredShortcuts();
     });
 
+    buildHelpModal();
+
     fetch('/api/settings')
       .then(res => res.ok ? res.json() : null)
       .then(settings => {
@@ -188,7 +270,24 @@
 
     document.addEventListener('keydown', event => {
       if (event.defaultPrevented || event.repeat) return;
+      if (isHelpShortcut(event)) {
+        if (isEditableTarget(event.target)) return;
+        if (document.querySelector('#shortcut-modal-overlay:not(.hidden)')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (document.getElementById('shortcuts-help-overlay')?.classList.contains('hidden')) openHelpModal();
+        else closeHelpModal();
+        return;
+      }
       if (document.querySelector('#shortcut-modal-overlay:not(.hidden)')) return;
+      if (document.querySelector('#shortcuts-help-overlay:not(.hidden)')) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          closeHelpModal();
+        }
+        return;
+      }
 
       const combo = eventToCombo(event);
       if (!combo) return;
@@ -213,6 +312,8 @@
     eventToCombo,
     loadStoredShortcuts,
     saveStoredShortcuts,
+    openHelp: openHelpModal,
+    closeHelp: closeHelpModal,
   };
 
   installRuntime();

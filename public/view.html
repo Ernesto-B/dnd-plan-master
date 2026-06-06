@@ -27,20 +27,42 @@
   </div>
 </nav>
 
-<div class="view-wrap">
-  <div class="view-main">
-    <div class="view-actions">
-      <a href="/" class="back-link">← All Sessions</a>
-      <button class="btn btn-ghost" id="btn-edit">Edit Session</button>
-      <button class="btn btn-ghost" id="btn-export-packet">Export Packet</button>
-      <button class="btn btn-ghost" id="btn-export">Export Again</button>
-      <button class="btn btn-danger" id="btn-delete">Delete</button>
-    </div>
+<div class="view-layout">
+  <aside class="view-sidebar">
+    <a href="/" class="sidebar-btn sidebar-back" data-tooltip="Return to the main sessions list.">← All Sessions</a>
+    <button class="sidebar-btn sidebar-primary" id="btn-run" data-tooltip="Open the streamlined live session runner for table use.">▶ Run Session</button>
+    <div class="sidebar-sep"></div>
+    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this session in the editor to change prep, continuity, or links.">Edit Session</button>
+    <button class="sidebar-btn" id="btn-dm-table" data-tooltip="Open a condensed table-facing version of this session for live play or printing.">DM Table</button>
+    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked NPC and encounter for this session in one clickable panel.">View All Connections</button>
+    <div class="sidebar-sep"></div>
+    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this session as Markdown and/or PDF files.">Export</button>
+    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this session plus all linked encounters and NPCs as separate files.">Export with Connections</button>
+    <div class="sidebar-spacer"></div>
+    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this session from the app.">Delete</button>
+  </aside>
+
+  <main class="view-main">
+    <div id="tags-anchor"></div>
     <div id="content">
       <div class="empty-state"><p>Loading session…</p></div>
     </div>
+  </main>
+</div>
+
+<aside id="toc-nav" class="toc-nav"></aside>
+
+<!-- DM Table Modal (slide-up sheet) -->
+<div id="dm-modal" class="dm-modal" hidden aria-modal="true" role="dialog">
+  <div class="dm-modal-backdrop" id="dm-modal-backdrop"></div>
+  <div class="dm-modal-sheet">
+    <div class="dm-modal-bar">
+      <span class="dm-modal-label">DM Table</span>
+      <button class="btn btn-ghost" id="btn-dm-modal-print" style="font-size:12px;padding:4px 12px;">Print</button>
+      <button class="dm-modal-close" id="btn-dm-modal-close" aria-label="Close">×</button>
+    </div>
+    <div class="dm-modal-body" id="dm-modal-body"></div>
   </div>
-  <aside id="toc-nav" class="toc-nav"></aside>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -48,7 +70,11 @@
 <script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
 <script src="/js/shortcuts.js"></script>
+<script src="/js/connections-panel.js"></script>
+<script src="/js/export-dialog.js"></script>
 <script src="/js/view.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/tab-client.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

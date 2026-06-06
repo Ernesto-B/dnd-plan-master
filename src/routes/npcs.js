@@ -1,10 +1,53 @@
 const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
 const router  = express.Router();
 const npcStore = require('../services/npcStore');
+const sessionStore = require('../services/sessionStore');
+const encounterStore = require('../services/encounterStore');
+const markdownGenerator = require('../services/npcMarkdownGenerator');
+const pdfGenerator = require('../services/pdfGenerator');
+const pdfTemplate = require('../templates/npcPdfTemplate');
+const folderPicker = require('../services/folderPicker');
+
+function filename(id) {
+  return `npc-${String(id).replace(/^n-?/i, '')}`;
+}
 
 router.get('/', async (_req, res) => {
   try { res.json(await npcStore.getAllNpcs()); }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/linked-sessions', async (req, res) => {
+  try {
+    const npc = await npcStore.getNpc(req.params.id);
+    if (!npc) return res.status(404).json({ error: 'NPC not found' });
+    const ids = npc.linkedSessions || [];
+    const results = await Promise.all(ids.map(async sid => {
+      const s = await sessionStore.getSession(sid);
+      return { id: sid, sessionNumber: s?.sessionNumber, goal: s?.goal, date: s?.date, exists: !!s };
+    }));
+    res.json(results);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/linked-encounters', async (req, res) => {
+  try {
+    const npc = await npcStore.getNpc(req.params.id);
+    if (!npc) return res.status(404).json({ error: 'NPC not found' });
+    const ids = npc.linkedEncounters || [];
+    const results = await Promise.all(ids.map(async eid => {
+      const encounter = await encounterStore.getEncounter(eid);
+      return {
+        id: eid,
+        name: encounter?.name || eid,
+        fiction: encounter?.fiction || '',
+        exists: !!encounter,
+      };
+    }));
+    res.json(results);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/:id', async (req, res) => {
@@ -13,6 +56,32 @@ router.get('/:id', async (req, res) => {
     if (!npc) return res.status(404).json({ error: 'NPC not found' });
     res.json(npc);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/export', async (req, res) => {
+  try {
+    const data = req.body || {};
+    const markdown = markdownGenerator.generate(data);
+    const html = pdfTemplate.render(data);
+    const pdf = await pdfGenerator.generateFromHtml(html);
+    const id = data.id || 'new';
+    res.json({ filename: filename(id), markdown, pdf: pdf.toString('base64') });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/save-files', async (req, res) => {
+  try {
+    const { markdown, pdf, filename: fn } = req.body;
+    const folder = await folderPicker.pick();
+    if (!folder) return res.json({ cancelled: true });
+    await fs.writeFile(path.join(folder, `${fn}.md`), markdown, 'utf8');
+    await fs.writeFile(path.join(folder, `${fn}.pdf`), Buffer.from(pdf, 'base64'));
+    res.json({ success: true, path: folder });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post('/', async (req, res) => {

@@ -47,6 +47,7 @@ function renumberCards(listId, cardClass, prefix) {
 function makeNPCCard(n, d = {}) {
   const card = document.createElement('div');
   card.className = 'card npc-card';
+  if (d._sourceId) card.dataset.sourceNpcId = d._sourceId;
   card.innerHTML = `
     <div class="card-header">
       <span class="card-title">NPC ${n}</span>
@@ -331,6 +332,7 @@ function extractNPCCard(card) {
     bodyLanguage: card.querySelector('.npc-body-language')?.value.trim() ?? '',
     neverDoes:    card.querySelector('.npc-never-does')?.value.trim() ?? '',
     corneredLine: card.querySelector('.npc-cornered')?.value.trim() ?? '',
+    _sourceId:    card.dataset.sourceNpcId || undefined,
   };
 }
 
@@ -358,8 +360,7 @@ function extractClockCard(card) {
 const tagInput = new TagInput(document.getElementById('tag-input-container'));
 
 // ─── Wire up Add buttons ──────────────────────────────────────────────────────
-document.getElementById('btn-add-npc').addEventListener('click', () =>
-  addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc'));
+document.getElementById('btn-add-npc').addEventListener('click', () => openNpcPicker());
 
 document.getElementById('btn-add-location').addEventListener('click', () =>
   addCard('location', 'location-list', makeLocationCard, 'btn-add-location'));
@@ -394,7 +395,7 @@ function collectFormData() {
     treasureRewardsLog: v('treasureRewardsLog'),
     sessionNotes:       v('sessionNotes'),
     tags:               tagInput.getTags(),
-    linkedNpcs:         Array.from(document.getElementById('session-linked-npcs')?.selectedOptions || []).map(o => o.value),
+    linkedNpcs:         Array.from(document.querySelectorAll('.npc-card[data-source-npc-id]')).map(c => c.dataset.sourceNpcId).filter(Boolean),
     npcs:               collectNPCs(),
     locations:          collectLocations(),
     factionClocks:      collectClocks(),
@@ -528,13 +529,7 @@ function populateForm(data) {
   set('sessionNotes',  data.sessionNotes);
   if (data.tags) tagInput.setTags(data.tags);
 
-  const linkedSelect = document.getElementById('session-linked-npcs');
-  if (linkedSelect && data.linkedNpcs?.length) {
-    Array.from(linkedSelect.options).forEach(o => {
-      o.selected = data.linkedNpcs.includes(o.value);
-    });
-  }
-
+  // NPCs: _sourceId is stored inside each NPC's data and gets restored automatically via makeNPCCard
   (data.npcs || []).forEach(d => addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc', d));
   (data.locations || []).forEach(d => addCard('location', 'location-list', makeLocationCard, 'btn-add-location', d));
   (data.factionClocks || []).forEach(d => addCard('clock', 'clock-list', makeClockCard, 'btn-add-clock', d));
@@ -787,18 +782,146 @@ function buildSectionNav() {
   });
 }
 
-// ─── Linked NPC select ────────────────────────────────────────────────────────
-async function loadLinkedNpcOptions() {
-  const select = document.getElementById('session-linked-npcs');
-  if (!select) return;
+// ─── NPC Picker ───────────────────────────────────────────────────────────────
+let allNpcs = [];
+
+async function loadNpcDatabase() {
   try {
     const res = await fetch('/api/npcs');
     if (!res.ok) return;
-    const npcs = await res.json();
-    select.innerHTML = npcs.length
-      ? npcs.map(n => `<option value="${n.id}">${n.name}${n.nickname ? ` "${n.nickname}"` : ''}</option>`).join('')
-      : '<option disabled>No NPCs created yet</option>';
+    allNpcs = await res.json();
   } catch {}
+}
+
+function openNpcPicker() {
+  if (counts.npc >= MAX.npc) {
+    showToast(`Maximum ${MAX.npc} NPCs per session reached.`, 'error');
+    return;
+  }
+  let picker = document.getElementById('npc-picker');
+  if (!picker) picker = buildNpcPicker();
+  renderNpcPickerList('');
+  const btn = document.getElementById('btn-add-npc');
+  const rect = btn.getBoundingClientRect();
+  const vpH = window.innerHeight;
+  picker.style.left = `${Math.min(rect.left, window.innerWidth - 320)}px`;
+  picker.style.top  = rect.bottom + 8 + 300 < vpH
+    ? `${rect.bottom + 8}px`
+    : `${rect.top - 8 - picker.offsetHeight || rect.top - 316}px`;
+  picker.hidden = false;
+  picker.querySelector('.npc-picker-search').value = '';
+  picker.querySelector('.npc-picker-search').focus();
+}
+
+function buildNpcPicker() {
+  const picker = document.createElement('div');
+  picker.id = 'npc-picker';
+  picker.className = 'npc-picker-panel';
+  picker.hidden = true;
+  picker.innerHTML = `
+    <div class="npc-picker-head">
+      <span class="npc-picker-title">Add NPC</span>
+      <button type="button" class="npc-picker-x" id="npc-picker-close">×</button>
+    </div>
+    <button type="button" class="npc-picker-new-btn" id="npc-picker-new">
+      <span class="npc-picker-new-icon">＋</span>
+      <div>
+        <div class="npc-picker-new-label">New NPC</div>
+        <div class="npc-picker-new-sub">Start with a blank card</div>
+      </div>
+    </button>
+    <div class="npc-picker-or">— or import from your NPC database —</div>
+    <div class="npc-picker-search-wrap">
+      <input type="text" class="npc-picker-search" placeholder="Search by name…" autocomplete="off">
+    </div>
+    <div class="npc-picker-list" id="npc-picker-list"></div>
+  `;
+  document.body.appendChild(picker);
+
+  picker.querySelector('#npc-picker-close').addEventListener('click', closeNpcPicker);
+  picker.querySelector('#npc-picker-new').addEventListener('click', () => {
+    addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc');
+    closeNpcPicker();
+  });
+  picker.querySelector('.npc-picker-search').addEventListener('input', e => {
+    renderNpcPickerList(e.target.value.trim());
+  });
+
+  document.addEventListener('click', e => {
+    if (!picker.hidden && !picker.contains(e.target) && e.target.id !== 'btn-add-npc') closeNpcPicker();
+  }, true);
+  document.addEventListener('keydown', e => {
+    if (!picker.hidden && e.key === 'Escape') closeNpcPicker();
+  });
+  return picker;
+}
+
+function closeNpcPicker() {
+  const picker = document.getElementById('npc-picker');
+  if (picker) picker.hidden = true;
+}
+
+function renderNpcPickerList(query) {
+  const list = document.getElementById('npc-picker-list');
+  if (!list) return;
+  const q = query.toLowerCase();
+  const filtered = allNpcs.filter(n =>
+    !q ||
+    (n.name || '').toLowerCase().includes(q) ||
+    (n.nickname || '').toLowerCase().includes(q) ||
+    (n.situation || '').toLowerCase().includes(q)
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = `<p class="npc-picker-empty">${
+      allNpcs.length
+        ? 'No NPCs match your search.'
+        : 'No NPCs in your database yet.<br><a href="/npc/new" target="_blank">Create one on the NPCs page →</a>'
+    }</p>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(n => `
+    <button type="button" class="npc-picker-item" data-npc-id="${h(n.id)}">
+      <span class="npc-picker-item-name">${h(n.name)}${n.nickname ? ` <em class="npc-picker-item-nick">"${h(n.nickname)}"</em>` : ''}</span>
+      ${n.situation ? `<span class="npc-picker-item-sub">${h(n.situation.slice(0, 80))}${n.situation.length > 80 ? '…' : ''}</span>` : ''}
+    </button>
+  `).join('');
+
+  list.querySelectorAll('.npc-picker-item').forEach(btn => {
+    btn.addEventListener('click', () => importNpcFromDb(btn.dataset.npcId));
+  });
+}
+
+async function importNpcFromDb(npcId) {
+  // Prevent duplicate
+  if (document.querySelector(`.npc-card[data-source-npc-id="${npcId}"]`)) {
+    showToast('That NPC is already in this session.', 'error');
+    return;
+  }
+  try {
+    const res = await fetch(`/api/npcs/${encodeURIComponent(npcId)}`);
+    if (!res.ok) throw new Error('NPC not found');
+    const npc = await res.json();
+
+    // Map NPC database fields → session card fields
+    const d = {
+      _sourceId:    npc.id,
+      name:         npc.name || '',
+      faction:      '',
+      situation:    npc.situation || '',
+      wants:        npc.wantsNeeds || '',
+      phrases:      npc.commonPhrase || '',
+      bodyLanguage: npc.appearance || '',
+      neverDoes:    npc.secretObstacle || '',
+      corneredLine: '',
+    };
+    addCard('npc', 'npc-list', makeNPCCard, 'btn-add-npc', d);
+    closeNpcPicker();
+    showToast(`${npc.name} added to session.`, 'success');
+  } catch (err) {
+    showToast('Could not import NPC: ' + err.message, 'error');
+  }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -812,7 +935,7 @@ async function initFormPage() {
     }
   } catch {}
 
-  await loadLinkedNpcOptions();
+  await loadNpcDatabase();
   await initEditMode();
   buildSectionNav();
   await restoreDraftIfAvailable();

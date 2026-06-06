@@ -5,6 +5,7 @@ const router    = express.Router();
 
 const encounterStore   = require('../services/encounterStore');
 const sessionStore     = require('../services/sessionStore');
+const npcStore         = require('../services/npcStore');
 const mdGen            = require('../services/encounterMarkdownGenerator');
 const pdfGen           = require('../services/pdfGenerator');
 const pdfTemplate      = require('../templates/encounterPdfTemplate');
@@ -62,6 +63,23 @@ router.get('/', async (_req, res) => {
 router.get('/:id/links', async (req, res) => {
   try {
     res.json(await planRelations.getEncounterLinks(req.params.id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:id/linked-npcs', async (req, res) => {
+  try {
+    const npcs = await npcStore.getAllNpcs();
+    const linked = npcs
+      .filter(npc => Array.isArray(npc.linkedEncounters) && npc.linkedEncounters.includes(req.params.id))
+      .map(npc => ({
+        id: npc.id,
+        name: npc.name,
+        nickname: npc.nickname || '',
+        exists: true,
+      }));
+    res.json(linked);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

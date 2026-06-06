@@ -1,10 +1,12 @@
 const express = require('express');
 const path = require('path');
 
-const sessionsRouter = require('./routes/sessions');
+const sessionsRouter  = require('./routes/sessions');
 const encountersRouter = require('./routes/encounters');
-const settingsRouter = require('./routes/settings');
-const npcsRouter = require('./routes/npcs');
+const settingsRouter  = require('./routes/settings');
+const npcsRouter      = require('./routes/npcs');
+const searchRouter    = require('./routes/search');
+const exportRouter    = require('./routes/export');
 
 function createApp() {
   const app = express();
@@ -19,6 +21,8 @@ function createApp() {
   app.use('/api/encounters', encountersRouter);
   app.use('/api/settings', settingsRouter);
   app.use('/api/npcs', npcsRouter);
+  app.use('/api/search', searchRouter);
+  app.use('/api/export', exportRouter);
 
   const pub = p => path.join(__dirname, '..', 'public', p);
 
@@ -34,6 +38,8 @@ function createApp() {
   app.get('/npc/view/:id', (_req, res) => res.sendFile(pub('npc-view.html')));
   app.get('/campaign', (_req, res) => res.sendFile(pub('campaign.html')));
   app.get('/settings', (_req, res) => res.sendFile(pub('settings.html')));
+  app.get('/run/:id',  (_req, res) => res.sendFile(pub('run.html')));
+  app.get('/shell',    (_req, res) => res.sendFile(pub('shell.html')));
 
   return app;
 }

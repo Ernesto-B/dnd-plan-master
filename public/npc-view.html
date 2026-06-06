@@ -26,26 +26,37 @@
   </div>
 </nav>
 
-<div class="view-wrap">
-  <div class="view-main">
-    <div class="view-actions">
-      <a href="/npcs" class="back-link">← All NPCs</a>
-      <button class="btn btn-ghost" id="btn-edit">Edit NPC</button>
-      <button class="btn btn-danger" id="btn-delete">Delete</button>
-    </div>
+<div class="view-layout">
+  <aside class="view-sidebar">
+    <a href="/npcs" class="sidebar-btn sidebar-back" data-tooltip="Return to the main NPC list.">← All NPCs</a>
+    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this NPC in the editor to change their current state, links, or notes.">Edit NPC</button>
+    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session and encounter for this NPC in one clickable panel.">View All Connections</button>
+    <div class="sidebar-sep"></div>
+    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this NPC as Markdown and/or PDF files.">Export</button>
+    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this NPC plus all linked sessions and encounters as separate files.">Export with Connections</button>
+    <div class="sidebar-spacer"></div>
+    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this NPC from the app.">Delete</button>
+  </aside>
+
+  <main class="view-main">
+    <div id="tags-anchor"></div>
     <div id="npc-content">
       <div class="empty-state"><p>Loading NPC…</p></div>
     </div>
-  </div>
-  <aside id="toc-nav" class="toc-nav"></aside>
+  </main>
 </div>
+<aside id="toc-nav" class="toc-nav"></aside>
 
 <div id="toast" class="toast"></div>
 
 <script src="/js/dialog.js"></script>
 <script src="/js/tags.js"></script>
 <script src="/js/shortcuts.js"></script>
+<script src="/js/connections-panel.js"></script>
+<script src="/js/export-dialog.js"></script>
 <script src="/js/npc-view.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/tab-client.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

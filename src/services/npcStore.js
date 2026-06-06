@@ -130,4 +130,31 @@ async function importNpcs(incoming) {
   return count;
 }
 
-module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs };
+async function syncSessionLinks(sessionId, newNpcIds, oldNpcIds) {
+  const toAdd    = newNpcIds.filter(id => !oldNpcIds.includes(id));
+  const toRemove = oldNpcIds.filter(id => !newNpcIds.includes(id));
+  if (!toAdd.length && !toRemove.length) return;
+
+  const store = await readStore();
+  let changed = false;
+
+  for (const npc of store.npcs) {
+    if (toAdd.includes(npc.id)) {
+      if (!npc.linkedSessions) npc.linkedSessions = [];
+      if (!npc.linkedSessions.includes(sessionId)) {
+        npc.linkedSessions.push(sessionId);
+        changed = true;
+      }
+    }
+    if (toRemove.includes(npc.id)) {
+      if (!npc.linkedSessions) continue;
+      const before = npc.linkedSessions.length;
+      npc.linkedSessions = npc.linkedSessions.filter(s => s !== sessionId);
+      if (npc.linkedSessions.length !== before) changed = true;
+    }
+  }
+
+  if (changed) await writeStore(store);
+}
+
+module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks };
