@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location — D&D Session Master</title>
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="nav-sep"></span>
+  <a href="/sessions" class="nav-link">Sessions</a>
+  <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link nav-link-active">Locations</a>
+  <a href="/settings" class="nav-link">Settings</a>
+  <div class="nav-create-wrap">
+    <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
+    <div class="create-dropdown">
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
+      <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
+    </div>
+  </div>
+</nav>
+
+<div class="view-layout">
+  <aside class="view-sidebar">
+    <a href="/locations" class="sidebar-btn sidebar-back" data-tooltip="Return to the main Locations list." data-icon="back">All Locations</a>
+    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this location in the editor to change its details, districts, or links." data-icon="edit">Edit Location</button>
+    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session for this location in one clickable panel." data-icon="connections">View All Connections</button>
+    <div class="sidebar-sep"></div>
+    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this location as Markdown and/or PDF files." data-icon="export">Export</button>
+    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this location plus all linked sessions as separate files." data-icon="export">Export with Connections</button>
+    <div class="sidebar-spacer"></div>
+    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this location from the app." data-icon="delete">Delete</button>
+  </aside>
+
+  <main class="view-main">
+    <div id="tags-anchor"></div>
+    <div id="location-content">
+      <div class="empty-state"><p>Loading Location…</p></div>
+    </div>
+  </main>
+</div>
+<aside id="toc-nav" class="toc-nav"></aside>
+
+<div id="toast" class="toast"></div>
+
+<script src="/js/dialog.js"></script>
+<script src="/js/tags.js"></script>
+<script src="/js/shortcuts.js"></script>
+<script src="/js/connections-panel.js"></script>
+<script src="/js/export-dialog.js"></script>
+<script src="/js/location-view.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
+<script src="/js/nav.js"></script>
+</body>
+</html>

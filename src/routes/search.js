@@ -3,7 +3,9 @@ const router        = express.Router();
 const sessionStore  = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
 const npcStore      = require('../services/npcStore');
+const locationStore = require('../services/locationStore');
 const entityConnections = require('../services/entityConnections');
+const campaignStore = require('../services/campaignStore');
 
 // Simple scoring: 3=exact, 2=starts-with, 1=includes, 0=no match
 function matchScore(field, q) {
@@ -22,8 +24,18 @@ function best(fields, q) {
 
 // Parse sigil prefix: "npc: foo" → { type: 'npc', q: 'foo' }
 function parseQuery(raw) {
-  const m = raw.match(/^(npc|session|enc|encounter|tag):\s*(.*)/i);
-  if (m) return { type: m[1].toLowerCase().replace('encounter', 'enc'), q: m[2].trim() };
+  const m = raw.match(/^(npc|session|sessions|sess|enc|encounter|encounters|loc|location|locations|tag):\s*(.*)/i);
+  if (m) {
+    const prefix = m[1].toLowerCase();
+    const type = prefix.startsWith('enc')
+      ? 'enc'
+      : prefix.startsWith('loc')
+        ? 'location'
+        : prefix.startsWith('sess')
+          ? 'session'
+          : prefix;
+    return { type, q: m[2].trim() };
+  }
   return { type: null, q: raw.trim() };
 }
 
@@ -88,6 +100,24 @@ router.get('/', async (req, res) => {
       }
     }
 
+    if (!type || type === 'location') {
+      const campaignId = await campaignStore.getActiveCampaignId();
+      const locations = await locationStore.getAllLocations(campaignId);
+      for (const l of locations) {
+        const sc = q
+          ? best([l.name, l.description, l.government, (l.tags || []).join(' ')], q)
+          : 1;
+        if (sc > 0) results.push({
+          type: 'location',
+          id:       l.id,
+          title:    l.name || l.id,
+          subtitle: l.description || l.government || '',
+          url:      `/location/view/${l.id}`,
+          score:    sc,
+        });
+      }
+    }
+
     results.sort((a, b) => b.score - a.score);
     res.json(results.slice(0, 24));
   } catch (err) {
@@ -97,7 +127,8 @@ router.get('/', async (req, res) => {
 
 router.get('/entity-graph', async (_req, res) => {
   try {
-    res.json(await entityConnections.buildEntityConnections());
+    const campaignId = await campaignStore.getActiveCampaignId();
+    res.json(await entityConnections.buildEntityConnections(campaignId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

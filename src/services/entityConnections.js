@@ -1,6 +1,7 @@
 const sessionStore = require('./sessionStore');
 const encounterStore = require('./encounterStore');
 const npcStore = require('./npcStore');
+const locationStore = require('./locationStore');
 const planRelations = require('./planRelations');
 
 function nodeId(type, id) {
@@ -16,21 +17,32 @@ function addEdge(edgeMap, fromType, fromId, toType, toId) {
   edgeMap.set(`${a}|${b}`, { id: `${a}|${b}`, source: a, target: b });
 }
 
-async function buildEntityConnections() {
-  const [sessions, encounters, npcs] = await Promise.all([
+function belongsToCampaign(record, campaignId) {
+  return record.campaignId === campaignId || (!record.campaignId && campaignId === 'c-default');
+}
+
+async function buildEntityConnections(campaignId = 'c-default') {
+  const [sessions, encounters, npcs, locations] = await Promise.all([
     sessionStore.getAllFull(),
     encounterStore.getAllFull(),
     npcStore.getAllFull(),
+    locationStore.getAllFull(),
   ]);
 
-  const relationIndex = planRelations.buildRelationIndex(sessions, encounters);
-  const sessionById = new Map(sessions.map(session => [session.id, session]));
-  const encounterById = new Map(encounters.map(encounter => [encounter.id, encounter]));
-  const npcById = new Map(npcs.map(npc => [npc.id, npc]));
+  const campaignSessions = sessions.filter(session => belongsToCampaign(session, campaignId));
+  const campaignEncounters = encounters.filter(encounter => belongsToCampaign(encounter, campaignId));
+  const campaignNpcs = npcs.filter(npc => belongsToCampaign(npc, campaignId));
+  const campaignLocations = locations.filter(location => belongsToCampaign(location, campaignId));
+
+  const relationIndex = planRelations.buildRelationIndex(campaignSessions, campaignEncounters);
+  const sessionById = new Map(campaignSessions.map(session => [session.id, session]));
+  const encounterById = new Map(campaignEncounters.map(encounter => [encounter.id, encounter]));
+  const npcById = new Map(campaignNpcs.map(npc => [npc.id, npc]));
+  const locationById = new Map(campaignLocations.map(location => [location.id, location]));
 
   const edgeMap = new Map();
 
-  for (const session of sessions) {
+  for (const session of campaignSessions) {
     for (const encounterId of relationIndex.sessionToEncounters.get(session.id) || []) {
       if (encounterById.has(encounterId)) addEdge(edgeMap, 'session', session.id, 'encounter', encounterId);
     }
@@ -38,14 +50,24 @@ async function buildEntityConnections() {
     for (const npcId of session.data?.linkedNpcs || []) {
       if (npcById.has(npcId)) addEdge(edgeMap, 'session', session.id, 'npc', npcId);
     }
+
+    for (const locationId of session.data?.linkedLocations || []) {
+      if (locationById.has(locationId)) addEdge(edgeMap, 'session', session.id, 'location', locationId);
+    }
   }
 
-  for (const npc of npcs) {
+  for (const npc of campaignNpcs) {
     for (const sessionId of npc.linkedSessions || []) {
       if (sessionById.has(sessionId)) addEdge(edgeMap, 'npc', npc.id, 'session', sessionId);
     }
     for (const encounterId of npc.linkedEncounters || []) {
       if (encounterById.has(encounterId)) addEdge(edgeMap, 'npc', npc.id, 'encounter', encounterId);
+    }
+  }
+
+  for (const location of campaignLocations) {
+    for (const sessionId of location.linkedSessions || []) {
+      if (sessionById.has(sessionId)) addEdge(edgeMap, 'location', location.id, 'session', sessionId);
     }
   }
 
@@ -60,7 +82,7 @@ async function buildEntityConnections() {
   }
 
   const nodes = [
-    ...sessions.map(session => ({
+    ...campaignSessions.map(session => ({
       id: nodeId('session', session.id),
       entityType: 'session',
       rawId: session.id,
@@ -82,7 +104,7 @@ async function buildEntityConnections() {
         session.data?.treasureRewardsLog,
       ].join(' ').toLowerCase(),
     })),
-    ...encounters.map(encounter => ({
+    ...campaignEncounters.map(encounter => ({
       id: nodeId('encounter', encounter.id),
       entityType: 'encounter',
       rawId: encounter.id,
@@ -99,7 +121,7 @@ async function buildEntityConnections() {
         ...(encounter.tags || []),
       ].join(' ').toLowerCase(),
     })),
-    ...npcs.map(npc => ({
+    ...campaignNpcs.map(npc => ({
       id: nodeId('npc', npc.id),
       entityType: 'npc',
       rawId: npc.id,
@@ -114,6 +136,23 @@ async function buildEntityConnections() {
         npc.nickname,
         npc.situation,
         ...(npc.tags || []),
+      ].join(' ').toLowerCase(),
+    })),
+    ...campaignLocations.map(location => ({
+      id: nodeId('location', location.id),
+      entityType: 'location',
+      rawId: location.id,
+      label: location.name || location.id,
+      subtitle: location.description || 'No location description recorded.',
+      meta: location.government || '',
+      tags: location.tags || [],
+      url: `/location/view/${location.id}`,
+      searchText: [
+        location.id,
+        location.name,
+        location.description,
+        location.government,
+        ...(location.tags || []),
       ].join(' ').toLowerCase(),
     })),
   ].map(node => ({

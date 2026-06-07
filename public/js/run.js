@@ -10,7 +10,7 @@
     if (!res.ok) throw new Error();
     session = await res.json();
   } catch {
-    app.innerHTML = `<div class="run-error"><p>Session not found.</p><a href="/" class="btn btn-ghost">← Back</a></div>`;
+    app.innerHTML = `<div class="run-error"><p>Session not found.</p><a href="/sessions" class="btn btn-ghost">← Back</a></div>`;
     return;
   }
 

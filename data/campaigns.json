@@ -1,0 +1,23 @@
+{
+  "campaigns": [
+    {
+      "id": "c-default",
+      "name": "My Campaign",
+      "description": "",
+      "createdAt": "2026-06-06T20:10:55.007Z",
+      "partyRoster": [
+        {
+          "name": "Aldric",
+          "playerClass": "Paladin",
+          "characterUrl": "https://dndbeyond.com/characters/123456"
+        },
+        {
+          "name": "Mira",
+          "playerClass": "Wizard",
+          "characterUrl": ""
+        }
+      ]
+    }
+  ],
+  "activeCampaignId": "c-default"
+}

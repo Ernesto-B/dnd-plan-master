@@ -6,14 +6,14 @@ const router  = express.Router();
 const folderPicker = require('../services/folderPicker');
 
 // Shared multi-file save: opens folder picker once and writes all requested files.
-// Body: { files: [{filename, markdown?, pdf?}], formats: {md, pdf} }
+// Body: { files: [{filename, markdown?, pdf?, json?}], formats: {md?, pdf?, json?} }
 router.post('/save-files', async (req, res) => {
   try {
     const { files, formats } = req.body;
     if (!Array.isArray(files) || !files.length) {
       return res.status(400).json({ error: 'No files provided' });
     }
-    if (!formats || (!formats.md && !formats.pdf)) {
+    if (!formats || (!formats.md && !formats.pdf && !formats.json)) {
       return res.status(400).json({ error: 'At least one format must be selected' });
     }
 
@@ -29,6 +29,10 @@ router.post('/save-files', async (req, res) => {
       if (formats.pdf && pdf) {
         await fs.writeFile(path.join(folder, `${filename}.pdf`), Buffer.from(pdf, 'base64'));
         savedFiles.push(`${filename}.pdf`);
+      }
+      if (formats.json && json) {
+        await fs.writeFile(path.join(folder, `${filename}.json`), json, 'utf8');
+        savedFiles.push(`${filename}.json`);
       }
     }
 

@@ -116,7 +116,9 @@ function generate(data) {
     lines.push('| Player | Class | Natural Task | Ability / Feature |');
     lines.push('|--------|-------|-------------|-------------------|');
     tasks.forEach(t => {
-      lines.push(`| ${safe(t.name)} | ${safe(t.playerClass)} | ${safe(t.task)} | ${safe(t.ability)} |`);
+      const url = safe(t.characterUrl);
+      const nameCell = url ? `[${safe(t.name)}](${url})` : safe(t.name);
+      lines.push(`| ${nameCell} | ${safe(t.playerClass)} | ${safe(t.task)} | ${safe(t.ability)} |`);
     });
     lines.push('');
   }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessions — D&D Session Master</title>
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="nav-sep"></span>
+  <a href="/sessions" class="nav-link nav-link-active">Sessions</a>
+  <a href="/encounters" class="nav-link">Encounters</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
+  <a href="/settings" class="nav-link">Settings</a>
+  <div class="nav-create-wrap">
+    <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
+    <div class="create-dropdown">
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
+      <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container wide">
+  <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; margin-top: 8px;">
+    <h1 class="page-title">Sessions</h1>
+    <a href="/form" class="btn btn-primary" data-icon="plus">New Session</a>
+  </div>
+  <p class="page-subtitle">All saved session plans — click any row to view.</p>
+
+  <div id="search-bar"></div>
+  <div id="ms-toolbar"></div>
+  <div id="sessions-container">
+    <div class="empty-state"><p>Loading chronicles…</p></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/js/dialog.js"></script>
+<script src="/js/tags.js"></script>
+<script src="/js/search.js"></script>
+<script src="/js/context-menu.js"></script>
+<script src="/js/hover-preview.js"></script>
+<script src="/js/shortcuts.js"></script>
+<script src="/js/index.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
+<script src="/js/nav.js"></script>
+</body>
+</html>

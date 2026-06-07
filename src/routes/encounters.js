@@ -11,6 +11,7 @@ const pdfGen           = require('../services/pdfGenerator');
 const pdfTemplate      = require('../templates/encounterPdfTemplate');
 const folderPicker     = require('../services/folderPicker');
 const planRelations    = require('../services/planRelations');
+const campaignStore    = require('../services/campaignStore');
 
 function filename(id) {
   return `encounter-${String(id).replace(/^[eE]-?0*/i, '')}`;
@@ -46,8 +47,9 @@ router.post('/save-files', async (req, res) => {
 
 router.get('/', async (_req, res) => {
   try {
+    const campaignId = await campaignStore.getActiveCampaignId();
     const [summaries, sessions, encounters] = await Promise.all([
-      encounterStore.getAllEncounters(),
+      encounterStore.getAllEncounters(campaignId),
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
     ]);
@@ -58,6 +60,17 @@ router.get('/', async (_req, res) => {
     })));
   }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch('/reorder', async (_req, res) => {
+  try {
+    const ids = Array.isArray(_req.body?.ids) ? _req.body.ids : [];
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const ordered = await encounterStore.reorderEncounters(ids, campaignId);
+    res.json({ success: true, ids: ordered.map(encounter => encounter.id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id/links', async (req, res) => {
@@ -95,7 +108,8 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const data     = req.body;
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const data     = { ...req.body, campaignId };
     const markdown = mdGen.generate(data);
     const html     = pdfTemplate.render(data);
     const pdf      = await pdfGen.generateFromHtml(html);

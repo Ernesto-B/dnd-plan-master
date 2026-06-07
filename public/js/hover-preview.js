@@ -77,8 +77,9 @@
     }
 
     if (id !== currentId) return; // user moved away during fetch
-    panel.innerHTML = type === 'session' ? buildSessionHTML(full)
-                    : type === 'npc'     ? buildNpcHTML(full)
+    panel.innerHTML = type === 'session'  ? buildSessionHTML(full)
+                    : type === 'npc'      ? buildNpcHTML(full)
+                    : type === 'location' ? buildLocationHTML(full)
                     : buildEncounterHTML(full);
     positionPanel(row);
 
@@ -287,7 +288,12 @@
     if (tasks.length) {
       const taskHTML = `<table class="hp-table">
         <thead><tr><th>Player</th><th>Task</th><th>Ability</th></tr></thead>
-        <tbody>${tasks.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(t.task)}</td><td>${esc(t.ability)}</td></tr>`).join('')}</tbody>
+        <tbody>${tasks.map(t => {
+          const name = t.characterUrl
+            ? `<a href="${esc(t.characterUrl)}" target="_blank" rel="noopener" style="color:var(--gold-dim);">${esc(t.name)}</a>`
+            : esc(t.name);
+          return `<tr><td>${name}</td><td>${esc(t.task)}</td><td>${esc(t.ability)}</td></tr>`;
+        }).join('')}</tbody>
       </table>`;
       parts.push(section('Natural Tasks', taskHTML));
     }
@@ -359,6 +365,55 @@
     // Carrying — collapsed
     if (npc.carrying && npc.carrying.length) {
       parts.push(section('Carrying', `<ul class="hp-list">${npc.carrying.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`));
+    }
+
+    return parts.join('');
+  }
+
+  function buildLocationHTML(loc) {
+    const parts = [];
+
+    parts.push(`<div class="hp-header">
+      <div class="hp-title">${esc(loc.name)}</div>
+      ${tagsHTML(loc.tags)}
+    </div>`);
+
+    // General — collapsed
+    const generalParts = [
+      loc.government           ? field('Government', esc(loc.government)) : '',
+      loc.populationSize       ? field('Population Size', esc(loc.populationSize)) : '',
+      loc.populationDiversity  ? field('Population Diversity', esc(loc.populationDiversity)) : '',
+      loc.languages            ? field('Languages', esc(loc.languages)) : '',
+      loc.resources            ? field('Resources', esc(loc.resources)) : '',
+      loc.funFact              ? field('Fun Fact', esc(loc.funFact)) : '',
+    ].join('');
+    if (generalParts) parts.push(section('General', generalParts));
+
+    // Description — expanded
+    if (loc.description) {
+      parts.push(section('Description', `<p>${esc(loc.description)}</p>`, true));
+    }
+
+    // Sensory & hidden detail — collapsed
+    const detailParts = [
+      loc.sensoryDetail ? field('Sensory Detail', esc(loc.sensoryDetail)) : '',
+      loc.hiddenDetail  ? field('Hidden Detail / Secret', esc(loc.hiddenDetail)) : '',
+    ].join('');
+    if (detailParts) parts.push(section('Details', detailParts));
+
+    // Districts — collapsed
+    const districts = (loc.districts || []).filter(d => d.name || d.readAloud || (d.pointsOfInterest || []).length);
+    if (districts.length) {
+      const districtItems = districts.map(d => {
+        const pois = (d.pointsOfInterest || []).filter(p => p.name || p.description);
+        return `<li><strong>${esc(d.name || 'Unnamed District')}</strong>${pois.length ? `: ${pois.map(p => esc(p.name)).filter(Boolean).join(', ')}` : ''}</li>`;
+      }).join('');
+      parts.push(section('Districts', `<ul class="hp-list">${districtItems}</ul>`));
+    }
+
+    // On the Horizon — expanded
+    if (loc.onTheHorizon) {
+      parts.push(section('On the Horizon', `<p class="hp-readout">${esc(loc.onTheHorizon)}</p>`, true));
     }
 
     return parts.join('');

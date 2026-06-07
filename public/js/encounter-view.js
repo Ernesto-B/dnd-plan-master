@@ -1,3 +1,17 @@
+(function () {
+  marked.use({
+    renderer: {
+      link(token) {
+        const text = this.parser.parseInline(token.tokens);
+        let out = '<a href="' + (token.href || '') + '"';
+        if (token.title) out += ' title="' + token.title + '"';
+        out += ' target="_blank" rel="noopener">' + text + '</a>';
+        return out;
+      },
+    },
+  });
+})();
+
 (async function () {
   const id      = location.pathname.split('/').pop();
   const content = document.getElementById('content');
@@ -41,7 +55,13 @@
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Generation failed');
-        return [{ filename: result.filename, type: 'encounter', markdown: result.markdown, pdf: result.pdf }];
+        return [{
+          filename: result.filename,
+          displayName: encounter.name || result.filename,
+          type: 'encounter',
+          markdown: result.markdown,
+          pdf: result.pdf,
+        }];
       },
     });
   });
@@ -59,7 +79,13 @@
         });
         const encResult = await encRes.json();
         if (!encRes.ok) throw new Error(encResult.error || 'Generation failed');
-        files.push({ filename: encResult.filename, type: 'encounter', markdown: encResult.markdown, pdf: encResult.pdf });
+        files.push({
+          filename: encResult.filename,
+          displayName: encounter.name || encResult.filename,
+          type: 'encounter',
+          markdown: encResult.markdown,
+          pdf: encResult.pdf,
+        });
 
         const npcJobs = linkedNpcs
           .filter(l => l.exists)
@@ -74,7 +100,13 @@
             });
             const genResult = await genRes.json();
             if (!genRes.ok) return null;
-            return { filename: genResult.filename, type: 'npc', markdown: genResult.markdown, pdf: genResult.pdf };
+            return {
+              filename: genResult.filename,
+              displayName: link.name || link.id,
+              type: 'npc',
+              markdown: genResult.markdown,
+              pdf: genResult.pdf,
+            };
           });
 
         const results = await Promise.allSettled(npcJobs);

@@ -10,28 +10,53 @@
 <body>
 
 <nav class="top-nav">
-  <a href="/" class="brand">⚔ D&D Session Master</a>
   <span class="nav-sep"></span>
-  <a href="/" class="nav-link">Sessions</a>
+  <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
   <a href="/campaign" class="nav-link nav-link-active">Campaign</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
-      <a href="/form">Session Plan</a>
-      <a href="/encounter/new">Encounter Plan</a>
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
     </div>
   </div>
 </nav>
 
-<div class="container wide campaign-page">
+<div class="container wide campaign-page dashboard-page">
+  <section id="dashboard-hero" class="dashboard-hero">
+    <div class="empty-state"><p>Loading current campaign…</p></div>
+  </section>
+
+  <section class="dashboard-grid" id="dashboard-stats"></section>
+
+  <section class="dashboard-secondary-grid">
+    <div class="dashboard-secondary-column">
+      <div class="section-header compact">
+        <span class="section-num">01</span>
+        <h2>Continuity Snapshot</h2>
+      </div>
+      <div id="dashboard-continuity" class="dashboard-side-stack"></div>
+    </div>
+
+    <div class="dashboard-secondary-column">
+      <div class="section-header compact">
+        <span class="section-num">02</span>
+        <h2>Party Roster</h2>
+      </div>
+      <div id="dashboard-party" class="dashboard-side-stack"></div>
+    </div>
+  </section>
+
   <div class="campaign-hero">
     <div>
-      <h1 class="page-title">Campaign</h1>
-      <p class="page-subtitle">One place to review what changed, what is still unresolved, and what the party has earned across the whole campaign.</p>
+      <h1 class="page-title">Campaign Continuity</h1>
+      <p class="page-subtitle">Review what changed, what is still unresolved, and what the party has earned across the whole campaign.</p>
     </div>
     <div class="campaign-search-wrap">
       <input type="search" id="campaign-search" class="search-input campaign-search-input" placeholder="Search recap, threads, NPC updates, rewards, tags, or session goal…">
@@ -72,6 +97,7 @@
         <button type="button" class="search-chip" data-type="session">Sessions</button>
         <button type="button" class="search-chip" data-type="npc">NPCs</button>
         <button type="button" class="search-chip" data-type="encounter">Encounters</button>
+        <button type="button" class="search-chip" data-type="location">Locations</button>
       </div>
     </div>
     <div id="entity-graph-summary" class="campaign-connections-summary"></div>
@@ -87,9 +113,11 @@
 <div id="toast" class="toast"></div>
 
 <script src="/js/shortcuts.js"></script>
+<script src="/js/dashboard.js"></script>
 <script src="/js/campaign.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

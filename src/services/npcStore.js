@@ -4,6 +4,25 @@ const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
 const NPCS_FILE = getDataFile('npcs.json');
 const SEED_FILE = getSeedFile('npcs.seed.json');
 
+function orderValue(item, fallbackIndex) {
+  return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
+}
+
+function orderedNpcs(items) {
+  return (items || [])
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const orderDiff = orderValue(a.item, a.index) - orderValue(b.item, b.index);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.item.name || '').localeCompare(String(b.item.name || ''));
+    })
+    .map(entry => entry.item);
+}
+
+function nextSortOrder(items) {
+  return (items || []).reduce((max, item, index) => Math.max(max, orderValue(item, index)), -1) + 1;
+}
+
 async function readStore() {
   try {
     const content = await fs.readFile(NPCS_FILE, 'utf8');
@@ -29,9 +48,13 @@ async function writeStore(store) {
   await fs.writeFile(NPCS_FILE, JSON.stringify(store, null, 2), 'utf8');
 }
 
-async function getAllNpcs() {
+async function getAllNpcs(campaignId) {
   const store = await readStore();
-  return store.npcs.map(n => ({
+  const belongs = n =>
+    !campaignId ||
+    n.campaignId === campaignId ||
+    (!n.campaignId && campaignId === 'c-default');
+  return orderedNpcs(store.npcs).filter(belongs).map(n => ({
     id:               n.id,
     name:             n.name,
     nickname:         n.nickname || '',
@@ -41,12 +64,13 @@ async function getAllNpcs() {
     tags:             n.tags || [],
     createdAt:        n.createdAt,
     isDemo:           n.isDemo || false,
+    campaignId:       n.campaignId || 'c-default',
   }));
 }
 
 async function getAllFull() {
   const store = await readStore();
-  return store.npcs;
+  return orderedNpcs(store.npcs);
 }
 
 async function getNpc(id) {
@@ -64,6 +88,7 @@ async function saveNpc(data) {
 
   const npc = {
     id,
+    campaignId:       data.campaignId || 'c-default',
     name:             String(data.name  || '').trim(),
     nickname:         String(data.nickname  || '').trim(),
     commonPhrase:     String(data.commonPhrase   || '').trim(),
@@ -80,18 +105,19 @@ async function saveNpc(data) {
     linkedEncounters: Array.isArray(data.linkedEncounters) ? data.linkedEncounters : [],
     tags:             Array.isArray(data.tags)   ? data.tags   : [],
     createdAt:        new Date().toISOString(),
+    sortOrder:        nextSortOrder(store.npcs),
     isDemo:           data.isDemo || false,
   };
 
   const idx = store.npcs.findIndex(n => n.id === id);
   if (idx >= 0) {
     npc.createdAt = store.npcs[idx].createdAt;
+    npc.sortOrder = orderValue(store.npcs[idx], idx);
     store.npcs[idx] = npc;
   } else {
     store.npcs.push(npc);
   }
 
-  store.npcs.sort((a, b) => a.name.localeCompare(b.name));
   await writeStore(store);
   return npc;
 }
@@ -124,10 +150,39 @@ async function importNpcs(incoming) {
     }
   }
   if (count > 0) {
-    store.npcs.sort((a, b) => a.name.localeCompare(b.name));
     await writeStore(store);
   }
   return count;
+}
+
+async function reorderNpcs(ids, campaignId) {
+  const store = await readStore();
+  const belongs = npc =>
+    !campaignId ||
+    npc.campaignId === campaignId ||
+    (!npc.campaignId && campaignId === 'c-default');
+
+  const campaignNpcs = orderedNpcs(store.npcs).filter(belongs);
+  const allowedIds = new Set(campaignNpcs.map(npc => npc.id));
+  const requestedIds = [];
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (allowedIds.has(id) && !requestedIds.includes(id)) requestedIds.push(id);
+  }
+  const finalIds = [
+    ...requestedIds,
+    ...campaignNpcs.map(npc => npc.id).filter(id => !requestedIds.includes(id)),
+  ];
+  const orderMap = new Map(finalIds.map((id, index) => [id, index]));
+
+  store.npcs.forEach((npc, index) => {
+    if (!belongs(npc)) return;
+    npc.sortOrder = orderMap.has(npc.id)
+      ? orderMap.get(npc.id)
+      : orderValue(npc, index);
+  });
+
+  await writeStore(store);
+  return orderedNpcs(store.npcs).filter(belongs);
 }
 
 async function syncSessionLinks(sessionId, newNpcIds, oldNpcIds) {
@@ -157,4 +212,4 @@ async function syncSessionLinks(sessionId, newNpcIds, oldNpcIds) {
   if (changed) await writeStore(store);
 }
 
-module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks };
+module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks, reorderNpcs };

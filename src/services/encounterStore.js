@@ -4,6 +4,25 @@ const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
 const ENCOUNTERS_FILE = getDataFile('encounters.json');
 const SEED_FILE = getSeedFile('encounters.seed.json');
 
+function orderValue(item, fallbackIndex) {
+  return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
+}
+
+function orderedEncounters(items) {
+  return (items || [])
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const orderDiff = orderValue(a.item, a.index) - orderValue(b.item, b.index);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.item.name || '').localeCompare(String(b.item.name || ''));
+    })
+    .map(entry => entry.item);
+}
+
+function nextSortOrder(items) {
+  return (items || []).reduce((max, item, index) => Math.max(max, orderValue(item, index)), -1) + 1;
+}
+
 async function readStore() {
   try {
     const content = await fs.readFile(ENCOUNTERS_FILE, 'utf8');
@@ -36,7 +55,7 @@ async function writeStore(store) {
 
 async function getAllFull() {
   const store = await readStore();
-  return store.encounters;
+  return orderedEncounters(store.encounters);
 }
 
 async function importEncounters(incoming) {
@@ -53,9 +72,13 @@ async function importEncounters(incoming) {
   return count;
 }
 
-async function getAllEncounters() {
+async function getAllEncounters(campaignId) {
   const store = await readStore();
-  return store.encounters.map(e => ({
+  const belongs = e =>
+    !campaignId ||
+    e.campaignId === campaignId ||
+    (!e.campaignId && campaignId === 'c-default');
+  return orderedEncounters(store.encounters).filter(belongs).map(e => ({
     id: e.id,
     name: e.name,
     sessionId: e.sessionId || null,
@@ -63,6 +86,7 @@ async function getAllEncounters() {
     createdAt: e.createdAt,
     isDemo: e.isDemo || false,
     tags: e.tags || [],
+    campaignId: e.campaignId || 'c-default',
   }));
 }
 
@@ -91,10 +115,12 @@ async function saveEncounter(data, markdown) {
 
   const encounter = {
     id,
+    campaignId: data.campaignId || 'c-default',
     name: data.name,
     sessionId: data.sessionId || null,
     fiction: data.fiction,
     createdAt: new Date().toISOString(),
+    sortOrder: nextSortOrder(store.encounters),
     tags: Array.isArray(data.tags) ? data.tags : [],
     data: { ...data, id },
     markdown,
@@ -103,6 +129,7 @@ async function saveEncounter(data, markdown) {
   const idx = store.encounters.findIndex(e => e.id === id);
   if (idx >= 0) {
     encounter.createdAt = store.encounters[idx].createdAt;
+    encounter.sortOrder = orderValue(store.encounters[idx], idx);
     store.encounters[idx] = encounter;
   } else {
     store.encounters.push(encounter);
@@ -110,6 +137,36 @@ async function saveEncounter(data, markdown) {
 
   await writeStore(store);
   return encounter;
+}
+
+async function reorderEncounters(ids, campaignId) {
+  const store = await readStore();
+  const belongs = encounter =>
+    !campaignId ||
+    encounter.campaignId === campaignId ||
+    (!encounter.campaignId && campaignId === 'c-default');
+
+  const campaignEncounters = orderedEncounters(store.encounters).filter(belongs);
+  const allowedIds = new Set(campaignEncounters.map(encounter => encounter.id));
+  const requestedIds = [];
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (allowedIds.has(id) && !requestedIds.includes(id)) requestedIds.push(id);
+  }
+  const finalIds = [
+    ...requestedIds,
+    ...campaignEncounters.map(encounter => encounter.id).filter(id => !requestedIds.includes(id)),
+  ];
+  const orderMap = new Map(finalIds.map((id, index) => [id, index]));
+
+  store.encounters.forEach((encounter, index) => {
+    if (!belongs(encounter)) return;
+    encounter.sortOrder = orderMap.has(encounter.id)
+      ? orderMap.get(encounter.id)
+      : orderValue(encounter, index);
+  });
+
+  await writeStore(store);
+  return orderedEncounters(store.encounters).filter(belongs);
 }
 
 async function deleteEncounter(id) {
@@ -120,4 +177,4 @@ async function deleteEncounter(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllEncounters, getAllFull, importEncounters, getEncounter, saveEncounter, deleteEncounter, updateTags };
+module.exports = { getAllEncounters, getAllFull, importEncounters, getEncounter, saveEncounter, deleteEncounter, updateTags, reorderEncounters };

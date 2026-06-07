@@ -1,0 +1,52 @@
+{
+  "locations": [
+    {
+      "id": "l-001",
+      "name": "Saltmere Docks",
+      "government": "Nominally overseen by the Harbor Warden's Office, but the dockworkers' guild runs the day-to-day business of the wharves.",
+      "populationSize": "~2,400 (swells during the autumn fishing season)",
+      "populationDiversity": "Mostly human and dwarf laborers, with a growing halfling merchant community and the occasional half-orc deckhand passing through.",
+      "languages": "Common and Dwarvish are everywhere; old sailors still trade a few words of Aquan out of habit.",
+      "resources": "Salted fish, whale oil, rope and tar, and a steady supply of dockside labor for hire.",
+      "funFact": "The harbor bell hasn't been recast in two hundred years \u2014 sailors swear that replacing it would anger the tide.",
+      "description": "A sprawl of weathered piers, salt-bleached warehouses, and narrow streets that smell of brine and tar. Saltmere has grown up around its harbor rather than the other way around, and everything in it \u2014 the buildings, the people, the rules \u2014 bends to the rhythm of the tides and the fishing fleets.",
+      "sensoryDetail": "Gulls shriek over the wharves. Rigging creaks against the wind, and somewhere a bell buoy tolls low and slow. The air tastes of salt, fish guts, and tar smoke from the cooper's yards.",
+      "hiddenDetail": "Beneath the old chapel at the top of Lantern Hill is a sealed crypt that predates the town itself \u2014 sealed not to keep grave robbers out, but to keep something in.",
+      "districts": [
+        {
+          "name": "The Lower Wharves",
+          "readAloud": "The boards underfoot are slick with seawater and fish scale, and every other building leans a little too far toward the harbor, propped up with timber struts and stubbornness.",
+          "pointsOfInterest": [
+            {
+              "name": "The Ashen Hearth",
+              "description": "A dockside tavern run by a stocky dwarf named Barrin Soot, who's heard every rumor that's passed through Saltmere in the last thirty years \u2014 for the right favor, he might share one."
+            },
+            {
+              "name": "Guildmaster's Scales",
+              "description": "The dockworkers' guild hall, where the day's catch is weighed, wages are argued over, and grudges are occasionally settled with fists out back."
+            }
+          ]
+        },
+        {
+          "name": "Lantern Hill",
+          "readAloud": "The streets climb sharply away from the harbor here, lined with narrow houses and the old chapel whose spire has guided ships home for three hundred years.",
+          "pointsOfInterest": [
+            {
+              "name": "Chapel of the Drowned Light",
+              "description": "A small, weather-beaten chapel tended by a single aging cleric. Its bell hasn't rung in living memory, and the locals prefer it that way."
+            }
+          ]
+        }
+      ],
+      "onTheHorizon": "The grave stirs \u2014 for the past week, dockworkers have found fresh grave dirt scattered across the chapel steps each morning, though no one has been buried on Lantern Hill in decades.",
+      "linkedSessions": [],
+      "tags": [
+        "docks",
+        "port town",
+        "demo"
+      ],
+      "createdAt": "2026-01-08T10:00:00.000Z",
+      "isDemo": true
+    }
+  ]
+}

@@ -11,32 +11,33 @@
 <body>
 
 <nav class="top-nav">
-  <a href="/" class="brand">⚔ D&D Session Master</a>
   <span class="nav-sep"></span>
-  <a href="/" class="nav-link">Sessions</a>
+  <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link nav-link-active">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
-      <a href="/form">Session Plan</a>
-      <a href="/encounter/new">Encounter Plan</a>
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
     </div>
   </div>
 </nav>
 
 <div class="view-layout">
   <aside class="view-sidebar">
-    <a href="/encounters" class="sidebar-btn sidebar-back" data-tooltip="Return to the main encounter list.">← All Encounters</a>
-    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this encounter in the editor to change fiction, stakes, or links.">Edit Plan</button>
-    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session and NPC for this encounter in one clickable panel.">View All Connections</button>
+    <a href="/encounters" class="sidebar-btn sidebar-back" data-tooltip="Return to the main encounter list." data-icon="back">All Encounters</a>
+    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this encounter in the editor to change fiction, stakes, or links." data-icon="edit">Edit Plan</button>
+    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session and NPC for this encounter in one clickable panel." data-icon="connections">View All Connections</button>
     <div class="sidebar-sep"></div>
-    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this encounter plan as Markdown and/or PDF files.">Export</button>
-    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this encounter plus all linked NPCs as separate files.">Export with Connections</button>
+    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this encounter plan as Markdown and/or PDF files." data-icon="export">Export</button>
+    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this encounter plus all linked NPCs as separate files." data-icon="export">Export with Connections</button>
     <div class="sidebar-spacer"></div>
-    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this encounter plan from the app.">Delete</button>
+    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this encounter plan from the app." data-icon="delete">Delete</button>
   </aside>
 
   <main class="view-main">
@@ -58,6 +59,7 @@
 <script src="/js/encounter-view.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

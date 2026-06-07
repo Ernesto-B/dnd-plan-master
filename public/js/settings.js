@@ -22,6 +22,7 @@
   let settingsSaveInFlight = false;
   let settingsSaveQueued = false;
   let settingsLoaded = false;
+  let activeCampaign = null;
 
   function applyScheduledBackups(enabled) {
     scheduledBackupsEnabled = !!enabled;
@@ -66,6 +67,7 @@
     return [...list.querySelectorAll('.party-row')].map(row => ({
       name: row.querySelector('.player-name').value.trim(),
       playerClass: row.querySelector('.player-class').value.trim(),
+      characterUrl: row.querySelector('.player-url').value.trim(),
     })).filter(p => p.name || p.playerClass);
   }
 
@@ -185,6 +187,13 @@
     localStorage.setItem('dnd-hover-preview-delay', String(val));
   });
 
+  // Show which campaign's party roster this belongs to
+  fetch('/api/campaigns/active').then(r => r.json()).then(campaign => {
+    activeCampaign = campaign || null;
+    const tag = document.getElementById('settings-campaign-tag');
+    if (tag && campaign?.name) tag.textContent = campaign.name;
+  }).catch(() => {});
+
   const list = document.getElementById('party-list');
   let count = 0;
 
@@ -192,7 +201,7 @@
     count++;
     const row = document.createElement('div');
     row.className = 'form-grid party-row';
-    row.style.cssText = 'grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom: 8px;';
+    row.style.cssText = 'grid-template-columns: 1fr 1fr 1.6fr auto; gap: 10px; margin-bottom: 8px;';
     row.innerHTML = `
       <div class="field">
         <label>Player Name</label>
@@ -201,6 +210,10 @@
       <div class="field">
         <label>Class / Role</label>
         <input type="text" class="player-class" placeholder="Paladin" value="${h(data.playerClass || '')}">
+      </div>
+      <div class="field">
+        <label class="party-url-label">Character Sheet URL <span class="party-url-hint">(optional)</span></label>
+        <input type="url" class="player-url" placeholder="https://dndbeyond.com/characters/…" value="${h(data.characterUrl || '')}">
       </div>
       <div class="field" style="align-self:flex-end; padding-bottom:2px;">
         <button type="button" class="btn btn-ghost remove-btn" style="color:var(--danger);">✕</button>
@@ -373,12 +386,12 @@
   });
 
   list.addEventListener('input', event => {
-    if (!event.target.matches('.player-name, .player-class')) return;
+    if (!event.target.matches('.player-name, .player-class, .player-url')) return;
     scheduleSettingsSave();
   });
 
   list.addEventListener('change', event => {
-    if (!event.target.matches('.player-name, .player-class')) return;
+    if (!event.target.matches('.player-name, .player-class, .player-url')) return;
     scheduleSettingsSave();
   });
 
@@ -457,15 +470,121 @@
 
   // ─── Export & Import ──────────────────────────────────────────────────────
 
-  let exportData = { sessions: [], encounters: [] };
+  let exportData = { sessions: [], encounters: [], npcs: [], locations: [] };
   let exportItems = [];
   const selectedExportKeys = new Set();
 
   // Maps for "Select All Related"
-  // sessionToEncounters: sessionId → Set of encounter IDs
-  // encounterToSession:  encounterId → sessionId
   const sessionToEncounters = new Map();
-  const encounterToSession  = new Map();
+  const encounterToSessions = new Map();
+  const sessionToNpcs = new Map();
+  const npcToSessions = new Map();
+  const sessionToLocations = new Map();
+  const locationToSessions = new Map();
+  const encounterToNpcs = new Map();
+  const npcToEncounters = new Map();
+
+  function slugifyName(value, fallback = 'campaign') {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || fallback;
+  }
+
+  async function buildCampaignExportFiles(campaignId, campaignName) {
+    const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/export`);
+    const bundle = await res.json();
+    if (!res.ok) throw new Error(bundle.error || 'Export failed');
+
+    const files = [{
+      filename: `${slugifyName(campaignName)}-export-${new Date().toISOString().slice(0, 10)}`,
+      displayName: `${campaignName} Campaign Bundle`,
+      type: 'bundle',
+      json: JSON.stringify(bundle, null, 2),
+    }];
+
+    const sessionJobs = (bundle.sessions || []).map(async session => {
+      const previewRes = await fetch('/api/sessions/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(session.data || session),
+      });
+      const preview = await previewRes.json();
+      if (!previewRes.ok) return null;
+      return {
+        filename: preview.filename,
+        displayName: session.goal || `Session ${String(session.sessionNumber || '?').padStart(3, '0')}`,
+        type: 'session',
+        markdown: preview.markdown,
+        pdf: preview.pdf,
+      };
+    });
+
+    const encounterJobs = (bundle.encounters || []).map(async encounter => {
+      const previewRes = await fetch('/api/encounters/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(encounter.data || encounter),
+      });
+      const preview = await previewRes.json();
+      if (!previewRes.ok) return null;
+      return {
+        filename: preview.filename,
+        displayName: encounter.name || encounter.id,
+        type: 'encounter',
+        markdown: preview.markdown,
+        pdf: preview.pdf,
+      };
+    });
+
+    const npcJobs = (bundle.npcs || []).map(async npc => {
+      const exportRes = await fetch('/api/npcs/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(npc),
+      });
+      const exported = await exportRes.json();
+      if (!exportRes.ok) return null;
+      return {
+        filename: exported.filename,
+        displayName: npc.name || npc.id,
+        type: 'npc',
+        markdown: exported.markdown,
+        pdf: exported.pdf,
+      };
+    });
+
+    const locationJobs = (bundle.locations || []).map(async location => {
+      const exportRes = await fetch('/api/locations/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(location),
+      });
+      const exported = await exportRes.json();
+      if (!exportRes.ok) return null;
+      return {
+        filename: exported.filename,
+        displayName: location.name || location.id,
+        type: 'location',
+        markdown: exported.markdown,
+        pdf: exported.pdf,
+      };
+    });
+
+    const results = await Promise.all([
+      Promise.allSettled(sessionJobs),
+      Promise.allSettled(encounterJobs),
+      Promise.allSettled(npcJobs),
+      Promise.allSettled(locationJobs),
+    ]);
+
+    results.flat().forEach(result => {
+      if (result.status === 'fulfilled' && result.value) files.push(result.value);
+    });
+
+    return files;
+  }
 
   function exportKey(type, id) {
     return `${type}:${id}`;
@@ -487,6 +606,20 @@
         tags: encounter.tags || [],
         createdAt: encounter.createdAt || null,
       })),
+      ...exportData.npcs.map(npc => ({
+        type: 'npc',
+        id: npc.id,
+        label: npc.name || npc.id,
+        tags: npc.tags || [],
+        createdAt: npc.createdAt || null,
+      })),
+      ...exportData.locations.map(location => ({
+        type: 'location',
+        id: location.id,
+        label: location.name || location.id,
+        tags: location.tags || [],
+        createdAt: location.createdAt || null,
+      })),
     ];
   }
 
@@ -495,8 +628,8 @@
 
     if (!items.length) {
       listEl.innerHTML = isFiltered
-        ? `<p style="padding:12px; color:var(--muted); font-family:var(--font-body); font-style:italic;">No plans match your search.</p>`
-        : `<p style="padding:12px; color:var(--muted); font-family:var(--font-body); font-style:italic;">No plans saved yet.</p>`;
+        ? `<p style="padding:12px; color:var(--muted); font-family:var(--font-body); font-style:italic;">No records match your search.</p>`
+        : `<p style="padding:12px; color:var(--muted); font-family:var(--font-body); font-style:italic;">No records saved yet.</p>`;
       updateExportButton();
       return;
     }
@@ -523,29 +656,67 @@
       const res = await fetch('/api/settings/export-data');
       if (!res.ok) throw new Error('Load failed');
       exportData = await res.json();
+      exportData.sessions = Array.isArray(exportData.sessions) ? exportData.sessions : [];
+      exportData.encounters = Array.isArray(exportData.encounters) ? exportData.encounters : [];
+      exportData.npcs = Array.isArray(exportData.npcs) ? exportData.npcs : [];
+      exportData.locations = Array.isArray(exportData.locations) ? exportData.locations : [];
     } catch (err) {
-      listEl.innerHTML = `<p style="padding:12px; color:var(--danger); font-family:var(--font-body);">Could not load plans: ${err.message}</p>`;
+      listEl.innerHTML = `<p style="padding:12px; color:var(--danger); font-family:var(--font-body);">Could not load records: ${err.message}</p>`;
       return;
+    }
+
+    function addToMap(map, key, value) {
+      if (!key || !value) return;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key).add(value);
     }
 
     // Build relationship maps
     sessionToEncounters.clear();
-    encounterToSession.clear();
+    encounterToSessions.clear();
+    sessionToNpcs.clear();
+    npcToSessions.clear();
+    sessionToLocations.clear();
+    locationToSessions.clear();
+    encounterToNpcs.clear();
+    npcToEncounters.clear();
 
     for (const enc of exportData.encounters) {
       if (enc.sessionId) {
-        if (!sessionToEncounters.has(enc.sessionId)) sessionToEncounters.set(enc.sessionId, new Set());
-        sessionToEncounters.get(enc.sessionId).add(enc.id);
-        encounterToSession.set(enc.id, enc.sessionId);
+        addToMap(sessionToEncounters, enc.sessionId, enc.id);
+        addToMap(encounterToSessions, enc.id, enc.sessionId);
       }
     }
     for (const s of exportData.sessions) {
       const encCards = (s.data && s.data.encounters) ? s.data.encounters : [];
       for (const card of encCards) {
         if (!card.encounterPlanId) continue;
-        if (!sessionToEncounters.has(s.id)) sessionToEncounters.set(s.id, new Set());
-        sessionToEncounters.get(s.id).add(card.encounterPlanId);
-        if (!encounterToSession.has(card.encounterPlanId)) encounterToSession.set(card.encounterPlanId, s.id);
+        addToMap(sessionToEncounters, s.id, card.encounterPlanId);
+        addToMap(encounterToSessions, card.encounterPlanId, s.id);
+      }
+      for (const npcId of s.data?.linkedNpcs || []) {
+        addToMap(sessionToNpcs, s.id, npcId);
+        addToMap(npcToSessions, npcId, s.id);
+      }
+      for (const locationId of s.data?.linkedLocations || []) {
+        addToMap(sessionToLocations, s.id, locationId);
+        addToMap(locationToSessions, locationId, s.id);
+      }
+    }
+    for (const npc of exportData.npcs) {
+      for (const sessionId of npc.linkedSessions || []) {
+        addToMap(npcToSessions, npc.id, sessionId);
+        addToMap(sessionToNpcs, sessionId, npc.id);
+      }
+      for (const encounterId of npc.linkedEncounters || []) {
+        addToMap(npcToEncounters, npc.id, encounterId);
+        addToMap(encounterToNpcs, encounterId, npc.id);
+      }
+    }
+    for (const location of exportData.locations) {
+      for (const sessionId of location.linkedSessions || []) {
+        addToMap(locationToSessions, location.id, sessionId);
+        addToMap(sessionToLocations, sessionId, location.id);
       }
     }
 
@@ -673,11 +844,17 @@
   }
 
   function makeExportItem(type, id, label) {
+    const typeLabel = {
+      session: 'Session',
+      encounter: 'Encounter',
+      npc: 'NPC',
+      location: 'Location',
+    }[type] || type;
     const item = document.createElement('label');
     item.className = 'export-item';
     item.innerHTML = `
       <input type="checkbox" data-id="${escAttr(id)}" data-type="${type}">
-      <span class="export-type-badge ${type}">${type === 'session' ? 'Session' : 'Encounter'}</span>
+      <span class="export-type-badge ${type}">${typeLabel}</span>
       <span class="export-item-label">${escHtml(label)}</span>
       <span class="export-item-id">${escHtml(id)}</span>`;
     return item;
@@ -715,13 +892,28 @@
   document.getElementById('btn-select-related').addEventListener('click', () => {
     const checked = getCheckedIds();
     const toAdd = new Set();
+    const availableKeys = new Set(exportItems.map(item => exportKey(item.type, item.id)));
+
+    function addKeys(type, ids) {
+      (ids || new Set()).forEach(id => {
+        const key = exportKey(type, id);
+        if (availableKeys.has(key)) toAdd.add(key);
+      });
+    }
 
     for (const { id, type } of checked) {
       if (type === 'session') {
-        (sessionToEncounters.get(id) || new Set()).forEach(eid => toAdd.add(`encounter:${eid}`));
-      } else {
-        const sid = encounterToSession.get(id);
-        if (sid) toAdd.add(`session:${sid}`);
+        addKeys('encounter', sessionToEncounters.get(id));
+        addKeys('npc', sessionToNpcs.get(id));
+        addKeys('location', sessionToLocations.get(id));
+      } else if (type === 'encounter') {
+        addKeys('session', encounterToSessions.get(id));
+        addKeys('npc', encounterToNpcs.get(id));
+      } else if (type === 'npc') {
+        addKeys('session', npcToSessions.get(id));
+        addKeys('encounter', npcToEncounters.get(id));
+      } else if (type === 'location') {
+        addKeys('session', locationToSessions.get(id));
       }
     }
 
@@ -738,20 +930,45 @@
     const checked = getCheckedIds();
     const sessionIds  = new Set(checked.filter(x => x.type === 'session').map(x => x.id));
     const encounterIds = new Set(checked.filter(x => x.type === 'encounter').map(x => x.id));
-
+    const npcIds = new Set(checked.filter(x => x.type === 'npc').map(x => x.id));
+    const locationIds = new Set(checked.filter(x => x.type === 'location').map(x => x.id));
     const payload = {
       sessions:   exportData.sessions.filter(s => sessionIds.has(s.id)),
       encounters: exportData.encounters.filter(e => encounterIds.has(e.id)),
+      npcs: exportData.npcs.filter(npc => npcIds.has(npc.id)),
+      locations: exportData.locations.filter(location => locationIds.has(location.id)),
     };
+    const total = payload.sessions.length + payload.encounters.length + payload.npcs.length + payload.locations.length;
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `dnd-plans-export-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast(`Exported ${payload.sessions.length} session(s) and ${payload.encounters.length} encounter(s).`, 'success');
+    ExportDialog.open({
+      title: 'Export Selected Records',
+      formatOptions: [
+        { id: 'json', label: 'JSON', ext: '.json', checked: true },
+      ],
+      loadFiles: async () => [{
+        filename: `dnd-plans-export-${new Date().toISOString().slice(0, 10)}`,
+        displayName: `${total} selected record${total === 1 ? '' : 's'}`,
+        type: 'bundle',
+        json: JSON.stringify(payload, null, 2),
+      }],
+    });
+  });
+
+  document.getElementById('btn-export-campaign').addEventListener('click', async () => {
+    if (!activeCampaign?.id) {
+      showToast('Could not determine the active campaign.', 'error');
+      return;
+    }
+
+    ExportDialog.open({
+      title: `Export Campaign: ${activeCampaign.name || 'Campaign'}`,
+      formatOptions: [
+        { id: 'md', label: 'Markdown', ext: '.md', checked: true },
+        { id: 'pdf', label: 'PDF', ext: '.pdf', checked: true },
+        { id: 'json', label: 'JSON Bundle', ext: '.json', checked: true },
+      ],
+      loadFiles: async () => buildCampaignExportFiles(activeCampaign.id, activeCampaign.name || 'Campaign'),
+    });
   });
 
   // Import
@@ -769,16 +986,24 @@
     reader.onload = e => {
       try {
         importFileData = JSON.parse(e.target.result);
-        if (!importFileData.sessions && !importFileData.encounters) throw new Error('Invalid format');
+        if (!importFileData.sessions && !importFileData.encounters && !importFileData.npcs && !importFileData.locations) throw new Error('Invalid format');
         const currentSessionIds = new Set(exportData.sessions.map(s => s.id));
         const currentEncounterIds = new Set(exportData.encounters.map(enc => enc.id));
+        const currentNpcIds = new Set(exportData.npcs.map(npc => npc.id));
+        const currentLocationIds = new Set(exportData.locations.map(location => location.id));
         const incomingSessions = importFileData.sessions || [];
         const incomingEncounters = importFileData.encounters || [];
+        const incomingNpcs = importFileData.npcs || [];
+        const incomingLocations = importFileData.locations || [];
         const newSessions = incomingSessions.filter(s => s.id && !currentSessionIds.has(s.id)).length;
         const duplicateSessions = incomingSessions.filter(s => s.id && currentSessionIds.has(s.id)).length;
         const newEncounters = incomingEncounters.filter(enc => enc.id && !currentEncounterIds.has(enc.id)).length;
         const duplicateEncounters = incomingEncounters.filter(enc => enc.id && currentEncounterIds.has(enc.id)).length;
-        previewEl.textContent = `Preview: ${newSessions} new session(s), ${duplicateSessions} duplicate session(s), ${newEncounters} new encounter(s), ${duplicateEncounters} duplicate encounter(s). Duplicates will be skipped.`;
+        const newNpcs = incomingNpcs.filter(npc => npc.id && !currentNpcIds.has(npc.id)).length;
+        const duplicateNpcs = incomingNpcs.filter(npc => npc.id && currentNpcIds.has(npc.id)).length;
+        const newLocations = incomingLocations.filter(location => location.id && !currentLocationIds.has(location.id)).length;
+        const duplicateLocations = incomingLocations.filter(location => location.id && currentLocationIds.has(location.id)).length;
+        previewEl.textContent = `Preview: ${newSessions} new session(s), ${duplicateSessions} duplicate session(s), ${newEncounters} new encounter(s), ${duplicateEncounters} duplicate encounter(s), ${newNpcs} new NPC(s), ${duplicateNpcs} duplicate NPC(s), ${newLocations} new location(s), ${duplicateLocations} duplicate location(s). Duplicates will be skipped.`;
         importBtn.disabled = false;
       } catch {
         fileNameEl.textContent = 'Invalid JSON file';
@@ -801,11 +1026,13 @@
         body: JSON.stringify({
           sessions:   importFileData.sessions   || [],
           encounters: importFileData.encounters || [],
+          npcs: importFileData.npcs || [],
+          locations: importFileData.locations || [],
         }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Import failed');
-      showToast(`Imported ${result.importedSessions} session(s) and ${result.importedEncounters} encounter(s).`, 'success');
+      showToast(`Imported ${result.importedSessions} session(s), ${result.importedEncounters} encounter(s), ${result.importedNpcs} NPC(s), and ${result.importedLocations} location(s).`, 'success');
       fileInput.value = '';
       fileNameEl.textContent = 'No file selected';
       document.getElementById('import-preview').textContent = '';

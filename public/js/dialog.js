@@ -5,7 +5,7 @@
  * Usage:
  *   const ok = await showConfirm('Are you sure?');
  *   const ok = await showConfirm('Delete this?', { title: 'Delete Session', confirmLabel: 'Delete', danger: true });
- *   const value = await showPrompt('Name this template', { title: 'Save Template', defaultValue: 'Dockside Informant' });
+ *   const value = await showPrompt('Enter a name', { title: 'Rename Item', defaultValue: 'Dockside Informant' });
  */
 
 (function () {

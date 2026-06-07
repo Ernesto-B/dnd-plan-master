@@ -33,12 +33,17 @@ function renderNaturalTasks(tasks) {
       <table class="tasks-table">
         <thead><tr><th>Player</th><th>Class</th><th>Natural Task</th><th>Ability / Feature</th></tr></thead>
         <tbody>
-          ${valid.map(t => `<tr>
-            <td><strong>${esc(t.name)}</strong></td>
-            <td class="dim">${esc(t.playerClass)}</td>
-            <td>${escNl(t.task)}</td>
-            <td class="dim">${esc(t.ability)}</td>
-          </tr>`).join('')}
+          ${valid.map(t => {
+            const nameInner = t.characterUrl
+              ? `<a href="${esc(t.characterUrl)}" style="color:inherit; text-decoration:underline;">${esc(t.name)}</a>`
+              : esc(t.name);
+            return `<tr>
+              <td><strong>${nameInner}</strong></td>
+              <td class="dim">${esc(t.playerClass)}</td>
+              <td>${escNl(t.task)}</td>
+              <td class="dim">${esc(t.ability)}</td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>`;

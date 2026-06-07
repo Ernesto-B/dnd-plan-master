@@ -4,6 +4,25 @@ const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
 const SESSIONS_FILE = getDataFile('sessions.json');
 const SEED_FILE = getSeedFile('seed.json');
 
+function orderValue(item, fallbackIndex) {
+  return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
+}
+
+function orderedSessions(items) {
+  return (items || [])
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const orderDiff = orderValue(a.item, a.index) - orderValue(b.item, b.index);
+      if (orderDiff !== 0) return orderDiff;
+      return (parseFloat(a.item.sessionNumber) || 0) - (parseFloat(b.item.sessionNumber) || 0);
+    })
+    .map(entry => entry.item);
+}
+
+function nextSortOrder(items) {
+  return (items || []).reduce((max, item, index) => Math.max(max, orderValue(item, index)), -1) + 1;
+}
+
 async function readStore() {
   try {
     const content = await fs.readFile(SESSIONS_FILE, 'utf8');
@@ -36,7 +55,7 @@ async function writeStore(store) {
 
 async function getAllFull() {
   const store = await readStore();
-  return store.sessions;
+  return orderedSessions(store.sessions);
 }
 
 async function importSessions(incoming) {
@@ -50,15 +69,18 @@ async function importSessions(incoming) {
     }
   }
   if (count > 0) {
-    store.sessions.sort((a, b) => (a.sessionNumber || 0) - (b.sessionNumber || 0));
     await writeStore(store);
   }
   return count;
 }
 
-async function getAllSessions() {
+async function getAllSessions(campaignId) {
   const store = await readStore();
-  return store.sessions.map(s => ({
+  const belongs = s =>
+    !campaignId ||
+    s.campaignId === campaignId ||
+    (!s.campaignId && campaignId === 'c-default');
+  return orderedSessions(store.sessions).filter(belongs).map(s => ({
     id: s.id,
     sessionNumber: s.sessionNumber,
     date: s.date,
@@ -67,6 +89,7 @@ async function getAllSessions() {
     createdAt: s.createdAt,
     isDemo: s.isDemo || false,
     tags: s.tags || [],
+    campaignId: s.campaignId || 'c-default',
   }));
 }
 
@@ -99,11 +122,13 @@ async function saveSession(data, markdown) {
 
   const session = {
     id,
+    campaignId: data.campaignId || 'c-default',
     sessionNumber,
     date: data.date,
     partyLevel: data.partyLevel,
     goal: data.sessionGoal,
     createdAt: new Date().toISOString(),
+    sortOrder: nextSortOrder(store.sessions),
     tags: Array.isArray(data.tags) ? data.tags : [],
     data: { ...data, id },
     markdown,
@@ -112,14 +137,44 @@ async function saveSession(data, markdown) {
   const idx = store.sessions.findIndex(s => s.id === id);
   if (idx >= 0) {
     session.createdAt = store.sessions[idx].createdAt;
+    session.sortOrder = orderValue(store.sessions[idx], idx);
     store.sessions[idx] = session;
   } else {
     store.sessions.push(session);
   }
 
-  store.sessions.sort((a, b) => parseFloat(a.sessionNumber) - parseFloat(b.sessionNumber));
   await writeStore(store);
   return session;
+}
+
+async function reorderSessions(ids, campaignId) {
+  const store = await readStore();
+  const belongs = session =>
+    !campaignId ||
+    session.campaignId === campaignId ||
+    (!session.campaignId && campaignId === 'c-default');
+
+  const campaignSessions = orderedSessions(store.sessions).filter(belongs);
+  const allowedIds = new Set(campaignSessions.map(session => session.id));
+  const requestedIds = [];
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (allowedIds.has(id) && !requestedIds.includes(id)) requestedIds.push(id);
+  }
+  const finalIds = [
+    ...requestedIds,
+    ...campaignSessions.map(session => session.id).filter(id => !requestedIds.includes(id)),
+  ];
+  const orderMap = new Map(finalIds.map((id, index) => [id, index]));
+
+  store.sessions.forEach((session, index) => {
+    if (!belongs(session)) return;
+    session.sortOrder = orderMap.has(session.id)
+      ? orderMap.get(session.id)
+      : orderValue(session, index);
+  });
+
+  await writeStore(store);
+  return orderedSessions(store.sessions).filter(belongs);
 }
 
 async function deleteSession(id) {
@@ -130,4 +185,4 @@ async function deleteSession(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags };
+module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, reorderSessions };

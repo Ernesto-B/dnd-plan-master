@@ -190,6 +190,7 @@ function makeTaskRow(data = {}) {
     <div class="field">
       <label>Player</label>
       <input type="text" class="task-name" placeholder="Aldric" value="${h(data.name || '')}">
+      <input type="url" class="task-url" placeholder="Character sheet URL" value="${h(data.characterUrl || '')}" title="Character sheet URL — name becomes a link in the document">
     </div>
     <div class="field">
       <label>Class / Role</label>
@@ -253,10 +254,11 @@ function collectFormData() {
   }).filter(e => e.name);
 
   const naturalTasks = [...document.querySelectorAll('.task-row')].map(row => ({
-    name:        row.querySelector('.task-name').value.trim(),
-    playerClass: row.querySelector('.task-class').value.trim(),
-    task:        row.querySelector('.task-task').value.trim(),
-    ability:     row.querySelector('.task-ability').value.trim(),
+    name:         row.querySelector('.task-name').value.trim(),
+    playerClass:  row.querySelector('.task-class').value.trim(),
+    task:         row.querySelector('.task-task').value.trim(),
+    ability:      row.querySelector('.task-ability').value.trim(),
+    characterUrl: row.querySelector('.task-url').value.trim(),
   }));
 
   const chk = name => !!(document.querySelector(`[name="chk-${name}"]`) || {}).checked;
@@ -623,7 +625,7 @@ async function initEncounterFormPage() {
   await restoreDraftIfAvailable();
 
   if (taskCount === 0 && !location.pathname.includes('/edit/')) {
-    (settings.party || []).forEach(p => addTask({ name: p.name, playerClass: p.playerClass }));
+    (settings.party || []).forEach(p => addTask({ name: p.name, playerClass: p.playerClass, characterUrl: p.characterUrl || '' }));
   }
 
   const form = document.getElementById('encounter-form');

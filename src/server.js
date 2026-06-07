@@ -1,9 +1,10 @@
-const { createApp } = require('./createApp');
+const { createApp, initApp } = require('./createApp');
 const backupScheduler = require('./services/backupScheduler');
 
 async function startServer(options = {}) {
   const port = options.port ?? (Number(process.env.PORT) || 3000);
   const host = options.host || '127.0.0.1';
+  await initApp();
   const app = createApp();
   await backupScheduler.start();
 

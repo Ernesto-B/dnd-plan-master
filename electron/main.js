@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, shell, nativeImage } = require('electron');
 
 const { startServer } = require('../src/server');
 const backupScheduler = require('../src/services/backupScheduler');
@@ -7,6 +7,8 @@ const backupScheduler = require('../src/services/backupScheduler');
 let mainWindow = null;
 let localServer = null;
 let shuttingDownServer = null;
+const appIconPath = path.join(__dirname, '..', 'assets', 'icons', 'icon.png');
+app.setName('D&D Master');
 
 async function ensureServer() {
   if (localServer) return localServer;
@@ -23,6 +25,7 @@ async function createMainWindow() {
     minWidth: 1100,
     minHeight: 760,
     backgroundColor: '#181411',
+    icon: appIconPath,
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -30,6 +33,11 @@ async function createMainWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -62,6 +70,10 @@ async function shutdownServer() {
 
 app.whenReady().then(async () => {
   try {
+    if (process.platform === 'darwin') {
+      app.dock.setIcon(nativeImage.createFromPath(appIconPath));
+    }
+
     await createMainWindow();
 
     app.on('activate', async () => {

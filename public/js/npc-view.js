@@ -82,7 +82,13 @@ const SKILL_PREFIXES = {
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Generation failed');
-        return [{ filename: result.filename, type: 'npc', markdown: result.markdown, pdf: result.pdf }];
+        return [{
+          filename: result.filename,
+          displayName: npc.name || result.filename,
+          type: 'npc',
+          markdown: result.markdown,
+          pdf: result.pdf,
+        }];
       },
     });
   });
@@ -100,7 +106,13 @@ const SKILL_PREFIXES = {
         });
         const npcResult = await npcRes.json();
         if (!npcRes.ok) throw new Error(npcResult.error || 'Generation failed');
-        files.push({ filename: npcResult.filename, type: 'npc', markdown: npcResult.markdown, pdf: npcResult.pdf });
+        files.push({
+          filename: npcResult.filename,
+          displayName: npc.name || npcResult.filename,
+          type: 'npc',
+          markdown: npcResult.markdown,
+          pdf: npcResult.pdf,
+        });
 
         const sessionJobs = (linkedSessionDetails || [])
           .filter(s => s.exists !== false)
@@ -115,7 +127,13 @@ const SKILL_PREFIXES = {
             });
             const genResult = await genRes.json();
             if (!genRes.ok) return null;
-            return { filename: genResult.filename, type: 'session', markdown: genResult.markdown, pdf: genResult.pdf };
+            return {
+              filename: genResult.filename,
+              displayName: sess.sessionNumber ? `Session ${String(sess.sessionNumber).padStart(3, '0')}` : (sess.goal || sess.id),
+              type: 'session',
+              markdown: genResult.markdown,
+              pdf: genResult.pdf,
+            };
           });
 
         const encounterJobs = (linkedEncounterDetails || [])
@@ -131,7 +149,13 @@ const SKILL_PREFIXES = {
             });
             const genResult = await genRes.json();
             if (!genRes.ok) return null;
-            return { filename: genResult.filename, type: 'encounter', markdown: genResult.markdown, pdf: genResult.pdf };
+            return {
+              filename: genResult.filename,
+              displayName: enc.name || enc.id,
+              type: 'encounter',
+              markdown: genResult.markdown,
+              pdf: genResult.pdf,
+            };
           });
 
         const [sessResults, encResults] = await Promise.all([

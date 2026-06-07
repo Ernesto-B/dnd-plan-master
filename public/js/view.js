@@ -1,3 +1,17 @@
+(function () {
+  marked.use({
+    renderer: {
+      link(token) {
+        const text = this.parser.parseInline(token.tokens);
+        let out = '<a href="' + (token.href || '') + '"';
+        if (token.title) out += ' title="' + token.title + '"';
+        out += ' target="_blank" rel="noopener">' + text + '</a>';
+        return out;
+      },
+    },
+  });
+})();
+
 (async function () {
   const id = location.pathname.split('/').pop();
   const content = document.getElementById('content');
@@ -18,7 +32,7 @@
     linkedEncounterLinks = linksRes.ok ? await linksRes.json() : [];
     linkedNpcLinks = npcRes.ok ? await npcRes.json() : [];
   } catch {
-    content.innerHTML = '<div class="empty-state"><p>Session not found.</p><a href="/" class="btn btn-ghost">← Back</a></div>';
+    content.innerHTML = '<div class="empty-state"><p>Session not found.</p><a href="/sessions" class="btn btn-ghost">← Back</a></div>';
     return;
   }
 
@@ -50,7 +64,13 @@
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Generation failed');
-        return [{ filename: result.filename, type: 'session', markdown: result.markdown, pdf: result.pdf }];
+        return [{
+          filename: result.filename,
+          displayName: session.data?.goal || `Session ${formatSessionNumber(session.sessionNumber || session.data?.sessionNumber || '?')}`,
+          type: 'session',
+          markdown: result.markdown,
+          pdf: result.pdf,
+        }];
       },
     });
   });
@@ -68,7 +88,13 @@
         });
         const sessionResult = await sessionRes.json();
         if (!sessionRes.ok) throw new Error(sessionResult.error || 'Session generation failed');
-        files.push({ filename: sessionResult.filename, type: 'session', markdown: sessionResult.markdown, pdf: sessionResult.pdf });
+        files.push({
+          filename: sessionResult.filename,
+          displayName: session.data?.goal || `Session ${formatSessionNumber(session.sessionNumber || session.data?.sessionNumber || '?')}`,
+          type: 'session',
+          markdown: sessionResult.markdown,
+          pdf: sessionResult.pdf,
+        });
 
         const encounterJobs = linkedEncounterLinks
           .filter(l => l.exists)
@@ -83,7 +109,13 @@
             });
             const genResult = await genRes.json();
             if (!genRes.ok) return null;
-            return { filename: genResult.filename, type: 'encounter', markdown: genResult.markdown, pdf: genResult.pdf };
+            return {
+              filename: genResult.filename,
+              displayName: link.name || link.id,
+              type: 'encounter',
+              markdown: genResult.markdown,
+              pdf: genResult.pdf,
+            };
           });
 
         const npcJobs = linkedNpcLinks
@@ -99,7 +131,13 @@
             });
             const genResult = await genRes.json();
             if (!genRes.ok) return null;
-            return { filename: genResult.filename, type: 'npc', markdown: genResult.markdown, pdf: genResult.pdf };
+            return {
+              filename: genResult.filename,
+              displayName: link.name || link.id,
+              type: 'npc',
+              markdown: genResult.markdown,
+              pdf: genResult.pdf,
+            };
           });
 
         const [encResults, npcResults] = await Promise.all([
@@ -197,7 +235,7 @@ function renderDmTablePanel(session, linkedEncounterLinks, linkedNpcLinks, conta
   ].filter(Boolean);
 
   panel.innerHTML = `
-    <div class="dm-table-panel card">
+    <div class="dm-table-panel">
       <div class="dm-table-header">
         <div>
           <div class="dm-table-kicker">DM Table</div>

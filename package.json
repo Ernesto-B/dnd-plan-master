@@ -27,14 +27,16 @@
   },
   "build": {
     "appId": "com.ernestobarreto.dndsessionmaster",
-    "productName": "D&D Session Master",
+    "productName": "D&D Master",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "publish": null,
+    "icon": "assets/icons/icon.png",
     "directories": {
       "output": "dist"
     },
     "files": [
+      "assets/**/*",
       "electron/**/*",
       "public/**/*",
       "src/**/*",
@@ -42,6 +44,7 @@
       "package.json"
     ],
     "mac": {
+      "icon": "assets/icons/icon.icns",
       "target": [
         "dmg",
         "zip"
@@ -49,6 +52,7 @@
       "category": "public.app-category.productivity"
     },
     "win": {
+      "icon": "assets/icons/icon.ico",
       "target": [
         "nsis",
         "portable"

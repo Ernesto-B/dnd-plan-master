@@ -55,7 +55,7 @@
         <p>No continuity notes are showing yet.</p>
         <div class="campaign-empty-actions">
           <a href="/form#s-continuity" class="btn btn-primary">Create a Session with Continuity</a>
-          <a href="/" class="btn btn-ghost">Open Sessions List</a>
+          <a href="/sessions" class="btn btn-ghost">Open Sessions List</a>
         </div>
       </div>`;
     timelineEl.innerHTML = '';
@@ -167,11 +167,12 @@
       session: visibleNodes.filter(node => node.entityType === 'session').sort(compareGraphNodes),
       npc: visibleNodes.filter(node => node.entityType === 'npc').sort(compareGraphNodes),
       encounter: visibleNodes.filter(node => node.entityType === 'encounter').sort(compareGraphNodes),
+      location: visibleNodes.filter(node => node.entityType === 'location').sort(compareGraphNodes),
     };
 
-    graphMapEl.innerHTML = ['session', 'npc', 'encounter'].map(type => `
+    graphMapEl.innerHTML = ['session', 'npc', 'encounter', 'location'].map(type => `
       <section class="graph-column graph-column-${type}">
-        <div class="graph-column-head">${type === 'session' ? 'Sessions' : type === 'npc' ? 'NPCs' : 'Encounters'}</div>
+        <div class="graph-column-head">${graphTypeLabel(type, true)}</div>
         <div class="graph-column-list">
           ${groups[type].length
             ? groups[type].map(node => {
@@ -233,14 +234,26 @@
       session: matches.filter(node => node.entityType === 'session').sort(compareGraphNodes),
       npc: matches.filter(node => node.entityType === 'npc').sort(compareGraphNodes),
       encounter: matches.filter(node => node.entityType === 'encounter').sort(compareGraphNodes),
+      location: matches.filter(node => node.entityType === 'location').sort(compareGraphNodes),
     };
 
     const limit = 7;
-    ['session', 'npc', 'encounter'].forEach(type => {
+    ['session', 'npc', 'encounter', 'location'].forEach(type => {
       grouped[type].slice(0, limit).forEach(node => visible.add(node.id));
     });
 
     return visible;
+  }
+
+  function graphTypeLabel(type, plural) {
+    const labels = {
+      session: ['Session', 'Sessions'],
+      npc: ['NPC', 'NPCs'],
+      encounter: ['Encounter', 'Encounters'],
+      location: ['Location', 'Locations'],
+    };
+    const pair = labels[type] || [type, `${type}s`];
+    return plural ? pair[1] : pair[0];
   }
 
   function compareGraphNodes(a, b) {
@@ -281,6 +294,7 @@
       session: [],
       npc: [],
       encounter: [],
+      location: [],
     };
     (selectedNode.links || []).forEach(linkId => {
       const linked = nodesById.get(linkId);
@@ -292,7 +306,7 @@
       <div class="graph-detail-card">
         <div class="graph-detail-head">
           <div>
-            <div class="graph-detail-type">${selectedNode.entityType === 'session' ? 'Session' : selectedNode.entityType === 'npc' ? 'NPC' : 'Encounter'}</div>
+            <div class="graph-detail-type">${graphTypeLabel(selectedNode.entityType, false)}</div>
             <h3 class="graph-detail-title">${escHtml(selectedNode.label)}</h3>
             <p class="graph-detail-copy">${escHtml(selectedNode.subtitle || 'No additional summary available.')}</p>
           </div>
@@ -306,6 +320,7 @@
         ${renderGraphDetailSection('Connected Sessions', groupedLinks.session)}
         ${renderGraphDetailSection('Connected NPCs', groupedLinks.npc)}
         ${renderGraphDetailSection('Connected Encounters', groupedLinks.encounter)}
+        ${renderGraphDetailSection('Connected Locations', groupedLinks.location)}
       </div>
     `;
 
@@ -402,7 +417,7 @@
           </div>
           <div class="campaign-guide-actions">
             <a href="/form#s-continuity" class="btn btn-primary">New Session with Continuity</a>
-            <a href="/" class="btn btn-ghost">Browse Sessions</a>
+            <a href="/sessions" class="btn btn-ghost">Browse Sessions</a>
           </div>
         </div>
         ${trackedSessions.length ? '' : emptyStateSteps}

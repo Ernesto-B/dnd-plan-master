@@ -10,18 +10,19 @@
 <body>
 
 <nav class="top-nav">
-  <a href="/" class="brand">⚔ D&D Session Master</a>
   <span class="nav-sep"></span>
-  <a href="/" class="nav-link">Sessions</a>
+  <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link nav-link-active">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
-      <a href="/form">Session Plan</a>
-      <a href="/encounter/new">Encounter Plan</a>
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
     </div>
   </div>
 </nav>
@@ -29,7 +30,7 @@
 <div class="container wide">
   <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; margin-top:8px;">
     <h1 class="page-title">Encounter Plans</h1>
-    <a href="/encounter/new" class="btn btn-primary">+ New Encounter Plan</a>
+    <a href="/encounter/new" class="btn btn-primary" data-icon="plus">New Encounter Plan</a>
   </div>
   <p class="page-subtitle">Detailed combat encounter designs — click any row to view.</p>
 
@@ -51,6 +52,7 @@
 <script src="/js/encounters.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

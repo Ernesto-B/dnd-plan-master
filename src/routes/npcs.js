@@ -1,6 +1,4 @@
 const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
 const router  = express.Router();
 const npcStore = require('../services/npcStore');
 const sessionStore = require('../services/sessionStore');
@@ -8,15 +6,28 @@ const encounterStore = require('../services/encounterStore');
 const markdownGenerator = require('../services/npcMarkdownGenerator');
 const pdfGenerator = require('../services/pdfGenerator');
 const pdfTemplate = require('../templates/npcPdfTemplate');
-const folderPicker = require('../services/folderPicker');
+const campaignStore = require('../services/campaignStore');
 
 function filename(id) {
   return `npc-${String(id).replace(/^n-?/i, '')}`;
 }
 
 router.get('/', async (_req, res) => {
-  try { res.json(await npcStore.getAllNpcs()); }
-  catch (err) { res.status(500).json({ error: err.message }); }
+  try {
+    const campaignId = await campaignStore.getActiveCampaignId();
+    res.json(await npcStore.getAllNpcs(campaignId));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch('/reorder', async (_req, res) => {
+  try {
+    const ids = Array.isArray(_req.body?.ids) ? _req.body.ids : [];
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const ordered = await npcStore.reorderNpcs(ids, campaignId);
+    res.json({ success: true, ids: ordered.map(npc => npc.id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id/linked-sessions', async (req, res) => {
@@ -71,23 +82,11 @@ router.post('/export', async (req, res) => {
   }
 });
 
-router.post('/save-files', async (req, res) => {
-  try {
-    const { markdown, pdf, filename: fn } = req.body;
-    const folder = await folderPicker.pick();
-    if (!folder) return res.json({ cancelled: true });
-    await fs.writeFile(path.join(folder, `${fn}.md`), markdown, 'utf8');
-    await fs.writeFile(path.join(folder, `${fn}.pdf`), Buffer.from(pdf, 'base64'));
-    res.json({ success: true, path: folder });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.post('/', async (req, res) => {
   try {
     if (!req.body.name) return res.status(400).json({ error: 'Name is required' });
-    res.json(await npcStore.saveNpc(req.body));
+    const campaignId = await campaignStore.getActiveCampaignId();
+    res.json(await npcStore.saveNpc({ ...req.body, campaignId }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

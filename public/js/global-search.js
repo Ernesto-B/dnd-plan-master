@@ -21,13 +21,17 @@
     <div class="gs-box" role="dialog" aria-label="Global search">
       <div class="gs-input-row">
         <span class="gs-input-icon">⌕</span>
-        <input id="gs-input" class="gs-input" type="text" placeholder="Search sessions, encounters, NPCs…" autocomplete="off" spellcheck="false">
-        <kbd class="gs-esc-hint">Esc</kbd>
+        <input id="gs-input" class="gs-input" type="text" placeholder="Search sessions, encounters, NPCs, locations…" autocomplete="off" spellcheck="false">
+        <div class="gs-input-tools">
+          <span id="gs-scope-indicator" class="gs-scope-indicator" hidden></span>
+          <kbd class="gs-esc-hint">Esc</kbd>
+        </div>
       </div>
       <div class="gs-hints">
-        <span class="gs-hint-chip">session: …</span>
-        <span class="gs-hint-chip">enc: …</span>
-        <span class="gs-hint-chip">npc: …</span>
+        <span class="gs-hint-chip" data-scope="session">session: …</span>
+        <span class="gs-hint-chip" data-scope="encounter">enc: …</span>
+        <span class="gs-hint-chip" data-scope="npc">npc: …</span>
+        <span class="gs-hint-chip" data-scope="location">loc: …</span>
       </div>
       <div id="gs-results" class="gs-results"></div>
     </div>`;
@@ -35,6 +39,8 @@
 
   const input    = document.getElementById('gs-input');
   const results  = document.getElementById('gs-results');
+  const scopeIndicator = document.getElementById('gs-scope-indicator');
+  const hintChips = Array.from(overlay.querySelectorAll('.gs-hint-chip'));
 
   // ─── State ──────────────────────────────────────────────────────────────────
   let debounceTimer = null;
@@ -46,15 +52,25 @@
     session:   { icon: '📜', label: 'Sessions'   },
     encounter: { icon: '⚔',  label: 'Encounters' },
     npc:       { icon: '👤', label: 'NPCs'        },
+    location:  { icon: '📍', label: 'Locations'   },
   };
+
+  const SMART_SCOPES = [
+    { key: 'session', aliases: ['session', 'sessions', 'sess'], label: 'Sessions', canonical: 'session' },
+    { key: 'encounter', aliases: ['enc', 'encounter', 'encounters'], label: 'Encounters', canonical: 'enc' },
+    { key: 'npc', aliases: ['npc', 'npcs'], label: 'NPCs', canonical: 'npc' },
+    { key: 'location', aliases: ['loc', 'location', 'locations'], label: 'Locations', canonical: 'loc' },
+  ];
 
   // ─── Open / close ────────────────────────────────────────────────────────────
   function open() {
     overlay.classList.add('visible');
     input.value = '';
     results.innerHTML = '';
+    lastQuery = '';
     activeIdx = -1;
     currentItems = [];
+    updateScopeUi('');
     input.focus();
   }
 
@@ -79,6 +95,15 @@
     if (!overlay.classList.contains('visible')) return;
 
     if (e.key === 'Escape') { close(); return; }
+    if (e.key === 'Tab') {
+      const completion = getScopeCompletion(input.value);
+      if (completion) {
+        e.preventDefault();
+        input.value = completion;
+        handleQueryInput();
+      }
+      return;
+    }
     if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); return; }
     if (e.key === 'ArrowUp')   { e.preventDefault(); moveActive(-1); return; }
     if (e.key === 'Enter') {
@@ -90,8 +115,11 @@
   });
 
   // ─── Search ──────────────────────────────────────────────────────────────────
-  input.addEventListener('input', () => {
+  input.addEventListener('input', handleQueryInput);
+
+  function handleQueryInput() {
     const q = input.value.trim();
+    updateScopeUi(input.value);
     if (q === lastQuery) return;
     lastQuery = q;
     activeIdx = -1;
@@ -99,7 +127,7 @@
     clearTimeout(debounceTimer);
     if (!q) { results.innerHTML = ''; currentItems = []; return; }
     debounceTimer = setTimeout(() => runSearch(q), 180);
-  });
+  }
 
   async function runSearch(q) {
     let data;
@@ -126,7 +154,7 @@
       groups[item.type].push(item);
     }
 
-    const order = ['session', 'encounter', 'npc'];
+    const order = ['session', 'encounter', 'npc', 'location'];
     let html = '';
     let idx  = 0;
 
@@ -163,6 +191,56 @@
   function setActive(idx) {
     activeIdx = idx;
     results.querySelectorAll('.gs-item').forEach((el, i) => el.classList.toggle('gs-active', i === idx));
+  }
+
+  function findScopeByAlias(alias) {
+    const normalized = String(alias || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return SMART_SCOPES.find(scope => scope.aliases.includes(normalized)) || null;
+  }
+
+  function matchScopeFragment(fragment) {
+    const normalized = String(fragment || '').trim().toLowerCase();
+    if (!normalized) return null;
+    const matches = SMART_SCOPES.filter(scope =>
+      scope.aliases.some(alias => alias.startsWith(normalized))
+    );
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function parseScopePrefix(value) {
+    const match = String(value || '').match(/^\s*([a-z]+)\s*:(.*)$/i);
+    if (!match) return null;
+    const scope = findScopeByAlias(match[1]);
+    if (!scope) return null;
+    return { scope, query: match[2] };
+  }
+
+  function getScopeCompletion(value) {
+    const raw = String(value || '');
+    const withColon = raw.match(/^(\s*)([a-z]+)\s*:(\s*)$/i);
+    if (withColon) {
+      const scope = matchScopeFragment(withColon[2]) || findScopeByAlias(withColon[2]);
+      return scope ? `${withColon[1]}${scope.canonical}: ` : null;
+    }
+
+    const bare = raw.match(/^(\s*)([a-z]+)$/i);
+    if (!bare) return null;
+    const scope = matchScopeFragment(bare[2]) || findScopeByAlias(bare[2]);
+    return scope ? `${bare[1]}${scope.canonical}: ` : null;
+  }
+
+  function updateScopeUi(value) {
+    const parsed = parseScopePrefix(value);
+    const activeScope = parsed?.scope?.key || null;
+
+    overlay.classList.toggle('gs-has-scope', Boolean(activeScope));
+    scopeIndicator.hidden = !activeScope;
+    scopeIndicator.textContent = activeScope ? `Scoped: ${parsed.scope.label}` : '';
+
+    hintChips.forEach(chip => {
+      chip.classList.toggle('is-active', chip.dataset.scope === activeScope);
+    });
   }
 
   function escHtml(str) {

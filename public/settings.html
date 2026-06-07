@@ -10,18 +10,19 @@
 <body>
 
 <nav class="top-nav">
-  <a href="/" class="brand">⚔ D&D Session Master</a>
   <span class="nav-sep"></span>
-  <a href="/" class="nav-link">Sessions</a>
+  <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
   <a href="/settings" class="nav-link nav-link-active">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
-      <a href="/form">Session Plan</a>
-      <a href="/encounter/new">Encounter Plan</a>
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
     </div>
   </div>
 </nav>
@@ -73,12 +74,12 @@
 
   <div class="section-header" id="settings-party" style="margin-top:32px;">
     <span class="section-num">02</span>
-    <h2>Party Roster</h2>
+    <h2>Party Roster <span class="settings-campaign-tag" id="settings-campaign-tag"></span></h2>
   </div>
 
   <div class="card">
     <p style="font-family:var(--font-body); color:var(--muted); font-size:14px; margin-bottom:16px; font-style:italic;">
-      Add one row per player. Name and class are pre-filled in encounter forms — you still fill in their specific task for each encounter.
+      Add one row per player. This roster belongs to the active campaign and is pre-filled in encounter forms.
     </p>
     <div id="party-list"></div>
     <button type="button" class="btn btn-add" id="btn-add-player">+ Add Player</button>
@@ -94,8 +95,8 @@
     <h2>Export &amp; Import</h2>
   </div>
   <div class="card">
-    <h3 class="settings-subhead">Export Plans</h3>
-    <p class="settings-hint">Select plans to bundle into a JSON file you can share or import on another device.</p>
+    <h3 class="settings-subhead">Export Records</h3>
+    <p class="settings-hint">Select sessions, encounters, NPCs, and locations to bundle into a JSON file you can share or import on another device.</p>
     <div id="export-search-bar"></div>
     <div class="export-controls">
       <button type="button" class="btn btn-ghost" id="btn-select-all">Select All</button>
@@ -103,16 +104,17 @@
       <button type="button" class="btn btn-ghost" id="btn-deselect-all">Deselect All</button>
     </div>
     <div id="export-list" class="export-list">
-      <p style="color:var(--muted); font-size:14px; font-family:var(--font-body);">Loading plans…</p>
+      <p style="color:var(--muted); font-size:14px; font-family:var(--font-body);">Loading records…</p>
     </div>
     <div style="margin-top:14px;">
       <button type="button" class="btn btn-primary" id="btn-export-json" disabled>Export Selected (0)</button>
+      <button type="button" class="btn btn-ghost" id="btn-export-campaign" style="margin-left:10px;">Export Campaign…</button>
     </div>
   </div>
 
   <div class="card" style="margin-top:16px;">
-    <h3 class="settings-subhead">Import Plans</h3>
-    <p class="settings-hint">Import a previously exported JSON file. Existing plans are never overwritten — only new IDs are added.</p>
+    <h3 class="settings-subhead">Import Records</h3>
+    <p class="settings-hint">Import a previously exported JSON file. Existing records are never overwritten — only new IDs are added.</p>
     <div class="import-row">
       <label class="btn btn-ghost" for="import-file-input" style="cursor:pointer;">Choose File</label>
       <input type="file" id="import-file-input" accept=".json" style="display:none;">
@@ -186,11 +188,12 @@
 
 <div id="toast" class="toast"></div>
 <script src="/js/dialog.js"></script>
-<script src="/js/search.js"></script>
 <script src="/js/shortcuts.js"></script>
+<script src="/js/export-dialog.js"></script>
 <script src="/js/settings.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

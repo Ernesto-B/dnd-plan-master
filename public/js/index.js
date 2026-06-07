@@ -1,4 +1,5 @@
 let allSessions = [];
+let lastVisibleSessionIds = [];
 
 (async function () {
   const container = document.getElementById('sessions-container');
@@ -59,6 +60,7 @@ let allSessions = [];
 function renderTable(sessions, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
   const container = document.getElementById('sessions-container');
+  lastVisibleSessionIds = sessions.map(session => session.id);
 
   if (!sessions.length) {
     container.innerHTML = isFiltered
@@ -81,6 +83,9 @@ function renderTable(sessions, isFiltered) {
     const tagChips  = tagChipsHtml(s.tags);
     return `
       <tr class="session-row" data-id="${s.id}">
+        <td class="drag-cell">
+          <button class="row-drag-handle" type="button" draggable="true" title="Drag to reorder sessions" aria-label="Drag to reorder session">⋮⋮</button>
+        </td>
         <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
         <td class="clickable">
           <span class="session-num">#${num}</span>${demoBadge}${linkedChip}
@@ -99,6 +104,7 @@ function renderTable(sessions, isFiltered) {
     <table class="sessions-table">
       <thead>
         <tr>
+          <th class="drag-cell" aria-label="Reorder"></th>
           <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible sessions"></th>
           <th>Session</th>
           <th>Date</th>
@@ -118,6 +124,101 @@ function renderTable(sessions, isFiltered) {
     });
   });
 
+  initRowReorder(container, '/api/sessions/reorder', isFiltered);
+
+}
+
+function initRowReorder(container, apiUrl, isFiltered) {
+  const tbody = container.querySelector('tbody');
+  if (!tbody) return;
+
+  let draggedId = null;
+
+  function clearDragState() {
+    tbody.querySelectorAll('.session-row').forEach(row => {
+      row.classList.remove('drag-over-before', 'drag-over-after', 'is-dragging');
+      row.removeAttribute('draggable');
+    });
+  }
+
+  tbody.querySelectorAll('.session-row').forEach(row => {
+    const handle = row.querySelector('.row-drag-handle');
+    if (!handle) return;
+
+    handle.addEventListener('dragstart', event => {
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) {
+        event.preventDefault();
+        return;
+      }
+      draggedId = row.dataset.id;
+      row.setAttribute('draggable', 'true');
+      row.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedId);
+    });
+
+    handle.addEventListener('dragend', () => {
+      draggedId = null;
+      clearDragState();
+    });
+
+    row.addEventListener('dragover', event => {
+      if (!draggedId || draggedId === row.dataset.id) return;
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
+      event.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-before', before);
+      row.classList.toggle('drag-over-after', !before);
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-before', 'drag-over-after');
+    });
+
+    row.addEventListener('drop', async event => {
+      if (!draggedId || draggedId === row.dataset.id) return;
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
+      event.preventDefault();
+
+      const sourceRow = tbody.querySelector(`.session-row[data-id="${CSS.escape(draggedId)}"]`);
+      if (!sourceRow) return;
+
+      const rect = row.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      if (before) tbody.insertBefore(sourceRow, row);
+      else tbody.insertBefore(sourceRow, row.nextSibling);
+
+      clearDragState();
+
+      const previousAllItems = allSessions.slice();
+      const visibleIds = [...tbody.querySelectorAll('.session-row')].map(item => item.dataset.id);
+      allSessions = mergeVisibleOrder(allSessions, visibleIds);
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: allSessions.map(item => item.id) }),
+        });
+        if (!res.ok) throw new Error('Could not save session order');
+      } catch (err) {
+        allSessions = previousAllItems;
+        const visibleSet = new Set(lastVisibleSessionIds);
+        renderTable(isFiltered ? allSessions.filter(item => visibleSet.has(item.id)) : allSessions, isFiltered);
+        showToast(err.message || 'Could not save session order.', 'error');
+        return;
+      }
+    });
+  });
+}
+
+function mergeVisibleOrder(allItems, visibleIds) {
+  const visibleSet = new Set(visibleIds);
+  const byId = new Map(allItems.map(item => [item.id, item]));
+  const orderedVisible = visibleIds.map(id => byId.get(id)).filter(Boolean);
+  let index = 0;
+  return allItems.map(item => (visibleSet.has(item.id) ? orderedVisible[index++] : item));
 }
 
 function escHtml(str) {

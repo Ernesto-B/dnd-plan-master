@@ -5,6 +5,8 @@
     { action: 'newSession', label: 'New Session Plan', description: 'Open the session form.', defaultCombo: 'Alt+Shift+S' },
     { action: 'newEncounter', label: 'New Encounter Plan', description: 'Open the encounter form.', defaultCombo: 'Alt+Shift+E' },
     { action: 'newNpc', label: 'New NPC', description: 'Open the NPC form.', defaultCombo: 'Alt+Shift+N' },
+    { action: 'historyBack', label: 'Go Back', description: 'Return to the previous page or app state in history.', defaultCombo: 'Mod+[' },
+    { action: 'historyForward', label: 'Go Forward', description: 'Go forward to the next page or app state in history.', defaultCombo: 'Mod+]' },
     { action: 'goSessions', label: 'Go to Sessions', description: 'Jump to the sessions list.', defaultCombo: 'Alt+1' },
     { action: 'goEncounters', label: 'Go to Encounters', description: 'Jump to the encounter list.', defaultCombo: 'Alt+2' },
     { action: 'goNpcs', label: 'Go to NPCs', description: 'Jump to the NPC list.', defaultCombo: 'Alt+3' },
@@ -209,12 +211,22 @@
       newSession: '/form',
       newEncounter: '/encounter/new',
       newNpc: '/npc/new',
-      goSessions: '/',
+      goSessions: '/sessions',
       goEncounters: '/encounters',
       goNpcs: '/npcs',
       goCampaign: '/campaign',
       goSettings: '/settings',
     };
+
+    if (action === 'historyBack') {
+      window.history.back();
+      return true;
+    }
+
+    if (action === 'historyForward') {
+      window.history.forward();
+      return true;
+    }
 
     if (routes[action]) {
       if (window.location.pathname !== routes[action]) window.location.href = routes[action];

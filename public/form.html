@@ -11,18 +11,19 @@
 <body>
 
 <nav class="top-nav">
-  <a href="/" class="brand">⚔ D&D Session Master</a>
   <span class="nav-sep"></span>
-  <a href="/" class="nav-link">Sessions</a>
+  <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
+  <a href="/locations" class="nav-link">Locations</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
     <div class="create-dropdown">
-      <a href="/form">Session Plan</a>
-      <a href="/encounter/new">Encounter Plan</a>
+      <a href="/form">Session</a>
+      <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
+      <a href="/location/new">Location</a>
     </div>
   </div>
 </nav>
@@ -30,7 +31,7 @@
 <div class="form-outer">
   <div class="form-main">
   <div class="view-actions" style="margin-bottom: 16px;">
-    <a href="/" class="back-link" id="form-back-link">← All Sessions</a>
+    <a href="/sessions" class="back-link" id="form-back-link">← All Sessions</a>
   </div>
   <h1 class="page-title" id="page-title">New Session Plan</h1>
   <p class="page-subtitle" id="page-subtitle">Fill in the fields below, then click Preview to review your PDF before choosing where to save it.</p>
@@ -253,6 +254,7 @@
 <script src="/js/form.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/nav.js"></script>
 </body>
 </html>

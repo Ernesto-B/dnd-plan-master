@@ -98,6 +98,7 @@ function makeNPCCard(n, d = {}) {
 function makeLocationCard(n, d = {}) {
   const card = document.createElement('div');
   card.className = 'card location-card';
+  if (d._sourceId) card.dataset.sourceLocationId = d._sourceId;
   card.innerHTML = `
     <div class="card-header">
       <span class="card-title">Location ${n}</span>
@@ -343,6 +344,7 @@ function extractLocationCard(card) {
     sensoryDetail: card.querySelector('.loc-sensory')?.value.trim() ?? '',
     hiddenDetail:  card.querySelector('.loc-hidden')?.value.trim() ?? '',
     districts:     collectDistricts(card),
+    _sourceId:     card.dataset.sourceLocationId || undefined,
   };
 }
 
@@ -362,8 +364,7 @@ const tagInput = new TagInput(document.getElementById('tag-input-container'));
 // ─── Wire up Add buttons ──────────────────────────────────────────────────────
 document.getElementById('btn-add-npc').addEventListener('click', () => openNpcPicker());
 
-document.getElementById('btn-add-location').addEventListener('click', () =>
-  addCard('location', 'location-list', makeLocationCard, 'btn-add-location'));
+document.getElementById('btn-add-location').addEventListener('click', () => openLocationPicker());
 
 document.getElementById('btn-add-clock').addEventListener('click', () =>
   addCard('clock', 'clock-list', makeClockCard, 'btn-add-clock'));
@@ -396,6 +397,7 @@ function collectFormData() {
     sessionNotes:       v('sessionNotes'),
     tags:               tagInput.getTags(),
     linkedNpcs:         Array.from(document.querySelectorAll('.npc-card[data-source-npc-id]')).map(c => c.dataset.sourceNpcId).filter(Boolean),
+    linkedLocations:    Array.from(document.querySelectorAll('.location-card[data-source-location-id]')).map(c => c.dataset.sourceLocationId).filter(Boolean),
     npcs:               collectNPCs(),
     locations:          collectLocations(),
     factionClocks:      collectClocks(),
@@ -924,6 +926,144 @@ async function importNpcFromDb(npcId) {
   }
 }
 
+// ─── Location Picker ──────────────────────────────────────────────────────────
+let allLocations = [];
+
+async function loadLocationDatabase() {
+  try {
+    const res = await fetch('/api/locations');
+    if (!res.ok) return;
+    allLocations = await res.json();
+  } catch {}
+}
+
+function openLocationPicker() {
+  if (counts.location >= MAX.location) {
+    showToast(`Maximum ${MAX.location} Locations per session reached.`, 'error');
+    return;
+  }
+  let picker = document.getElementById('location-picker');
+  if (!picker) picker = buildLocationPicker();
+  renderLocationPickerList('');
+  const btn = document.getElementById('btn-add-location');
+  const rect = btn.getBoundingClientRect();
+  const vpH = window.innerHeight;
+  picker.style.left = `${Math.min(rect.left, window.innerWidth - 320)}px`;
+  picker.style.top  = rect.bottom + 8 + 300 < vpH
+    ? `${rect.bottom + 8}px`
+    : `${rect.top - 8 - picker.offsetHeight || rect.top - 316}px`;
+  picker.hidden = false;
+  picker.querySelector('.npc-picker-search').value = '';
+  picker.querySelector('.npc-picker-search').focus();
+}
+
+function buildLocationPicker() {
+  const picker = document.createElement('div');
+  picker.id = 'location-picker';
+  picker.className = 'npc-picker-panel';
+  picker.hidden = true;
+  picker.innerHTML = `
+    <div class="npc-picker-head">
+      <span class="npc-picker-title">Add Location</span>
+      <button type="button" class="npc-picker-x" id="location-picker-close">×</button>
+    </div>
+    <button type="button" class="npc-picker-new-btn" id="location-picker-new">
+      <span class="npc-picker-new-icon">＋</span>
+      <div>
+        <div class="npc-picker-new-label">New Location</div>
+        <div class="npc-picker-new-sub">Start with a blank card</div>
+      </div>
+    </button>
+    <div class="npc-picker-or">— or import from your Locations database —</div>
+    <div class="npc-picker-search-wrap">
+      <input type="text" class="npc-picker-search" placeholder="Search by name…" autocomplete="off">
+    </div>
+    <div class="npc-picker-list" id="location-picker-list"></div>
+  `;
+  document.body.appendChild(picker);
+
+  picker.querySelector('#location-picker-close').addEventListener('click', closeLocationPicker);
+  picker.querySelector('#location-picker-new').addEventListener('click', () => {
+    addCard('location', 'location-list', makeLocationCard, 'btn-add-location');
+    closeLocationPicker();
+  });
+  picker.querySelector('.npc-picker-search').addEventListener('input', e => {
+    renderLocationPickerList(e.target.value.trim());
+  });
+
+  document.addEventListener('click', e => {
+    if (!picker.hidden && !picker.contains(e.target) && e.target.id !== 'btn-add-location') closeLocationPicker();
+  }, true);
+  document.addEventListener('keydown', e => {
+    if (!picker.hidden && e.key === 'Escape') closeLocationPicker();
+  });
+  return picker;
+}
+
+function closeLocationPicker() {
+  const picker = document.getElementById('location-picker');
+  if (picker) picker.hidden = true;
+}
+
+function renderLocationPickerList(query) {
+  const list = document.getElementById('location-picker-list');
+  if (!list) return;
+  const q = query.toLowerCase();
+  const filtered = allLocations.filter(l =>
+    !q ||
+    (l.name || '').toLowerCase().includes(q) ||
+    (l.description || '').toLowerCase().includes(q)
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = `<p class="npc-picker-empty">${
+      allLocations.length
+        ? 'No Locations match your search.'
+        : 'No Locations in your database yet.<br><a href="/location/new" target="_blank">Create one on the Locations page →</a>'
+    }</p>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(l => `
+    <button type="button" class="npc-picker-item" data-location-id="${h(l.id)}">
+      <span class="npc-picker-item-name">${h(l.name)}</span>
+      ${l.description ? `<span class="npc-picker-item-sub">${h(l.description.slice(0, 80))}${l.description.length > 80 ? '…' : ''}</span>` : ''}
+    </button>
+  `).join('');
+
+  list.querySelectorAll('.npc-picker-item').forEach(btn => {
+    btn.addEventListener('click', () => importLocationFromDb(btn.dataset.locationId));
+  });
+}
+
+async function importLocationFromDb(locationId) {
+  // Prevent duplicate
+  if (document.querySelector(`.location-card[data-source-location-id="${locationId}"]`)) {
+    showToast('That Location is already in this session.', 'error');
+    return;
+  }
+  try {
+    const res = await fetch(`/api/locations/${encodeURIComponent(locationId)}`);
+    if (!res.ok) throw new Error('Location not found');
+    const loc = await res.json();
+
+    // Map Location database fields → session card fields
+    const d = {
+      _sourceId:     loc.id,
+      name:          loc.name || '',
+      description:   loc.description || '',
+      sensoryDetail: loc.sensoryDetail || '',
+      hiddenDetail:  loc.hiddenDetail || '',
+      districts:     loc.districts || [],
+    };
+    addCard('location', 'location-list', makeLocationCard, 'btn-add-location', d);
+    closeLocationPicker();
+    showToast(`${loc.name} added to session.`, 'success');
+  } catch (err) {
+    showToast('Could not import Location: ' + err.message, 'error');
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function initFormPage() {
   document.getElementById('date').valueAsDate = new Date();
@@ -936,6 +1076,7 @@ async function initFormPage() {
   } catch {}
 
   await loadNpcDatabase();
+  await loadLocationDatabase();
   await initEditMode();
   buildSectionNav();
   await restoreDraftIfAvailable();

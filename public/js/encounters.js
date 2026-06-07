@@ -1,4 +1,5 @@
 let allEncounters = [];
+let lastVisibleEncounterIds = [];
 
 (async function () {
   const container = document.getElementById('encounters-container');
@@ -60,6 +61,7 @@ let allEncounters = [];
 function renderTable(encounters, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
   const container = document.getElementById('encounters-container');
+  lastVisibleEncounterIds = encounters.map(encounter => encounter.id);
 
   if (!encounters.length) {
     container.innerHTML = isFiltered
@@ -81,6 +83,9 @@ function renderTable(encounters, isFiltered) {
       : '—';
     return `
       <tr class="session-row" data-id="${e.id}">
+        <td class="drag-cell">
+          <button class="row-drag-handle" type="button" draggable="true" title="Drag to reorder encounters" aria-label="Drag to reorder encounter">⋮⋮</button>
+        </td>
         <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
         <td class="clickable">
           <span class="session-num">${escHtml(e.id)}</span>${demoBadge}${linkedChip}
@@ -100,6 +105,7 @@ function renderTable(encounters, isFiltered) {
     <table class="sessions-table">
       <thead>
         <tr>
+          <th class="drag-cell" aria-label="Reorder"></th>
           <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible encounters"></th>
           <th>ID</th>
           <th>Encounter Name</th>
@@ -120,6 +126,101 @@ function renderTable(encounters, isFiltered) {
     });
   });
 
+  initRowReorder(container, '/api/encounters/reorder', isFiltered);
+
+}
+
+function initRowReorder(container, apiUrl, isFiltered) {
+  const tbody = container.querySelector('tbody');
+  if (!tbody) return;
+
+  let draggedId = null;
+
+  function clearDragState() {
+    tbody.querySelectorAll('.session-row').forEach(row => {
+      row.classList.remove('drag-over-before', 'drag-over-after', 'is-dragging');
+      row.removeAttribute('draggable');
+    });
+  }
+
+  tbody.querySelectorAll('.session-row').forEach(row => {
+    const handle = row.querySelector('.row-drag-handle');
+    if (!handle) return;
+
+    handle.addEventListener('dragstart', event => {
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) {
+        event.preventDefault();
+        return;
+      }
+      draggedId = row.dataset.id;
+      row.setAttribute('draggable', 'true');
+      row.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedId);
+    });
+
+    handle.addEventListener('dragend', () => {
+      draggedId = null;
+      clearDragState();
+    });
+
+    row.addEventListener('dragover', event => {
+      if (!draggedId || draggedId === row.dataset.id) return;
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
+      event.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-before', before);
+      row.classList.toggle('drag-over-after', !before);
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-before', 'drag-over-after');
+    });
+
+    row.addEventListener('drop', async event => {
+      if (!draggedId || draggedId === row.dataset.id) return;
+      if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
+      event.preventDefault();
+
+      const sourceRow = tbody.querySelector(`.session-row[data-id="${CSS.escape(draggedId)}"]`);
+      if (!sourceRow) return;
+
+      const rect = row.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      if (before) tbody.insertBefore(sourceRow, row);
+      else tbody.insertBefore(sourceRow, row.nextSibling);
+
+      clearDragState();
+
+      const previousAllItems = allEncounters.slice();
+      const visibleIds = [...tbody.querySelectorAll('.session-row')].map(item => item.dataset.id);
+      allEncounters = mergeVisibleOrder(allEncounters, visibleIds);
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: allEncounters.map(item => item.id) }),
+        });
+        if (!res.ok) throw new Error('Could not save encounter order');
+      } catch (err) {
+        allEncounters = previousAllItems;
+        const visibleSet = new Set(lastVisibleEncounterIds);
+        renderTable(isFiltered ? allEncounters.filter(item => visibleSet.has(item.id)) : allEncounters, isFiltered);
+        showToast(err.message || 'Could not save encounter order.', 'error');
+        return;
+      }
+    });
+  });
+}
+
+function mergeVisibleOrder(allItems, visibleIds) {
+  const visibleSet = new Set(visibleIds);
+  const byId = new Map(allItems.map(item => [item.id, item]));
+  const orderedVisible = visibleIds.map(id => byId.get(id)).filter(Boolean);
+  let index = 0;
+  return allItems.map(item => (visibleSet.has(item.id) ? orderedVisible[index++] : item));
 }
 
 function escHtml(str) {

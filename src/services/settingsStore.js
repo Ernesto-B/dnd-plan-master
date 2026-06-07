@@ -14,6 +14,8 @@ const DEFAULTS = {
     newSession: 'Alt+Shift+S',
     newEncounter: 'Alt+Shift+E',
     newNpc: 'Alt+Shift+N',
+    historyBack: 'Mod+[',
+    historyForward: 'Mod+]',
     goSessions: 'Alt+1',
     goEncounters: 'Alt+2',
     goNpcs: 'Alt+3',
@@ -21,12 +23,6 @@ const DEFAULTS = {
     goSettings: 'Alt+5',
     focusSearch: '/',
     savePrimary: 'Mod+S',
-  },
-  templates: {
-    npcs: [],
-    locations: [],
-    factionClocks: [],
-    encounterPlans: [],
   },
 };
 
@@ -38,7 +34,6 @@ async function getSettings() {
       ...DEFAULTS,
       ...parsed,
       shortcuts: { ...DEFAULTS.shortcuts, ...(parsed.shortcuts || {}) },
-      templates: { ...DEFAULTS.templates, ...(parsed.templates || {}) },
     };
   } catch {
     return DEFAULTS;
@@ -56,11 +51,6 @@ async function saveSettings(settings) {
       ...DEFAULTS.shortcuts,
       ...(current.shortcuts || {}),
       ...(settings.shortcuts || {}),
-    },
-    templates: {
-      ...DEFAULTS.templates,
-      ...(current.templates || {}),
-      ...(settings.templates || {}),
     },
   };
   await fs.writeFile(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');

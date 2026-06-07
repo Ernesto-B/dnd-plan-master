@@ -1,5 +1,9 @@
 (function () {
   const nav = document.querySelector('.top-nav');
+  if (nav) {
+    nav.querySelector('.brand')?.remove();
+  }
+
   if (nav && !nav.querySelector('.nav-link[href="/campaign"]')) {
     const settingsLink = nav.querySelector('.nav-link[href="/settings"]');
     const link = document.createElement('a');
@@ -7,6 +11,84 @@
     link.className = 'nav-link';
     link.textContent = 'Campaign';
     if (settingsLink) nav.insertBefore(link, settingsLink);
+  }
+
+  if (nav && !nav.querySelector('.nav-history-wrap')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'nav-history-wrap';
+    wrap.setAttribute('aria-label', 'History navigation');
+    wrap.innerHTML = `
+      <button type="button" class="nav-history-btn" id="nav-back-btn" aria-label="Back" data-tooltip="Back (Cmd/Ctrl+[)">←</button>
+      <button type="button" class="nav-history-btn" id="nav-forward-btn" aria-label="Forward" data-tooltip="Forward (Cmd/Ctrl+])">→</button>
+    `;
+
+    const sep = nav.querySelector('.nav-sep');
+    if (sep) nav.insertBefore(wrap, sep);
+    else nav.prepend(wrap);
+
+    wrap.querySelector('#nav-back-btn')?.addEventListener('click', () => window.history.back());
+    wrap.querySelector('#nav-forward-btn')?.addEventListener('click', () => window.history.forward());
+  }
+
+  // Campaign switcher — injected between brand and nav separator
+  if (nav && !nav.querySelector('.nav-campaign-wrap')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'nav-campaign-wrap';
+    wrap.innerHTML = `
+      <button class="nav-campaign-btn" id="nav-campaign-btn" title="Switch Campaign">
+        <span class="nav-campaign-name" id="nav-campaign-name">…</span>
+        <span class="nav-campaign-caret">▾</span>
+      </button>
+      <div class="nav-campaign-dropdown" id="nav-campaign-dropdown">
+        <div class="nav-campaign-list" id="nav-campaign-list"></div>
+        <div class="nav-campaign-footer">
+          <a href="/campaigns" class="nav-campaign-manage">Manage Campaigns →</a>
+        </div>
+      </div>`;
+
+    const sep = nav.querySelector('.nav-sep');
+    if (sep) nav.insertBefore(wrap, sep);
+    else nav.insertBefore(wrap, nav.firstChild.nextSibling);
+
+    const btn      = nav.querySelector('#nav-campaign-btn');
+    const dropdown = nav.querySelector('#nav-campaign-dropdown');
+    const nameEl   = nav.querySelector('#nav-campaign-name');
+    const listEl   = nav.querySelector('#nav-campaign-list');
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => dropdown.classList.remove('open'));
+
+    async function loadCampaignSwitcher() {
+      try {
+        const res = await fetch('/api/campaigns');
+        if (!res.ok) return;
+        const { campaigns, activeCampaignId } = await res.json();
+        const active = campaigns.find(c => c.id === activeCampaignId) || campaigns[0];
+        nameEl.textContent = active?.name || 'Campaign';
+
+        listEl.innerHTML = campaigns.map(c => `
+          <button class="nav-campaign-item${c.id === activeCampaignId ? ' is-active' : ''}"
+                  data-id="${escHtml(c.id)}">
+            <span class="nav-campaign-item-check">${c.id === activeCampaignId ? '✓' : ''}</span>
+            <span>${escHtml(c.name)}</span>
+          </button>`).join('');
+
+        listEl.querySelectorAll('.nav-campaign-item').forEach(item => {
+          item.addEventListener('click', async () => {
+            if (item.classList.contains('is-active')) { dropdown.classList.remove('open'); return; }
+            try {
+              await fetch(`/api/campaigns/${encodeURIComponent(item.dataset.id)}/switch`, { method: 'POST' });
+              window.location.reload();
+            } catch {}
+          });
+        });
+      } catch {}
+    }
+
+    loadCampaignSwitcher();
   }
 
   // "Open Tabs" button — opens the shell window
@@ -29,11 +111,15 @@
     || pathname.startsWith('/encounter/edit/')
     || pathname.startsWith('/npc/new')
     || pathname.startsWith('/npc/edit/')
+    || pathname.startsWith('/location/new')
+    || pathname.startsWith('/location/edit/')
     || searchParams.has('edit');
   const activeByPath = [
-    { href: '/', match: pathname === '/' || pathname === '/view' || pathname === '/form' || pathname.startsWith('/view/') },
+    { href: '/campaign', match: pathname === '/' || pathname === '/campaign' || pathname === '/campaigns' },
+    { href: '/sessions', match: pathname === '/sessions' || pathname === '/view' || pathname === '/form' || pathname.startsWith('/view/') || pathname.startsWith('/run/') },
     { href: '/encounters', match: pathname === '/encounters' || pathname.startsWith('/encounter/') },
-    { href: '/campaign', match: pathname === '/campaign' },
+    { href: '/npcs', match: pathname === '/npcs' || pathname.startsWith('/npc/') },
+    { href: '/locations', match: pathname === '/locations' || pathname.startsWith('/location/') },
     { href: '/settings', match: pathname === '/settings' },
   ];
   const active = activeByPath.find(item => item.match);
@@ -42,6 +128,22 @@
     const activeLink = nav.querySelector(`.nav-link[href="${active.href}"]`);
     if (activeLink) activeLink.classList.add('nav-link-active');
   }
+
+  const navIcons = {
+    '/sessions': 'sessions',
+    '/encounters': 'encounters',
+    '/npcs': 'npc',
+    '/locations': 'location',
+    '/campaign': 'campaign',
+    '/settings': 'settings',
+  };
+  nav?.querySelectorAll('.nav-link').forEach(link => {
+    const icon = navIcons[link.getAttribute('href')];
+    if (icon) {
+      link.dataset.icon = icon;
+      link.dataset.iconDecorated = '0';
+    }
+  });
 
   const HELP_CONTENT = {
     sessions: {
@@ -157,6 +259,46 @@
         },
       ],
     },
+    locations: {
+      title: 'Locations',
+      intro: 'This page is the shared map index for places, districts, and sites the party can visit.',
+      sections: [
+        {
+          title: 'Use this page for',
+          bullets: [
+            'Keep places organized so you can jump back to them later without digging through old notes.',
+            'Use the location record to capture the details that matter at the table: what it looks like, who lives there, and what can change there.',
+            'Link locations to sessions and NPCs so the world stays connected.',
+          ],
+        },
+        {
+          title: 'Best practice',
+          bullets: [
+            'Keep each location entry short enough to scan in seconds.',
+            'Write just enough to support play, not a full encyclopedia entry.',
+          ],
+        },
+      ],
+    },
+    'location-view': {
+      title: 'Location View',
+      intro: 'This page shows one location in detail, including its districts and linked sessions.',
+      sections: [
+        {
+          title: 'Use this page for',
+          bullets: [
+            'Read the location summary, then jump back to the sessions that take place there.',
+            'Use Edit Location when its districts, secrets, or general details change.',
+          ],
+        },
+        {
+          title: 'Best practice',
+          bullets: [
+            'Locations work best when they can change. Note what is different since the party last visited.',
+          ],
+        },
+      ],
+    },
     'npc-view': {
       title: 'NPC View',
       intro: 'This page shows one NPC in detail, including their current state and linked sessions.',
@@ -178,11 +320,12 @@
     },
     campaign: {
       title: 'Campaign',
-      intro: 'This page rolls the campaign forward from the continuity notes inside each session plan.',
+      intro: 'This is now the main campaign landing page: overview first, continuity and connections underneath.',
       sections: [
         {
           title: 'Use this page for',
           bullets: [
+            'Start here when you open the app to get the current campaign overview, recent activity, and party context.',
             'Review open threads, world changes, NPC shifts, and rewards across sessions.',
             'See the campaign as a living ledger instead of a stack of isolated notes.',
           ],
@@ -225,12 +368,14 @@
   };
 
   function getHelpKey() {
-    if (pathname === '/' || pathname.startsWith('/view/')) return 'sessions';
+    if (pathname === '/sessions' || pathname.startsWith('/view/') || pathname === '/form' || pathname.startsWith('/run/')) return 'sessions';
     if (pathname.startsWith('/encounter/view/')) return 'encounter-view';
     if (pathname.startsWith('/npc/view/')) return 'npc-view';
+    if (pathname.startsWith('/location/view/')) return 'location-view';
     if (pathname === '/encounters') return 'encounters';
     if (pathname === '/npcs') return 'npcs';
-    if (pathname === '/campaign') return 'campaign';
+    if (pathname === '/locations') return 'locations';
+    if (pathname === '/' || pathname === '/campaign' || pathname === '/campaigns') return 'campaign';
     if (pathname === '/settings') return 'settings';
     return null;
   }
@@ -318,7 +463,8 @@
     helpBtn.className = 'help-fab';
     helpBtn.setAttribute('aria-label', 'Page help');
     helpBtn.setAttribute('title', 'Page help');
-    helpBtn.textContent = '?';
+    helpBtn.dataset.icon = 'help';
+    helpBtn.dataset.iconOnly = 'true';
     helpBtn.addEventListener('click', toggleHelpOverlay);
     document.body.appendChild(helpBtn);
     document.body.classList.add('has-page-help');
@@ -336,16 +482,37 @@
     document.addEventListener('click', () => wrap.classList.remove('open'));
   }
 
+  const createIcons = {
+    '/form': 'sessions',
+    '/encounter/new': 'encounters',
+    '/npc/new': 'npc',
+    '/location/new': 'location',
+  };
+  nav?.querySelectorAll('.create-dropdown a').forEach(link => {
+    const icon = createIcons[link.getAttribute('href')];
+    if (icon) {
+      link.dataset.icon = icon;
+      link.dataset.iconDecorated = '0';
+    }
+  });
+
   const scrollTopBtn = document.createElement('button');
   scrollTopBtn.type = 'button';
   scrollTopBtn.className = 'scroll-top-btn';
   scrollTopBtn.setAttribute('aria-label', 'Back to top');
   scrollTopBtn.setAttribute('title', 'Back to top');
-  scrollTopBtn.innerHTML = '&#8593;';
+  scrollTopBtn.dataset.icon = 'up';
+  scrollTopBtn.dataset.iconOnly = 'true';
   scrollTopBtn.addEventListener('click', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   document.body.appendChild(scrollTopBtn);
+
+  const shellBtn = document.getElementById('nav-open-shell');
+  if (shellBtn) {
+    shellBtn.dataset.icon = 'window';
+    shellBtn.dataset.iconOnly = 'true';
+  }
 
   function updateScrollTopButton() {
     scrollTopBtn.classList.toggle('visible', window.scrollY > 320);
