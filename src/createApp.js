@@ -10,9 +10,13 @@ const searchRouter     = require('./routes/search');
 const exportRouter     = require('./routes/export');
 const campaignsRouter  = require('./routes/campaigns');
 const campaignStore    = require('./services/campaignStore');
+const demoSeed         = require('./services/demoSeed');
 
 async function initApp() {
-  await campaignStore.init();
+  const { firstLaunch } = await campaignStore.init();
+  if (firstLaunch) {
+    await demoSeed.generateDemoCampaign({ activate: true });
+  }
 }
 
 function createApp() {

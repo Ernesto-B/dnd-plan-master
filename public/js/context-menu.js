@@ -16,9 +16,11 @@
       <button class="ctx-copy-btn" id="ctx-copy-btn">Copy</button>
     </div>
     <button class="ctx-item" id="ctx-select">☐  Select</button>
+    <button class="ctx-item" id="ctx-archive">🗄  Archive</button>
+    <button class="ctx-item" id="ctx-duplicate">⧉  Duplicate</button>
     <button class="ctx-item" id="ctx-export">↓  Export JSON</button>
     <button class="ctx-item" id="ctx-tag">🏷  Tag…</button>
-    <button class="ctx-item ctx-item-danger" id="ctx-delete">✕  Delete</button>`;
+    <button class="ctx-item ctx-item-danger" id="ctx-delete">🗑  Move to Trash</button>`;
   document.body.appendChild(menu);
 
   const tagPanel = document.createElement('div');
@@ -62,6 +64,16 @@
     toggleRow(ctxId, true);
   });
 
+  document.getElementById('ctx-duplicate').addEventListener('click', () => {
+    hideMenu();
+    duplicateItem(ctxId);
+  });
+
+  document.getElementById('ctx-archive').addEventListener('click', () => {
+    hideMenu();
+    changeStatus([ctxId], 'archived');
+  });
+
   document.getElementById('ctx-export').addEventListener('click', () => {
     hideMenu();
     exportItems([ctxId]);
@@ -75,7 +87,7 @@
 
   document.getElementById('ctx-delete').addEventListener('click', () => {
     hideMenu();
-    deleteItems([ctxId]);
+    trashItems([ctxId]);
   });
 
   // ─── Tag panel wiring ────────────────────────────────────────────────────────
@@ -147,6 +159,8 @@
   function showMenu(x, y) {
     document.getElementById('ctx-id-text').textContent = ctxId;
     document.getElementById('ctx-copy-btn').textContent = 'Copy';
+    document.getElementById('ctx-archive').hidden = !cfg?.allowArchive;
+    document.getElementById('ctx-duplicate').hidden = !cfg?.duplicate;
     menu.style.left = '-9999px';
     menu.style.top  = '-9999px';
     menu.classList.add('visible');
@@ -180,14 +194,16 @@
       <span class="ms-count" id="ms-count">0 selected</span>
       <button class="btn btn-ghost ms-btn" id="ms-select-all">Select All Visible</button>
       <button class="btn btn-ghost ms-btn" id="ms-clear-all">Clear Visible</button>
-      <button class="btn btn-ghost ms-btn" id="ms-delete" disabled>Delete</button>
+      <button class="btn btn-ghost ms-btn" id="ms-archive" disabled>Archive</button>
+      <button class="btn btn-ghost ms-btn" id="ms-delete" disabled>Move to Trash</button>
       <button class="btn btn-ghost ms-btn" id="ms-export" disabled>Export JSON</button>
       <button class="btn btn-ghost ms-btn" id="ms-tag" disabled>Tag…</button>
       <button class="btn btn-ghost ms-exit" id="ms-exit">✕ Exit Selection</button>`;
 
     document.getElementById('ms-select-all').addEventListener('click', () => setAllVisibleSelection(true));
     document.getElementById('ms-clear-all').addEventListener('click', () => setAllVisibleSelection(false));
-    document.getElementById('ms-delete').addEventListener('click', () => deleteItems([...selectedIds]));
+    document.getElementById('ms-archive').addEventListener('click', () => changeStatus([...selectedIds], 'archived'));
+    document.getElementById('ms-delete').addEventListener('click', () => trashItems([...selectedIds]));
     document.getElementById('ms-export').addEventListener('click', () => exportItems([...selectedIds]));
     document.getElementById('ms-tag').addEventListener('click', () => openTagPanel([...selectedIds], [], true));
     document.getElementById('ms-exit').addEventListener('click', () => window.exitSelectMode());
@@ -236,7 +252,7 @@
     const n = selectedIds.size;
     const countEl = document.getElementById('ms-count');
     if (countEl) countEl.textContent = `${n} selected`;
-    ['ms-delete', 'ms-export', 'ms-tag'].forEach(btnId => {
+    ['ms-archive', 'ms-delete', 'ms-export', 'ms-tag'].forEach(btnId => {
       const btn = document.getElementById(btnId);
       if (btn) btn.disabled = n === 0;
     });
@@ -251,33 +267,46 @@
     }
   }
 
-  // ─── Delete ──────────────────────────────────────────────────────────────────
-  async function deleteItems(ids) {
+  async function trashItems(ids) {
     if (!ids.length) return;
     const label = ids.length === 1 ? `"${ids[0]}"` : `${ids.length} items`;
-    const ok = await showConfirm(`Delete ${label}? This cannot be undone.`, {
-      title: 'Delete',
-      confirmLabel: 'Delete',
+    const ok = await showConfirm(`Move ${label} to trash? You can restore it later from Settings.`, {
+      title: 'Move to Trash',
+      confirmLabel: 'Move to Trash',
       danger: true,
     });
     if (!ok) return;
+    await changeStatus(ids, 'trashed', { skipConfirm: true });
+  }
 
+  async function changeStatus(ids, status, options = {}) {
+    if (!ids.length) return;
     let failed = 0;
+    const changedIds = [];
     for (const id of ids) {
       try {
-        const res = await fetch(`${cfg.apiBase}/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${cfg.apiBase}/${id}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
         if (!res.ok) throw new Error();
         const container = document.getElementById(cfg.containerId);
         const row = container && container.querySelector(`.session-row[data-id="${CSS.escape(id)}"]`);
         if (row) row.remove();
         if (cfg.onDelete) cfg.onDelete(id);
+        changedIds.push(id);
       } catch { failed++; }
     }
 
     if (selectMode) window.exitSelectMode();
     const done = ids.length - failed;
-    if (failed) toast(`Failed to delete ${failed} item(s).`, 'error');
-    else toast(`Deleted ${done} item(s).`, 'success');
+    if (failed) {
+      toast(`Failed to update ${failed} item(s).`, 'error');
+      return;
+    }
+    const statusLabel = status === 'archived' ? 'Archived' : 'Moved to trash';
+    toastWithAction(`${statusLabel} ${done} item${done === 1 ? '' : 's'}.`, 'success', 'Undo', () => restoreItems(changedIds));
   }
 
   // ─── Export ──────────────────────────────────────────────────────────────────
@@ -288,9 +317,12 @@
       if (!res.ok) throw new Error('Could not fetch data');
       const all = await res.json();
       const idSet = new Set(ids);
-      const payload = cfg.type === 'session'
-        ? { sessions: all.sessions.filter(s => idSet.has(s.id)), encounters: [] }
-        : { sessions: [], encounters: all.encounters.filter(e => idSet.has(e.id)) };
+      const payload = {
+        sessions: cfg.type === 'session' ? all.sessions.filter(s => idSet.has(s.id)) : [],
+        encounters: cfg.type === 'encounter' ? all.encounters.filter(e => idSet.has(e.id)) : [],
+        npcs: cfg.type === 'npc' ? (all.npcs || []).filter(n => idSet.has(n.id)) : [],
+        locations: cfg.type === 'location' ? (all.locations || []).filter(l => idSet.has(l.id)) : [],
+      };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -304,6 +336,56 @@
     } catch (err) {
       toast('Export failed: ' + err.message, 'error');
     }
+  }
+
+  async function duplicateItem(id) {
+    if (!id || !cfg?.duplicate) return;
+    try {
+      const originalRes = await fetch(`${cfg.apiBase}/${id}`);
+      if (!originalRes.ok) throw new Error(`Could not load ${cfg.type}`);
+      const original = await originalRes.json();
+      const duplicatePayload = cfg.duplicate.buildPayload(original);
+
+      const createRes = await fetch(cfg.duplicate.createUrl, {
+        method: cfg.duplicate.method || 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(duplicatePayload),
+      });
+      if (!createRes.ok) {
+        let message = `Could not duplicate ${cfg.type}`;
+        try {
+          const data = await createRes.json();
+          if (data?.error) message = data.error;
+        } catch {}
+        throw new Error(message);
+      }
+
+      if (cfg.reloadItems) await cfg.reloadItems();
+      if (cfg.renderItems) cfg.renderItems();
+      const label = cfg.duplicate.label || cfg.type || 'item';
+      toast(`Duplicated ${label}.`, 'success');
+    } catch (err) {
+      toast(err.message || `Could not duplicate ${cfg.type}.`, 'error');
+    }
+  }
+
+  async function restoreItems(ids) {
+    if (!ids.length) return;
+    let restored = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`${cfg.apiBase}/${id}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'active' }),
+        });
+        if (!res.ok) throw new Error();
+        restored++;
+      } catch {}
+    }
+    if (cfg.reloadItems) await cfg.reloadItems();
+    if (cfg.renderItems) cfg.renderItems();
+    toast(`Restored ${restored} item${restored === 1 ? '' : 's'}.`, restored ? 'success' : 'error');
   }
 
   // ─── Tag panel ───────────────────────────────────────────────────────────────
@@ -377,11 +459,38 @@
   }
 
   // ─── Toast helper ────────────────────────────────────────────────────────────
+  let toastTimer = null;
+
   function toast(msg, type = 'success') {
     const t = document.getElementById('toast');
     if (!t) return;
-    t.textContent = msg;
+    clearTimeout(toastTimer);
+    t.innerHTML = '';
+    const text = document.createElement('span');
+    text.textContent = msg;
+    t.appendChild(text);
     t.className = `toast ${type} show`;
-    setTimeout(() => { t.className = 'toast'; }, 4000);
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 4000);
+  }
+
+  function toastWithAction(msg, type, actionLabel, onAction) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    clearTimeout(toastTimer);
+    t.innerHTML = '';
+    const text = document.createElement('span');
+    text.textContent = msg;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', async () => {
+      t.className = 'toast';
+      await onAction();
+    });
+    t.appendChild(text);
+    t.appendChild(btn);
+    t.className = `toast toast-has-action ${type} show`;
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 6000);
   }
 })();

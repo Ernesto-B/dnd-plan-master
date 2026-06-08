@@ -1,5 +1,6 @@
 const sessionStore = require('./sessionStore');
 const encounterStore = require('./encounterStore');
+const { isActive } = require('./recordLifecycle');
 
 function buildRelationIndex(sessions, encounters) {
   const sessionToEncounters = new Map();
@@ -35,9 +36,9 @@ async function loadAll() {
   ]);
 
   return {
-    sessions,
-    encounters,
-    index: buildRelationIndex(sessions, encounters),
+    sessions: sessions.filter(isActive),
+    encounters: encounters.filter(isActive),
+    index: buildRelationIndex(sessions.filter(isActive), encounters.filter(isActive)),
   };
 }
 

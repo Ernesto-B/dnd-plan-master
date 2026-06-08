@@ -3,6 +3,7 @@ const encounterStore = require('./encounterStore');
 const npcStore = require('./npcStore');
 const locationStore = require('./locationStore');
 const planRelations = require('./planRelations');
+const { isActive } = require('./recordLifecycle');
 
 function nodeId(type, id) {
   return `${type}:${id}`;
@@ -29,10 +30,10 @@ async function buildEntityConnections(campaignId = 'c-default') {
     locationStore.getAllFull(),
   ]);
 
-  const campaignSessions = sessions.filter(session => belongsToCampaign(session, campaignId));
-  const campaignEncounters = encounters.filter(encounter => belongsToCampaign(encounter, campaignId));
-  const campaignNpcs = npcs.filter(npc => belongsToCampaign(npc, campaignId));
-  const campaignLocations = locations.filter(location => belongsToCampaign(location, campaignId));
+  const campaignSessions = sessions.filter(session => belongsToCampaign(session, campaignId) && isActive(session));
+  const campaignEncounters = encounters.filter(encounter => belongsToCampaign(encounter, campaignId) && isActive(encounter));
+  const campaignNpcs = npcs.filter(npc => belongsToCampaign(npc, campaignId) && isActive(npc));
+  const campaignLocations = locations.filter(location => belongsToCampaign(location, campaignId) && isActive(location));
 
   const relationIndex = planRelations.buildRelationIndex(campaignSessions, campaignEncounters);
   const sessionById = new Map(campaignSessions.map(session => [session.id, session]));

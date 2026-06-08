@@ -2,10 +2,12 @@ const express = require('express');
 const router  = express.Router();
 
 const campaignStore  = require('../services/campaignStore');
+const demoSeed       = require('../services/demoSeed');
 const sessionStore   = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
 const npcStore       = require('../services/npcStore');
 const locationStore  = require('../services/locationStore');
+const { isActive } = require('../services/recordLifecycle');
 
 // GET /api/campaigns — list all + active flag
 router.get('/', async (_req, res) => {
@@ -79,6 +81,20 @@ router.post('/import', async (req, res) => {
   }
 });
 
+// POST /api/campaigns/demo/generate — (re)create the bundled "Demo Campaign"
+// Safe to call repeatedly — no-ops (409) if a demo campaign already exists.
+router.post('/demo/generate', async (_req, res) => {
+  try {
+    const result = await demoSeed.generateDemoCampaign();
+    if (!result.created) {
+      return res.status(409).json({ error: 'A demo campaign already exists.' });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PUT /api/campaigns/:id — rename / update description
 router.put('/:id', async (req, res) => {
   try {
@@ -147,10 +163,10 @@ router.get('/:id/export', async (req, res) => {
         description: campaign.description,
         partyRoster: campaign.partyRoster || [],
       },
-      sessions:   sessions.filter(belongsHere),
-      encounters: encounters.filter(belongsHere),
-      npcs:       npcs.filter(belongsHere),
-      locations:  locations.filter(belongsHere),
+      sessions:   sessions.filter(record => belongsHere(record) && isActive(record)),
+      encounters: encounters.filter(record => belongsHere(record) && isActive(record)),
+      npcs:       npcs.filter(record => belongsHere(record) && isActive(record)),
+      locations:  locations.filter(record => belongsHere(record) && isActive(record)),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -169,10 +185,10 @@ router.get('/:id/counts', async (req, res) => {
       locationStore.getAllFull(),
     ]);
     res.json({
-      sessions:   sessions.filter(belongsHere).length,
-      encounters: encounters.filter(belongsHere).length,
-      npcs:       npcs.filter(belongsHere).length,
-      locations:  locations.filter(belongsHere).length,
+      sessions:   sessions.filter(record => belongsHere(record) && isActive(record)).length,
+      encounters: encounters.filter(record => belongsHere(record) && isActive(record)).length,
+      npcs:       npcs.filter(record => belongsHere(record) && isActive(record)).length,
+      locations:  locations.filter(record => belongsHere(record) && isActive(record)).length,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

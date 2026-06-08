@@ -4,7 +4,10 @@
 
   let loc;
   try {
-    const res = await fetch(`/api/locations/${id}`);
+    const [res] = await Promise.all([
+      fetch(`/api/locations/${id}`),
+      WikiLinks.preload(),
+    ]);
     if (!res.ok) throw new Error('Not found');
     loc = await res.json();
   } catch {
@@ -135,7 +138,7 @@ function buildHTML(loc) {
       <div class="npc-core-grid">${generalItems.map(([label, text]) =>
         `<div class="npc-core-item">
           <div class="npc-core-label">${esc(label)}</div>
-          <p class="npc-view-prose">${esc(text)}</p>
+          <p class="npc-view-prose">${WikiLinks.render(text)}</p>
         </div>`
       ).join('')}</div>
     </div>`);
@@ -146,7 +149,7 @@ function buildHTML(loc) {
     parts.push(`
       <div class="npc-view-section" id="loc-section-description">
         <div class="npc-view-section-label">Description</div>
-        <p class="npc-view-prose">${esc(loc.description)}</p>
+        <p class="npc-view-prose">${WikiLinks.render(loc.description)}</p>
       </div>`);
   }
 
@@ -162,7 +165,7 @@ function buildHTML(loc) {
       <div class="npc-core-grid">${detailItems.map(([label, text]) =>
         `<div class="npc-core-item">
           <div class="npc-core-label">${esc(label)}</div>
-          <p class="npc-view-prose">${esc(text)}</p>
+          <p class="npc-view-prose">${WikiLinks.render(text)}</p>
         </div>`
       ).join('')}</div>
     </div>`);
@@ -176,9 +179,9 @@ function buildHTML(loc) {
       return `
         <div class="npc-skill-card">
           <div class="npc-skill-label">${esc(d.name || 'Unnamed District')}</div>
-          ${d.readAloud ? `<p class="npc-view-prose" style="font-style:italic;">${esc(d.readAloud)}</p>` : ''}
+          ${d.readAloud ? `<p class="npc-view-prose" style="font-style:italic;">${WikiLinks.render(d.readAloud)}</p>` : ''}
           ${pois.length ? `<ul class="npc-carry-list">${pois.map(p =>
-            `<li><strong>${esc(p.name || 'Unnamed')}</strong>${p.description ? ` — ${esc(p.description)}` : ''}</li>`
+            `<li><strong>${esc(p.name || 'Unnamed')}</strong>${p.description ? ` — ${WikiLinks.render(p.description)}` : ''}</li>`
           ).join('')}</ul>` : ''}
         </div>`;
     }).join('');
@@ -193,7 +196,7 @@ function buildHTML(loc) {
     parts.push(`
       <div class="npc-view-section" id="loc-section-horizon">
         <div class="npc-view-section-label">On the Horizon</div>
-        <p class="npc-view-prose">${esc(loc.onTheHorizon)}</p>
+        <p class="npc-view-prose">${WikiLinks.render(loc.onTheHorizon)}</p>
       </div>`);
   }
 
@@ -256,16 +259,16 @@ function setupConnectionsPanel(loc, linkedSessionDetails) {
 }
 
 async function deleteLocation(id) {
-  const ok = await showConfirm('Delete this Location? This cannot be undone.', {
-    title: 'Delete Location',
-    confirmLabel: 'Delete',
+  const ok = await showConfirm('Move this Location to trash? You can restore it later from Settings.', {
+    title: 'Move Location to Trash',
+    confirmLabel: 'Move to Trash',
     danger: true,
   });
   if (!ok) return;
   try {
     const res = await fetch(`/api/locations/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-    showToast('Location deleted.', 'success');
+    if (!res.ok) throw new Error((await res.json()).error || 'Move to trash failed');
+    showToast('Location moved to trash.', 'success');
     setTimeout(() => { location.href = '/locations'; }, 900);
   } catch (err) {
     showToast('Delete failed: ' + err.message, 'error');

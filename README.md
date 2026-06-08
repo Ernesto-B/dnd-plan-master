@@ -316,3 +316,28 @@ Compared with tools like Kanka, World Anvil, and LegendKeeper, the biggest gaps 
 - [ ] Rich media handouts. Image, audio, and reference handout support would improve live-session usefulness, especially in desktop mode.
 - [ ] Stronger player portal or share links. Even a lightweight read-only player codex for approved NPCs, locations, quests, and recaps would set the app apart from purely private note tools.
 - [ ] System-neutral extensibility. Custom fields or schema packs for different systems would make this more useful beyond D&D without forcing a rewrite.
+
+## Suggested Next Improvements
+
+The app already covers the main CRUD and export flows well. The next step is less about adding more record types and more about making the planning workflow safer, faster, and easier to reuse across long campaigns.
+
+1. Schema versioning and migrations
+   Add explicit `schemaVersion` support for stored records and import bundles, plus migration functions on load/import. This becomes important now that the app has local data files, backups, campaign import/export, and Electron app data paths.
+2. Automated tests for stores and routes
+   Add a test script and cover the high-risk stateful flows: CRUD, import/export merge behavior, campaign isolation, tag updates, link sync, and backup/restore.
+3. Duplicate and template workflows
+   Add first-class duplication and reusable templates for sessions, encounters, and NPCs so prep can start from existing material instead of a blank form.
+4. Trash, archive, and undo
+   Add a softer deletion model so bulk actions, clear-all, and routine cleanup are less risky than hard delete plus full backup restore.
+5. Conflict-aware import
+   Add an import preview with duplicate detection and explicit conflict actions such as skip, clone with new ID, or replace, followed by an import report showing remapped IDs.
+6. Cross-entity tagging and filtering
+   Keep tags first-class across sessions, encounters, NPCs, locations, and campaigns, then add stronger filters, saved tag views, and better use of tags in global search.
+7. Campaign timeline and chronology tools
+   Build a true campaign timeline that highlights world-state changes, unresolved threads, NPC status changes, and major events in order.
+8. Run-mode persistence and live-play tools
+   Expand run mode with persistent initiative state, beat completion, scratch notes, and quick side-panel lookup for linked NPCs, locations, and encounters.
+9. Relationship editing from view pages
+   Let users add and remove linked sessions, encounters, NPCs, and locations directly from the view pages instead of forcing a trip back through edit forms.
+10. Roadmap and documentation cleanup
+   Keep `AGENTS.md` aligned with the actual app surface area, especially now that the project includes campaigns, NPCs, locations, desktop mode, backups, shell tabs, and cross-entity search.

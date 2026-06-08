@@ -95,4 +95,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initAutoResize();
   initFormToc();
   initCharCounts();
+  if (window.WikiLinks) window.WikiLinks.enableAutocomplete();
 });

@@ -3,6 +3,7 @@
   const statsEl = document.getElementById('campaign-stats');
   const boardsEl = document.getElementById('campaign-boards');
   const timelineEl = document.getElementById('campaign-timeline');
+  const pickupEl = document.getElementById('campaign-pickup');
   const searchEl = document.getElementById('campaign-search');
   const graphSearchEl = document.getElementById('entity-graph-search');
   const graphMapEl = document.getElementById('entity-graph-map');
@@ -15,6 +16,10 @@
   let graphFilterType = 'all';
   let graphQuery = '';
   let selectedGraphNodeId = null;
+
+  if (window.WikiLinks) {
+    try { await window.WikiLinks.preload(); } catch {}
+  }
 
   try {
     const summaryRes = await fetch('/api/sessions');
@@ -42,6 +47,7 @@
     renderGuide([], allSessions, true);
     boardsEl.innerHTML = `<div class="empty-state"><p>${escHtml(err.message)}</p></div>`;
     timelineEl.innerHTML = '';
+    pickupEl.innerHTML = '';
     return;
   }
 
@@ -59,6 +65,7 @@
         </div>
       </div>`;
     timelineEl.innerHTML = '';
+    pickupEl.innerHTML = '';
     return;
   }
 
@@ -70,6 +77,7 @@
   });
 
   render(sessions);
+  renderPickup(sessions);
   searchEl.addEventListener('input', () => {
     const query = searchEl.value.trim().toLowerCase();
     if (!query) {
@@ -487,10 +495,10 @@
 
       const body = entries.length
         ? entries.map(entry => `
-            <a class="campaign-board-item" href="/view/${entry.session.id}">
-              <span class="campaign-board-text">${escHtml(entry.text)}</span>
-              <span class="campaign-board-meta">${sessionLabel(entry.session)}</span>
-            </a>
+            <div class="campaign-board-item">
+              <span class="campaign-board-text">${renderWikiText(entry.text)}</span>
+              <a class="campaign-board-meta campaign-board-meta-link" href="/view/${entry.session.id}">${sessionLabel(entry.session)}</a>
+            </div>
           `).join('')
         : `<p class="campaign-board-empty">${def.empty}</p>`;
 
@@ -506,6 +514,76 @@
     }).join('');
   }
 
+  function renderPickup(items) {
+    if (!pickupEl) return;
+    if (!items.length) {
+      pickupEl.innerHTML = '';
+      return;
+    }
+
+    const latest = items[0];
+    const recentSessions = items.slice(0, 2);
+    const recentNodeIds = new Set(recentSessions.map(session => `session:${session.id}`));
+
+    const npcNodes = [];
+    const locationNodes = [];
+    for (const node of graphData.nodes) {
+      if (node.entityType !== 'npc' && node.entityType !== 'location') continue;
+      if (!(node.links || []).some(linkId => recentNodeIds.has(linkId))) continue;
+      (node.entityType === 'npc' ? npcNodes : locationNodes).push(node);
+    }
+
+    const threads = [];
+    for (const session of items) {
+      for (const text of session.continuity.unresolvedThreads || []) {
+        threads.push({ text, session });
+        if (threads.length >= 5) break;
+      }
+      if (threads.length >= 5) break;
+    }
+
+    pickupEl.innerHTML = `
+      <div class="campaign-pickup card">
+        <div class="campaign-pickup-head">
+          <div class="campaign-mini-label">Pick Up Next</div>
+          <h2 class="campaign-pickup-title">
+            Last played
+            <a class="campaign-session-link" href="/view/${latest.id}">${sessionLabel(latest)}</a>
+            ${latest.date ? `<span class="campaign-pickup-date">${formatDate(latest.date)}</span>` : ''}
+          </h2>
+        </div>
+        <div class="campaign-pickup-grid">
+          ${renderPickupChips('NPCs To Revisit', npcNodes, 'No NPCs are linked to your most recent sessions yet.')}
+          ${renderPickupChips('Locations To Revisit', locationNodes, 'No locations are linked to your most recent sessions yet.')}
+          <section class="campaign-mini-card campaign-pickup-threads">
+            <div class="campaign-mini-label">Open Threads · Newest First</div>
+            ${threads.length
+              ? `<div class="campaign-mini-list">${threads.map(thread => `
+                  <div class="campaign-mini-item">
+                    ${renderWikiText(thread.text)}
+                    <a class="campaign-board-meta campaign-board-meta-link" href="/view/${thread.session.id}">${sessionLabel(thread.session)}</a>
+                  </div>
+                `).join('')}</div>`
+              : `<p class="campaign-mini-empty">No unresolved threads logged yet.</p>`}
+          </section>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPickupChips(title, nodes, emptyText) {
+    return `
+      <section class="campaign-mini-card">
+        <div class="campaign-mini-label">${title}</div>
+        ${nodes.length
+          ? `<div class="campaign-pickup-chips">${nodes.map(node => `
+              <a class="campaign-pickup-chip" href="${node.url}">${escHtml(node.label)}</a>
+            `).join('')}</div>`
+          : `<p class="campaign-mini-empty">${emptyText}</p>`}
+      </section>
+    `;
+  }
+
   function renderTimeline(items, isFiltered) {
     if (!items.length) {
       timelineEl.innerHTML = `<div class="empty-state"><p>${isFiltered ? 'No sessions match your search.' : 'No continuity sessions yet.'}</p></div>`;
@@ -517,7 +595,7 @@
         ? `
           <div class="campaign-session-recap">
             <div class="campaign-mini-label">Session Recap</div>
-            <p>${escHtml(session.continuity.sessionRecap)}</p>
+            <p>${renderWikiText(session.continuity.sessionRecap)}</p>
           </div>`
         : '';
 
@@ -554,16 +632,26 @@ function sessionGuideLabel(session) {
   return `Session #${escHtml(num)}${escHtml(goal)}`;
 }
 
-function renderSessionListCard(title, items, emptyText) {
-  return `
+  function renderSessionListCard(title, items, emptyText) {
+    return `
     <section class="campaign-mini-card">
       <div class="campaign-mini-label">${title}</div>
       ${items.length
-        ? `<ul class="campaign-mini-list">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`
+        ? `<div class="campaign-mini-list">${items.map(item => renderCampaignMiniItem(item)).join('')}</div>`
         : `<p class="campaign-mini-empty">${emptyText}</p>`}
     </section>
   `;
-}
+  }
+
+  function renderCampaignMiniItem(text) {
+    const raw = String(text || '');
+    return `<div class="campaign-mini-item">${renderWikiText(raw)}</div>`;
+  }
+
+  function renderWikiText(text) {
+    if (window.WikiLinks?.render) return window.WikiLinks.render(text);
+    return escHtml(text);
+  }
 
 function renderTags(tags) {
   if (!tags || !tags.length) return '';

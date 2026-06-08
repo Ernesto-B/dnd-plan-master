@@ -4,8 +4,7 @@ let allLocations = [];
   const container = document.getElementById('locations-container');
 
   try {
-    const res = await fetch('/api/locations');
-    allLocations = await res.json();
+    await refreshLocations();
   } catch {
     container.innerHTML = '<div class="empty-state"><p>Could not load Locations.</p></div>';
     return;
@@ -43,7 +42,10 @@ let allLocations = [];
     containerId: 'locations-container',
     type: 'location',
     apiBase: '/api/locations',
+    allowArchive: true,
     getAllItems: () => allLocations,
+    reloadItems: refreshLocations,
+    renderItems: () => renderTable(allLocations),
     onDelete: (id) => { allLocations = allLocations.filter(l => l.id !== id); },
     onTagsUpdate: (id, tags) => {
       const l = allLocations.find(x => x.id === id);
@@ -56,6 +58,12 @@ let allLocations = [];
     },
   });
 })();
+
+async function refreshLocations() {
+  const res = await fetch('/api/locations');
+  if (!res.ok) throw new Error('Could not load locations');
+  allLocations = await res.json();
+}
 
 function renderTable(locations, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();

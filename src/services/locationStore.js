@@ -1,24 +1,13 @@
 const fs = require('fs').promises;
-const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const LOCATIONS_FILE = getDataFile('locations.json');
-const SEED_FILE = getSeedFile('locations.seed.json');
 
 async function readStore() {
   try {
     const content = await fs.readFile(LOCATIONS_FILE, 'utf8');
     return JSON.parse(content);
-  } catch {
-    return await seedStore();
-  }
-}
-
-async function seedStore() {
-  try {
-    const raw = await fs.readFile(SEED_FILE, 'utf8');
-    const store = JSON.parse(raw);
-    await writeStore(store);
-    return store;
   } catch {
     return { locations: [] };
   }
@@ -29,13 +18,17 @@ async function writeStore(store) {
   await fs.writeFile(LOCATIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
 }
 
+async function replaceAllFull(locations) {
+  await writeStore({ locations: Array.isArray(locations) ? locations : [] });
+}
+
 async function getAllLocations(campaignId) {
   const store = await readStore();
   const belongs = l =>
     !campaignId ||
     l.campaignId === campaignId ||
     (!l.campaignId && campaignId === 'c-default');
-  return store.locations.filter(belongs).map(l => ({
+  return store.locations.map(normalizeRecord).filter(l => belongs(l) && isActive(l)).map(l => ({
     id:             l.id,
     name:           l.name,
     description:    l.description || '',
@@ -50,7 +43,7 @@ async function getAllLocations(campaignId) {
 
 async function getAllFull() {
   const store = await readStore();
-  return store.locations;
+  return store.locations.map(normalizeRecord);
 }
 
 async function importLocations(incoming) {
@@ -72,7 +65,8 @@ async function importLocations(incoming) {
 
 async function getLocation(id) {
   const store = await readStore();
-  return store.locations.find(l => l.id === id) || null;
+  const found = store.locations.find(l => l.id === id);
+  return found ? normalizeRecord(found) : null;
 }
 
 function randomId() {
@@ -116,11 +110,15 @@ async function saveLocation(data) {
     tags:                Array.isArray(data.tags) ? data.tags : [],
     createdAt:           new Date().toISOString(),
     isDemo:              data.isDemo || false,
+    status:              ACTIVE,
   };
 
   const idx = store.locations.findIndex(l => l.id === id);
   if (idx >= 0) {
     location.createdAt = store.locations[idx].createdAt;
+    location.status = normalizeRecord(store.locations[idx]).status;
+    if (store.locations[idx].archivedAt) location.archivedAt = store.locations[idx].archivedAt;
+    if (store.locations[idx].trashedAt) location.trashedAt = store.locations[idx].trashedAt;
     store.locations[idx] = location;
   } else {
     store.locations.push(location);
@@ -175,6 +173,24 @@ async function syncSessionLinks(sessionId, newLocationIds, oldLocationIds) {
   if (changed) await writeStore(store);
 }
 
+async function updateStatus(id, status) {
+  const store = await readStore();
+  const idx = store.locations.findIndex(l => l.id === id);
+  if (idx < 0) throw new Error(`Location ${id} not found`);
+  store.locations[idx] = setStatus(store.locations[idx], status);
+  await writeStore(store);
+  return normalizeRecord(store.locations[idx]);
+}
+
+async function listByStatuses(campaignId, statuses = [ACTIVE]) {
+  const store = await readStore();
+  const belongs = l =>
+    !campaignId ||
+    l.campaignId === campaignId ||
+    (!l.campaignId && campaignId === 'c-default');
+  return store.locations.map(normalizeRecord).filter(l => belongs(l) && matchesStatus(l, statuses));
+}
+
 module.exports = {
   getAllLocations,
   getAllFull,
@@ -184,4 +200,7 @@ module.exports = {
   updateTags,
   importLocations,
   syncSessionLinks,
+  replaceAllFull,
+  updateStatus,
+  listByStatuses,
 };

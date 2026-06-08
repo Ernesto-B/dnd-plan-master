@@ -12,6 +12,7 @@ const planRelations      = require('../services/planRelations');
 const npcStore           = require('../services/npcStore');
 const locationStore      = require('../services/locationStore');
 const campaignStore      = require('../services/campaignStore');
+const { ACTIVE, TRASHED, normalizeStatus, isActive } = require('../services/recordLifecycle');
 
 function sessionFilename(session) {
   return `session-${String(session.sessionNumber).padStart(3, '0')}`;
@@ -58,7 +59,7 @@ router.get('/', async (_req, res) => {
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
     ]);
-    const index = planRelations.buildRelationIndex(sessions, encounters);
+    const index = planRelations.buildRelationIndex(sessions.filter(isActive), encounters.filter(isActive));
     res.json(summaries.map(session => ({
       ...session,
       linkedEncounterCount: index.sessionToEncounters.get(session.id)?.size || 0,
@@ -72,7 +73,7 @@ router.get('/campaign', async (_req, res) => {
   try {
     const campaignId = await campaignStore.getActiveCampaignId();
     const sessions = (await sessionStore.getAllFull()).filter(session =>
-      session.campaignId === campaignId || (!session.campaignId && campaignId === 'c-default')
+      (session.campaignId === campaignId || (!session.campaignId && campaignId === 'c-default')) && isActive(session)
     );
     const payload = sessions.map(session => {
       const data = session.data || {};
@@ -203,11 +204,21 @@ router.patch('/:id/tags', async (req, res) => {
   }
 });
 
+router.patch('/:id/state', async (req, res) => {
+  try {
+    const status = normalizeStatus(req.body?.status);
+    const updated = await sessionStore.updateStatus(req.params.id, status);
+    res.json({ success: true, status: updated.status });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 // Delete session
 router.delete('/:id', async (req, res) => {
   try {
-    await sessionStore.deleteSession(req.params.id);
-    res.json({ success: true });
+    const updated = await sessionStore.updateStatus(req.params.id, TRASHED);
+    res.json({ success: true, status: updated.status });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }

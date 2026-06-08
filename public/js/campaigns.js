@@ -131,6 +131,24 @@ async function buildCampaignExportFiles(id, name) {
     }
   });
 
+  document.getElementById('btn-generate-demo').addEventListener('click', async () => {
+    const ok = await showConfirm(
+      'This recreates the "Demo Campaign" with its example sessions, NPCs, locations, and encounters. It will appear alongside your other campaigns — you can switch to it or delete it whenever you like.',
+      { title: 'Generate Demo Campaign', confirmLabel: 'Generate' }
+    );
+    if (!ok) return;
+
+    try {
+      const res = await fetch('/api/campaigns/demo/generate', { method: 'POST' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Generation failed');
+      showToast(`"${result.campaign.name}" created.`, 'success');
+      await loadCampaigns();
+    } catch (err) {
+      showToast('Failed to generate demo campaign: ' + err.message, 'error');
+    }
+  });
+
   const importInput = document.getElementById('campaign-import-input');
   importInput.addEventListener('change', () => {
     const file = importInput.files[0];
@@ -204,6 +222,9 @@ function renderCampaigns() {
   const container = document.getElementById('campaign-list-container');
   const { campaigns, activeCampaignId } = campaignsData;
 
+  document.getElementById('btn-generate-demo').style.display =
+    campaigns.some(c => c.isDemo) ? 'none' : '';
+
   if (!campaigns.length) {
     container.innerHTML = '<div class="empty-state"><p>No campaigns yet.</p></div>';
     return;
@@ -216,6 +237,7 @@ function renderCampaigns() {
         <div class="campaign-row-main">
           <div class="campaign-row-name">
             ${isActive ? '<span class="campaign-active-badge">Active</span>' : ''}
+            ${c.isDemo ? '<span class="campaign-demo-badge">Demo</span>' : ''}
             ${esc(c.name)}
           </div>
           ${c.description ? `<div class="campaign-row-desc">${esc(c.description)}</div>` : ''}

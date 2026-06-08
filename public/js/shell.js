@@ -48,7 +48,11 @@
   }
 
   function openWindow() {
-    window.open('/shell', '_blank', 'noopener');
+    if (window.dndApp?.openShellWindow) {
+      window.dndApp.openShellWindow();
+    } else {
+      window.open('/shell', '_blank', 'noopener');
+    }
   }
 
   function closeTab(id) {
@@ -58,7 +62,7 @@
     mru = mru.filter(x => x !== id);
     document.getElementById(`f-${id}`)?.remove();
 
-    if (!tabs.length) { createTab('/'); return; }
+    if (!tabs.length) { window.close(); return; }
     if (active === id) setActive(mru[0] || tabs[0].id);
     renderTabs();
   }

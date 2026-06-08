@@ -1,8 +1,8 @@
 const fs = require('fs').promises;
-const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const SESSIONS_FILE = getDataFile('sessions.json');
-const SEED_FILE = getSeedFile('seed.json');
 
 function orderValue(item, fallbackIndex) {
   return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
@@ -28,22 +28,6 @@ async function readStore() {
     const content = await fs.readFile(SESSIONS_FILE, 'utf8');
     return JSON.parse(content);
   } catch {
-    return await seedStore();
-  }
-}
-
-async function seedStore() {
-  try {
-    const raw = await fs.readFile(SEED_FILE, 'utf8');
-    const store = JSON.parse(raw);
-    const { generate } = require('./markdownGenerator');
-    store.sessions = (store.sessions || []).map(s => ({
-      ...s,
-      markdown: s.markdown || generate(s.data),
-    }));
-    await writeStore(store);
-    return store;
-  } catch {
     return { sessions: [] };
   }
 }
@@ -53,9 +37,13 @@ async function writeStore(store) {
   await fs.writeFile(SESSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
 }
 
+async function replaceAllFull(sessions) {
+  await writeStore({ sessions: Array.isArray(sessions) ? sessions : [] });
+}
+
 async function getAllFull() {
   const store = await readStore();
-  return orderedSessions(store.sessions);
+  return orderedSessions(store.sessions.map(normalizeRecord));
 }
 
 async function importSessions(incoming) {
@@ -80,7 +68,7 @@ async function getAllSessions(campaignId) {
     !campaignId ||
     s.campaignId === campaignId ||
     (!s.campaignId && campaignId === 'c-default');
-  return orderedSessions(store.sessions).filter(belongs).map(s => ({
+  return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && isActive(s)).map(s => ({
     id: s.id,
     sessionNumber: s.sessionNumber,
     date: s.date,
@@ -105,7 +93,8 @@ async function updateTags(id, tags) {
 
 async function getSession(id) {
   const store = await readStore();
-  return store.sessions.find(s => s.id === id) || null;
+  const found = store.sessions.find(s => s.id === id);
+  return found ? normalizeRecord(found) : null;
 }
 
 function randomId() {
@@ -130,6 +119,7 @@ async function saveSession(data, markdown) {
     createdAt: new Date().toISOString(),
     sortOrder: nextSortOrder(store.sessions),
     tags: Array.isArray(data.tags) ? data.tags : [],
+    status: ACTIVE,
     data: { ...data, id },
     markdown,
   };
@@ -138,6 +128,9 @@ async function saveSession(data, markdown) {
   if (idx >= 0) {
     session.createdAt = store.sessions[idx].createdAt;
     session.sortOrder = orderValue(store.sessions[idx], idx);
+    session.status = normalizeRecord(store.sessions[idx]).status;
+    if (store.sessions[idx].archivedAt) session.archivedAt = store.sessions[idx].archivedAt;
+    if (store.sessions[idx].trashedAt) session.trashedAt = store.sessions[idx].trashedAt;
     store.sessions[idx] = session;
   } else {
     store.sessions.push(session);
@@ -185,4 +178,22 @@ async function deleteSession(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, reorderSessions };
+async function updateStatus(id, status) {
+  const store = await readStore();
+  const idx = store.sessions.findIndex(s => s.id === id);
+  if (idx < 0) throw new Error(`Session ${id} not found`);
+  store.sessions[idx] = setStatus(store.sessions[idx], status);
+  await writeStore(store);
+  return normalizeRecord(store.sessions[idx]);
+}
+
+async function listByStatuses(campaignId, statuses = [ACTIVE]) {
+  const store = await readStore();
+  const belongs = s =>
+    !campaignId ||
+    s.campaignId === campaignId ||
+    (!s.campaignId && campaignId === 'c-default');
+  return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && matchesStatus(s, statuses));
+}
+
+module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, reorderSessions, replaceAllFull, updateStatus, listByStatuses };

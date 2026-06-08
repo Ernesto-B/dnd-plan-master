@@ -5,8 +5,7 @@ let lastVisibleSessionIds = [];
   const container = document.getElementById('sessions-container');
 
   try {
-    const res = await fetch('/api/sessions');
-    allSessions = await res.json();
+    await refreshSessions();
   } catch {
     container.innerHTML = '<div class="empty-state"><p>Could not load sessions.</p></div>';
     return;
@@ -43,7 +42,24 @@ let lastVisibleSessionIds = [];
     containerId: 'sessions-container',
     type: 'session',
     apiBase: '/api/sessions',
+    allowArchive: true,
     getAllItems: () => allSessions,
+    reloadItems: refreshSessions,
+    renderItems: () => renderTable(allSessions),
+    duplicate: {
+      createUrl: '/api/sessions',
+      label: 'session',
+      buildPayload: session => {
+        const data = { ...(session.data || {}) };
+        delete data.id;
+        delete data.createdAt;
+        delete data.campaignId;
+        return {
+          ...data,
+          sessionGoal: duplicateLabel(data.sessionGoal || session.goal, 'Copy'),
+        };
+      },
+    },
     onDelete: (id) => { allSessions = allSessions.filter(s => s.id !== id); },
     onTagsUpdate: (id, tags) => {
       const s = allSessions.find(x => x.id === id);
@@ -56,6 +72,12 @@ let lastVisibleSessionIds = [];
     },
   });
 })();
+
+async function refreshSessions() {
+  const res = await fetch('/api/sessions');
+  if (!res.ok) throw new Error('Could not load sessions');
+  allSessions = await res.json();
+}
 
 function renderTable(sessions, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
@@ -240,4 +262,9 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => { t.className = 'toast'; }, 5000);
+}
+
+function duplicateLabel(value, suffix) {
+  const base = String(value || '').trim();
+  return base ? `${base} (${suffix})` : suffix;
 }

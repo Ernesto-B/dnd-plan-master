@@ -4,8 +4,7 @@
 html, body {
   height: 100%;
   overflow: hidden;
-  background: #1a1a2e;
-  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
 }
 
 /* ── Tab bar ─────────────────────────────────────────────────────────────────── */
@@ -13,8 +12,8 @@ html, body {
   display: flex;
   align-items: center;
   height: 38px;
-  background: #12121e;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   padding: 0 4px;
   gap: 2px;
   overflow: hidden;
@@ -39,17 +38,19 @@ html, body {
 .shell-tab {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   height: 28px;
-  padding: 0 10px 0 12px;
+  padding: 0 8px 0 12px;
   border-radius: 6px 6px 0 0;
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.5);
-  font-size: 12px;
+  background: rgba(255,255,255,0.02);
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 0.4px;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
-  max-width: 200px;
+  flex: 1 1 0;
+  min-width: 120px;
   transition: background 0.12s, color 0.12s;
   user-select: none;
   border: 1px solid transparent;
@@ -57,14 +58,14 @@ html, body {
 }
 
 .shell-tab:hover {
-  background: rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.05);
+  color: var(--text2);
 }
 
 .shell-tab.active {
-  background: #1a1a2e;
-  color: #e8e8ff;
-  border-color: rgba(255,255,255,0.1);
+  background: var(--bg);
+  color: var(--gold);
+  border-color: var(--border);
 }
 
 .shell-tab-title {
@@ -83,6 +84,7 @@ html, body {
   border: none;
   background: transparent;
   color: inherit;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1;
   border-radius: 3px;
@@ -95,38 +97,17 @@ html, body {
 
 .shell-tab:hover .shell-tab-close,
 .shell-tab.active .shell-tab-close {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .shell-tab-close:hover {
   opacity: 1 !important;
-  background: rgba(255,255,255,0.15);
+  background: rgba(201, 150, 42, 0.18);
+  color: var(--gold);
 }
 
-/* ── New tab button ──────────────────────────────────────────────────────────── */
-#shell-new-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: rgba(255,255,255,0.4);
-  font-size: 18px;
-  line-height: 1;
-  border-radius: 5px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.12s, color 0.12s;
-  padding: 0;
-}
-
-#shell-new-tab:hover {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.9);
-}
-
+/* ── New tab / new window buttons ──────────────────────────────────────────────── */
+#shell-new-tab,
 #shell-new-window {
   display: flex;
   align-items: center;
@@ -135,7 +116,7 @@ html, body {
   height: 28px;
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.4);
+  color: var(--muted);
   font-size: 16px;
   line-height: 1;
   border-radius: 5px;
@@ -145,9 +126,10 @@ html, body {
   padding: 0;
 }
 
+#shell-new-tab:hover,
 #shell-new-window:hover {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.9);
+  background: rgba(201, 150, 42, 0.12);
+  color: var(--gold);
 }
 
 /* ── Frame container ─────────────────────────────────────────────────────────── */
@@ -165,7 +147,7 @@ html, body {
   height: 100%;
   border: none;
   display: none;
-  background: #1a1a2e;
+  background: var(--bg);
 }
 
 .shell-frame.active {

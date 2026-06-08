@@ -5,8 +5,7 @@ let lastVisibleEncounterIds = [];
   const container = document.getElementById('encounters-container');
 
   try {
-    const res = await fetch('/api/encounters');
-    allEncounters = await res.json();
+    await refreshEncounters();
   } catch {
     container.innerHTML = '<div class="empty-state"><p>Could not load encounter plans.</p></div>';
     return;
@@ -44,7 +43,24 @@ let lastVisibleEncounterIds = [];
     containerId: 'encounters-container',
     type: 'encounter',
     apiBase: '/api/encounters',
+    allowArchive: true,
     getAllItems: () => allEncounters,
+    reloadItems: refreshEncounters,
+    renderItems: () => renderTable(allEncounters),
+    duplicate: {
+      createUrl: '/api/encounters',
+      label: 'encounter',
+      buildPayload: encounter => {
+        const data = { ...(encounter.data || encounter) };
+        delete data.id;
+        delete data.createdAt;
+        delete data.campaignId;
+        return {
+          ...data,
+          name: duplicateLabel(data.name || encounter.name, 'Copy'),
+        };
+      },
+    },
     onDelete: (id) => { allEncounters = allEncounters.filter(e => e.id !== id); },
     onTagsUpdate: (id, tags) => {
       const enc = allEncounters.find(x => x.id === id);
@@ -57,6 +73,12 @@ let lastVisibleEncounterIds = [];
     },
   });
 })();
+
+async function refreshEncounters() {
+  const res = await fetch('/api/encounters');
+  if (!res.ok) throw new Error('Could not load encounter plans');
+  allEncounters = await res.json();
+}
 
 function renderTable(encounters, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
@@ -242,4 +264,9 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => { t.className = 'toast'; }, 5000);
+}
+
+function duplicateLabel(value, suffix) {
+  const base = String(value || '').trim();
+  return base ? `${base} (${suffix})` : suffix;
 }

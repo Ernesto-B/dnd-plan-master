@@ -22,9 +22,11 @@ async function writeStore(store) {
 }
 
 // Called at server startup. Creates default campaign if none exist.
+// Returns { firstLaunch } so the caller can seed the demo campaign exactly once.
 async function init() {
   const store = await readStore();
   let changed = false;
+  let firstLaunch = false;
 
   if (!store.campaigns || store.campaigns.length === 0) {
     store.campaigns = [{
@@ -36,6 +38,7 @@ async function init() {
     }];
     store.activeCampaignId = 'c-default';
     changed = true;
+    firstLaunch = true;
   }
 
   if (!store.activeCampaignId || !store.campaigns.find(c => c.id === store.activeCampaignId)) {
@@ -44,7 +47,7 @@ async function init() {
   }
 
   if (changed) await writeStore(store);
-  return store;
+  return { firstLaunch };
 }
 
 async function getAllCampaigns() {
@@ -79,7 +82,7 @@ async function setActiveCampaignId(id) {
   return id;
 }
 
-async function createCampaign({ name, description = '' }) {
+async function createCampaign({ name, description = '', isDemo = false }) {
   const store = await readStore();
   const id = randomId();
   const campaign = {
@@ -88,6 +91,7 @@ async function createCampaign({ name, description = '' }) {
     description: String(description || '').trim(),
     createdAt:   new Date().toISOString(),
     partyRoster: [],
+    ...(isDemo ? { isDemo: true } : {}),
   };
   store.campaigns.push(campaign);
   await writeStore(store);

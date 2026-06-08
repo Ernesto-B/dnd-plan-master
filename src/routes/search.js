@@ -6,6 +6,7 @@ const npcStore      = require('../services/npcStore');
 const locationStore = require('../services/locationStore');
 const entityConnections = require('../services/entityConnections');
 const campaignStore = require('../services/campaignStore');
+const { isActive } = require('../services/recordLifecycle');
 
 // Simple scoring: 3=exact, 2=starts-with, 1=includes, 0=no match
 function matchScore(field, q) {
@@ -50,6 +51,7 @@ router.get('/', async (req, res) => {
     if (!type || type === 'session') {
       const sessions = await sessionStore.getAllFull();
       for (const s of sessions) {
+        if (!isActive(s)) continue;
         const d = s.data || {};
         const sc = q
           ? best([String(s.sessionNumber), s.date, s.goal, (s.tags || []).join(' '),

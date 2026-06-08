@@ -33,7 +33,10 @@ const SKILL_PREFIXES = {
   let npc;
   let linkedEncounterDetails = [];
   try {
-    const res = await fetch(`/api/npcs/${id}`);
+    const [res] = await Promise.all([
+      fetch(`/api/npcs/${id}`),
+      WikiLinks.preload(),
+    ]);
     if (!res.ok) throw new Error('Not found');
     npc = await res.json();
   } catch {
@@ -186,7 +189,7 @@ function buildHTML(npc, linkedSessionDetails = []) {
   if (npc.commonPhrase) {
     parts.push(`
       <blockquote class="npc-phrase" id="npc-section-phrase">
-        ${esc(npc.commonPhrase)}
+        ${WikiLinks.render(npc.commonPhrase)}
       </blockquote>`);
   }
 
@@ -195,7 +198,7 @@ function buildHTML(npc, linkedSessionDetails = []) {
     parts.push(`
       <div class="npc-view-section" id="npc-section-appearance">
         <div class="npc-view-section-label">Appearance</div>
-        <p class="npc-view-prose npc-view-appearance">${esc(npc.appearance)}</p>
+        <p class="npc-view-prose npc-view-appearance">${WikiLinks.render(npc.appearance)}</p>
       </div>`);
   }
 
@@ -212,7 +215,7 @@ function buildHTML(npc, linkedSessionDetails = []) {
       <div class="npc-core-grid">${coreItems.map(([label, text]) =>
         `<div class="npc-core-item">
           <div class="npc-core-label">${esc(label)}</div>
-          <p class="npc-view-prose">${esc(text)}</p>
+          <p class="npc-view-prose">${WikiLinks.render(text)}</p>
         </div>`
       ).join('')}</div>
     </div>`);
@@ -225,7 +228,7 @@ function buildHTML(npc, linkedSessionDetails = []) {
     const skillCards = filledSkills.map(([k, label]) => `
       <div class="npc-skill-card">
         <div class="npc-skill-label">${esc(SKILL_PREFIXES[k])} <span class="npc-skill-sub">(${esc(label)})</span></div>
-        <p class="npc-view-prose">${esc(skills[k])}</p>
+        <p class="npc-view-prose">${WikiLinks.render(skills[k])}</p>
       </div>`).join('');
     parts.push(`<div class="npc-view-section" id="npc-section-skills">
       <div class="npc-view-section-label">Skill Triggers <span class="npc-dm-only">— DM only</span></div>
@@ -312,16 +315,16 @@ function setupConnectionsPanel(npc, linkedSessionDetails, linkedEncounterDetails
 
 
 async function deleteNpc(id) {
-  const ok = await showConfirm('Delete this NPC? This cannot be undone.', {
-    title: 'Delete NPC',
-    confirmLabel: 'Delete',
+  const ok = await showConfirm('Move this NPC to trash? You can restore it later from Settings.', {
+    title: 'Move NPC to Trash',
+    confirmLabel: 'Move to Trash',
     danger: true,
   });
   if (!ok) return;
   try {
     const res = await fetch(`/api/npcs/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-    showToast('NPC deleted.', 'success');
+    if (!res.ok) throw new Error((await res.json()).error || 'Move to trash failed');
+    showToast('NPC moved to trash.', 'success');
     setTimeout(() => { location.href = '/npcs'; }, 900);
   } catch (err) {
     showToast('Delete failed: ' + err.message, 'error');

@@ -8,10 +8,10 @@
       "populationDiversity": "Mostly human and dwarf laborers, with a growing halfling merchant community and the occasional half-orc deckhand passing through.",
       "languages": "Common and Dwarvish are everywhere; old sailors still trade a few words of Aquan out of habit.",
       "resources": "Salted fish, whale oil, rope and tar, and a steady supply of dockside labor for hire.",
-      "funFact": "The harbor bell hasn't been recast in two hundred years \u2014 sailors swear that replacing it would anger the tide.",
-      "description": "A sprawl of weathered piers, salt-bleached warehouses, and narrow streets that smell of brine and tar. Saltmere has grown up around its harbor rather than the other way around, and everything in it \u2014 the buildings, the people, the rules \u2014 bends to the rhythm of the tides and the fishing fleets.",
+      "funFact": "The harbor bell hasn't been recast in two hundred years — sailors swear that replacing it would anger the tide.",
+      "description": "A sprawl of weathered piers, salt-bleached warehouses, and narrow streets that smell of brine and tar. Saltmere has grown up around its harbor rather than the other way around, and everything in it — the buildings, the people, the rules — bends to the rhythm of the tides and the fishing fleets.",
       "sensoryDetail": "Gulls shriek over the wharves. Rigging creaks against the wind, and somewhere a bell buoy tolls low and slow. The air tastes of salt, fish guts, and tar smoke from the cooper's yards.",
-      "hiddenDetail": "Beneath the old chapel at the top of Lantern Hill is a sealed crypt that predates the town itself \u2014 sealed not to keep grave robbers out, but to keep something in.",
+      "hiddenDetail": "Beneath the old chapel at the top of Lantern Hill is a sealed crypt that predates the town itself — sealed not to keep grave robbers out, but to keep something in.",
       "districts": [
         {
           "name": "The Lower Wharves",
@@ -19,7 +19,7 @@
           "pointsOfInterest": [
             {
               "name": "The Ashen Hearth",
-              "description": "A dockside tavern run by a stocky dwarf named Barrin Soot, who's heard every rumor that's passed through Saltmere in the last thirty years \u2014 for the right favor, he might share one."
+              "description": "A dockside tavern run by a stocky dwarf named Barrin Soot, who's heard every rumor that's passed through Saltmere in the last thirty years — for the right favor, he might share one."
             },
             {
               "name": "Guildmaster's Scales",
@@ -38,7 +38,7 @@
           ]
         }
       ],
-      "onTheHorizon": "The grave stirs \u2014 for the past week, dockworkers have found fresh grave dirt scattered across the chapel steps each morning, though no one has been buried on Lantern Hill in decades.",
+      "onTheHorizon": "The grave stirs — for the past week, dockworkers have found fresh grave dirt scattered across the chapel steps each morning, though no one has been buried on Lantern Hill in decades.",
       "linkedSessions": [],
       "tags": [
         "docks",

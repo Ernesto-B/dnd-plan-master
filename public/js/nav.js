@@ -91,8 +91,8 @@
     loadCampaignSwitcher();
   }
 
-  // "Open Tabs" button — opens the shell window
-  if (nav && !nav.querySelector('#nav-open-shell')) {
+  // "Open Tabs" button — only shown when NOT already inside the shell
+  if (nav && !nav.querySelector('#nav-open-shell') && window === window.parent) {
     const createWrap = nav.querySelector('.nav-create-wrap');
     const shellBtn = document.createElement('button');
     shellBtn.id = 'nav-open-shell';

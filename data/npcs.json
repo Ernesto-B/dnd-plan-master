@@ -2,6 +2,7 @@
   "npcs": [
     {
       "id": "n-001",
+      "campaignId": "c-default",
       "name": "Barrin Soot",
       "nickname": "The Sweep",
       "commonPhrase": "\"Everyone passes through here eventually. I just keep the fire going.\"",
@@ -28,7 +29,8 @@
         "dwarf"
       ],
       "createdAt": "2026-01-08T10:00:00.000Z",
-      "isDemo": true
+      "sortOrder": 0,
+      "isDemo": false
     }
   ]
 }

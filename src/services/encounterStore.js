@@ -1,8 +1,8 @@
 const fs = require('fs').promises;
-const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const ENCOUNTERS_FILE = getDataFile('encounters.json');
-const SEED_FILE = getSeedFile('encounters.seed.json');
 
 function orderValue(item, fallbackIndex) {
   return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
@@ -28,22 +28,6 @@ async function readStore() {
     const content = await fs.readFile(ENCOUNTERS_FILE, 'utf8');
     return JSON.parse(content);
   } catch {
-    return await seedStore();
-  }
-}
-
-async function seedStore() {
-  try {
-    const raw = await fs.readFile(SEED_FILE, 'utf8');
-    const store = JSON.parse(raw);
-    const { generate } = require('./encounterMarkdownGenerator');
-    store.encounters = (store.encounters || []).map(e => ({
-      ...e,
-      markdown: e.markdown || generate(e.data),
-    }));
-    await writeStore(store);
-    return store;
-  } catch {
     return { encounters: [] };
   }
 }
@@ -53,9 +37,13 @@ async function writeStore(store) {
   await fs.writeFile(ENCOUNTERS_FILE, JSON.stringify(store, null, 2), 'utf8');
 }
 
+async function replaceAllFull(encounters) {
+  await writeStore({ encounters: Array.isArray(encounters) ? encounters : [] });
+}
+
 async function getAllFull() {
   const store = await readStore();
-  return orderedEncounters(store.encounters);
+  return orderedEncounters(store.encounters.map(normalizeRecord));
 }
 
 async function importEncounters(incoming) {
@@ -78,7 +66,7 @@ async function getAllEncounters(campaignId) {
     !campaignId ||
     e.campaignId === campaignId ||
     (!e.campaignId && campaignId === 'c-default');
-  return orderedEncounters(store.encounters).filter(belongs).map(e => ({
+  return orderedEncounters(store.encounters.map(normalizeRecord)).filter(e => belongs(e) && isActive(e)).map(e => ({
     id: e.id,
     name: e.name,
     sessionId: e.sessionId || null,
@@ -102,7 +90,8 @@ async function updateTags(id, tags) {
 
 async function getEncounter(id) {
   const store = await readStore();
-  return store.encounters.find(e => e.id === id) || null;
+  const found = store.encounters.find(e => e.id === id);
+  return found ? normalizeRecord(found) : null;
 }
 
 function randomId() {
@@ -122,6 +111,7 @@ async function saveEncounter(data, markdown) {
     createdAt: new Date().toISOString(),
     sortOrder: nextSortOrder(store.encounters),
     tags: Array.isArray(data.tags) ? data.tags : [],
+    status: ACTIVE,
     data: { ...data, id },
     markdown,
   };
@@ -130,6 +120,9 @@ async function saveEncounter(data, markdown) {
   if (idx >= 0) {
     encounter.createdAt = store.encounters[idx].createdAt;
     encounter.sortOrder = orderValue(store.encounters[idx], idx);
+    encounter.status = normalizeRecord(store.encounters[idx]).status;
+    if (store.encounters[idx].archivedAt) encounter.archivedAt = store.encounters[idx].archivedAt;
+    if (store.encounters[idx].trashedAt) encounter.trashedAt = store.encounters[idx].trashedAt;
     store.encounters[idx] = encounter;
   } else {
     store.encounters.push(encounter);
@@ -177,4 +170,22 @@ async function deleteEncounter(id) {
   await writeStore(store);
 }
 
-module.exports = { getAllEncounters, getAllFull, importEncounters, getEncounter, saveEncounter, deleteEncounter, updateTags, reorderEncounters };
+async function updateStatus(id, status) {
+  const store = await readStore();
+  const idx = store.encounters.findIndex(e => e.id === id);
+  if (idx < 0) throw new Error(`Encounter ${id} not found`);
+  store.encounters[idx] = setStatus(store.encounters[idx], status);
+  await writeStore(store);
+  return normalizeRecord(store.encounters[idx]);
+}
+
+async function listByStatuses(campaignId, statuses = [ACTIVE]) {
+  const store = await readStore();
+  const belongs = e =>
+    !campaignId ||
+    e.campaignId === campaignId ||
+    (!e.campaignId && campaignId === 'c-default');
+  return orderedEncounters(store.encounters.map(normalizeRecord)).filter(e => belongs(e) && matchesStatus(e, statuses));
+}
+
+module.exports = { getAllEncounters, getAllFull, importEncounters, getEncounter, saveEncounter, deleteEncounter, updateTags, reorderEncounters, replaceAllFull, updateStatus, listByStatuses };

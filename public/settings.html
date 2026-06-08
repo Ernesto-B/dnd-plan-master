@@ -114,7 +114,7 @@
 
   <div class="card" style="margin-top:16px;">
     <h3 class="settings-subhead">Import Records</h3>
-    <p class="settings-hint">Import a previously exported JSON file. Existing records are never overwritten — only new IDs are added.</p>
+    <p class="settings-hint">Import a previously exported JSON file, review duplicates and conflicts, then choose whether each one should be skipped, cloned with a new ID, or replace the existing record.</p>
     <div class="import-row">
       <label class="btn btn-ghost" for="import-file-input" style="cursor:pointer;">Choose File</label>
       <input type="file" id="import-file-input" accept=".json" style="display:none;">
@@ -151,15 +151,31 @@
     </div>
   </div>
 
+  <div class="section-header" id="settings-trash" style="margin-top:40px;">
+    <span class="section-num">05</span>
+    <h2>Archive &amp; Trash</h2>
+  </div>
+  <div class="card">
+    <h3 class="settings-subhead">Lifecycle Manager</h3>
+    <p class="settings-hint">Archived records are hidden from lists and search but remain restorable. Trashed records are soft-deleted until you restore or permanently purge them.</p>
+    <div class="export-controls">
+      <button type="button" class="btn btn-ghost" id="btn-lifecycle-refresh">Refresh</button>
+      <button type="button" class="btn btn-danger" id="btn-empty-trash">Empty Trash</button>
+    </div>
+    <div id="lifecycle-list" class="export-list" style="margin-top:12px;">
+      <p style="color:var(--muted); font-size:14px; font-family:var(--font-body);">Loading archived and trashed records…</p>
+    </div>
+  </div>
+
   <div class="section-header" id="settings-danger" style="margin-top:40px;">
     <span class="section-num" style="background:var(--crimson); border-color:var(--danger);">!</span>
     <h2 style="color:var(--danger);">Danger Zone</h2>
   </div>
   <div class="card" style="border-color: rgba(191,58,46,0.35);">
     <p style="font-family:var(--font-body); color:var(--text2); font-size:15px; margin-bottom:16px;">
-      Clear all saved session and encounter plans from the app. This removes the data from the app only — any files you exported to your filesystem are unaffected. The demo plans will reappear on next page load.
+      Move all active sessions, encounters, NPCs, and locations in the current campaign to trash. Exported files on your filesystem are unaffected, and you can restore the records from Archive &amp; Trash if needed.
     </p>
-    <button type="button" class="btn btn-danger" id="btn-clear-data">Clear All Data</button>
+    <button type="button" class="btn btn-danger" id="btn-clear-data">Move All Active Records to Trash</button>
   </div>
   </div>
   <aside id="settings-nav" class="section-nav"></aside>

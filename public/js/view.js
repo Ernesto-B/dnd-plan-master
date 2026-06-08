@@ -25,6 +25,7 @@
       fetch(`/api/sessions/${id}`),
       fetch(`/api/sessions/${id}/links`),
       fetch(`/api/sessions/${id}/linked-npcs`),
+      WikiLinks.preload(),
     ]);
 
     if (!sessionRes.ok) throw new Error('Not found');
@@ -38,7 +39,7 @@
 
   document.title = `Session ${id} — D&D Session Master`;
   content.innerHTML = `
-    <div class="markdown-body" id="session-markdown">${marked.parse(session.markdown || '')}</div>
+    <div class="markdown-body" id="session-markdown">${marked.parse(WikiLinks.preprocessMarkdown(session.markdown || ''))}</div>
   `;
 
   buildMarkdownToc();
@@ -248,11 +249,11 @@ function renderDmTablePanel(session, linkedEncounterLinks, linkedNpcLinks, conta
       <div class="dm-table-grid">
         <section class="dm-table-block dm-span-2">
           <div class="dm-table-block-title">Mission</div>
-          ${data.sessionGoal ? `<div class="dm-table-lead"><span class="dm-label">Goal:</span> ${escHtml(data.sessionGoal)}</div>` : ''}
-          ${data.endState ? `<div class="dm-table-lead"><span class="dm-label">End State:</span> ${escHtml(data.endState)}</div>` : ''}
-          ${data.sessionRecap ? `<div class="dm-table-recap"><span class="dm-label">Recap:</span> ${escHtml(data.sessionRecap)}</div>` : ''}
-          ${data.openingReadAloud ? `<div class="dm-table-note"><span class="dm-label">Opening:</span> ${escHtml(data.openingReadAloud)}</div>` : ''}
-          ${data.threeOptionsPrompt ? `<div class="dm-table-note"><span class="dm-label">Three Options:</span> ${escHtml(data.threeOptionsPrompt)}</div>` : ''}
+          ${data.sessionGoal ? `<div class="dm-table-lead"><span class="dm-label">Goal:</span> ${WikiLinks.render(data.sessionGoal)}</div>` : ''}
+          ${data.endState ? `<div class="dm-table-lead"><span class="dm-label">End State:</span> ${WikiLinks.render(data.endState)}</div>` : ''}
+          ${data.sessionRecap ? `<div class="dm-table-recap"><span class="dm-label">Recap:</span> ${WikiLinks.render(data.sessionRecap)}</div>` : ''}
+          ${data.openingReadAloud ? `<div class="dm-table-note"><span class="dm-label">Opening:</span> ${WikiLinks.render(data.openingReadAloud)}</div>` : ''}
+          ${data.threeOptionsPrompt ? `<div class="dm-table-note"><span class="dm-label">Three Options:</span> ${WikiLinks.render(data.threeOptionsPrompt)}</div>` : ''}
         </section>
 
         <section class="dm-table-block">
@@ -284,7 +285,7 @@ function renderDmTablePanel(session, linkedEncounterLinks, linkedNpcLinks, conta
         ${data.sessionNotes ? `
           <section class="dm-table-block dm-span-2">
             <div class="dm-table-block-title">Session Notes</div>
-            <div class="dm-table-note">${escHtml(data.sessionNotes)}</div>
+            <div class="dm-table-note">${WikiLinks.render(data.sessionNotes)}</div>
           </section>` : ''}
       </div>
     </div>
@@ -293,9 +294,9 @@ function renderDmTablePanel(session, linkedEncounterLinks, linkedNpcLinks, conta
 
 
 async function deleteSession(id) {
-  const ok = await showConfirm(`Delete Session ${id}? This cannot be undone.`, {
-    title: 'Delete Session',
-    confirmLabel: 'Delete',
+  const ok = await showConfirm(`Move Session ${id} to trash? You can restore it later from Settings.`, {
+    title: 'Move Session to Trash',
+    confirmLabel: 'Move to Trash',
     danger: true,
   });
   if (!ok) return;
@@ -304,9 +305,9 @@ async function deleteSession(id) {
     const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Delete failed');
+      throw new Error(err.error || 'Move to trash failed');
     }
-    showToast('Session deleted.', 'success');
+    showToast('Session moved to trash.', 'success');
     setTimeout(() => { location.href = '/'; }, 1000);
   } catch (err) {
     showToast('Delete failed: ' + err.message, 'error');
@@ -324,7 +325,7 @@ function renderBeatRow(label, time, text) {
   return `
     <tr>
       <td class="dm-beat-label">${escHtml(label)}<span class="dm-beat-time">${escHtml(time)}</span></td>
-      <td>${escHtml(text)}</td>
+      <td>${WikiLinks.render(text)}</td>
     </tr>`;
 }
 
@@ -338,7 +339,7 @@ function renderBulletList(label, rawValue) {
   return `
     <div class="dm-sublist">
       <div class="dm-subtitle">${escHtml(label)}</div>
-      <ul class="dm-list">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>
+      <ul class="dm-list">${items.map(item => `<li>${WikiLinks.render(item)}</li>`).join('')}</ul>
     </div>`;
 }
 

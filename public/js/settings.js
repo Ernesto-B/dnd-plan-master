@@ -455,14 +455,31 @@
 
   document.getElementById('btn-clear-data').addEventListener('click', async () => {
     const ok = await showConfirm(
-      'Delete all saved session and encounter plans? Exported files on your filesystem are unaffected. The demo plans will reappear on next visit.',
-      { title: 'Clear All Data', confirmLabel: 'Clear All', danger: true }
+      'Move all active sessions, encounters, NPCs, and locations in this campaign to trash? You can restore them later from Archive & Trash.',
+      { title: 'Move All to Trash', confirmLabel: 'Move to Trash', danger: true }
     );
     if (!ok) return;
     try {
       const res = await fetch('/api/settings/data', { method: 'DELETE' });
-      if (!res.ok) throw new Error((await res.json()).error || 'Clear failed');
-      showToast('All data cleared. Demo plans will reappear on next page load.', 'success');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Clear failed');
+      showToastWithAction(
+        `Moved ${result.count || 0} active record(s) to trash.`,
+        'success',
+        'Undo',
+        async () => {
+          const restoreRes = await fetch('/api/settings/records/state', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: result.items || [], status: 'active' }),
+          });
+          const restoreResult = await restoreRes.json();
+          if (!restoreRes.ok) throw new Error(restoreResult.error || 'Restore failed');
+          await Promise.all([loadExportList(), loadLifecycleRecords()]);
+          showToast('Restored moved records.', 'success');
+        }
+      );
+      await Promise.all([loadExportList(), loadLifecycleRecords()]);
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
     }
@@ -472,6 +489,7 @@
 
   let exportData = { sessions: [], encounters: [], npcs: [], locations: [] };
   let exportItems = [];
+  let lifecycleItems = [];
   const selectedExportKeys = new Set();
 
   // Maps for "Select All Related"
@@ -789,6 +807,114 @@
     }
   }
 
+  async function loadLifecycleRecords() {
+    const listEl = document.getElementById('lifecycle-list');
+    if (!listEl) return;
+    try {
+      const res = await fetch('/api/settings/records/lifecycle');
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Load failed');
+      lifecycleItems = Array.isArray(payload.items) ? payload.items : [];
+
+      if (!lifecycleItems.length) {
+        listEl.innerHTML = `<p style="padding:12px; color:var(--muted); font-family:var(--font-body); font-style:italic;">No archived or trashed records.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = lifecycleItems.map(item => `
+        <div class="export-item lifecycle-item">
+          <div class="lifecycle-meta">
+            <div class="lifecycle-top">
+              <span class="export-type-badge ${item.type}">${escHtml(typeLabel(item.type))}</span>
+              <span class="import-item-status ${item.status === 'trashed' ? 'conflict' : 'duplicate'}">${item.status === 'trashed' ? 'Trashed' : 'Archived'}</span>
+            </div>
+            <div class="export-item-label">${escHtml(item.title || item.id)}</div>
+            <div class="export-item-id">${escHtml(item.id)}${item.subtitle ? ` · ${escHtml(item.subtitle)}` : ''}${item.changedAt ? ` · ${escHtml(formatLifecycleDate(item.changedAt))}` : ''}</div>
+          </div>
+          <div class="lifecycle-actions">
+            <button type="button" class="btn btn-ghost btn-lifecycle-restore" data-type="${escAttr(item.type)}" data-id="${escAttr(item.id)}">Restore</button>
+            ${item.status === 'archived'
+              ? `<button type="button" class="btn btn-ghost btn-lifecycle-trash" data-type="${escAttr(item.type)}" data-id="${escAttr(item.id)}" style="color:var(--danger);">Move to Trash</button>`
+              : `<button type="button" class="btn btn-ghost btn-lifecycle-delete" data-type="${escAttr(item.type)}" data-id="${escAttr(item.id)}" style="color:var(--danger);">Delete Permanently</button>`
+            }
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.btn-lifecycle-restore').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await updateLifecycleItems([{ type: btn.dataset.type, id: btn.dataset.id }], 'active', 'Record restored.');
+          } catch (err) {
+            showToast('Restore failed: ' + err.message, 'error');
+          }
+        });
+      });
+      listEl.querySelectorAll('.btn-lifecycle-trash').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await updateLifecycleItems([{ type: btn.dataset.type, id: btn.dataset.id }], 'trashed', 'Record moved to trash.');
+          } catch (err) {
+            showToast('Update failed: ' + err.message, 'error');
+          }
+        });
+      });
+      listEl.querySelectorAll('.btn-lifecycle-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const ok = await showConfirm(
+            `Permanently delete ${btn.dataset.id}? This cannot be undone.`,
+            { title: 'Delete Permanently', confirmLabel: 'Delete', danger: true }
+          );
+          if (!ok) return;
+          await deleteLifecycleItems([{ type: btn.dataset.type, id: btn.dataset.id }], 'Record permanently deleted.');
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = `<p style="padding:12px; color:var(--danger); font-family:var(--font-body);">Could not load lifecycle records: ${err.message}</p>`;
+    }
+  }
+
+  async function updateLifecycleItems(items, status, successMessage) {
+    const res = await fetch('/api/settings/records/state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, status }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Update failed');
+    await Promise.all([loadExportList(), loadLifecycleRecords()]);
+    showToast(successMessage, 'success');
+  }
+
+  async function deleteLifecycleItems(items, successMessage) {
+    const res = await fetch('/api/settings/records/permanent', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Delete failed');
+    await Promise.all([loadExportList(), loadLifecycleRecords()]);
+    showToast(successMessage, 'success');
+  }
+
+  function typeLabel(type) {
+    return {
+      session: 'Session',
+      encounter: 'Encounter',
+      npc: 'NPC',
+      location: 'Location',
+    }[type] || type;
+  }
+
+  function formatLifecycleDate(value) {
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
+  }
+
   function buildSettingsNav() {
     const nav = document.getElementById('settings-nav');
     if (!nav) return;
@@ -798,6 +924,7 @@
       { id: 'settings-party', num: '02', label: 'Party Roster' },
       { id: 'settings-export-import', num: '03', label: 'Export & Import' },
       { id: 'settings-backups', num: '04', label: 'Backups' },
+      { id: 'settings-trash', num: '05', label: 'Archive & Trash' },
       { id: 'settings-danger', num: '!', label: 'Danger Zone' },
     ];
 
@@ -972,51 +1099,231 @@
   });
 
   // Import
-  const fileInput    = document.getElementById('import-file-input');
-  const fileNameEl   = document.getElementById('import-filename');
-  const importBtn    = document.getElementById('btn-import-json');
+  const fileInput = document.getElementById('import-file-input');
+  const fileNameEl = document.getElementById('import-filename');
+  const importBtn = document.getElementById('btn-import-json');
+  const importPreviewEl = document.getElementById('import-preview');
+  const importTypeLabel = {
+    session: 'Session',
+    encounter: 'Encounter',
+    npc: 'NPC',
+    location: 'Location',
+  };
+  const importStatusLabel = {
+    new: 'New',
+    duplicate: 'Duplicate',
+    conflict: 'Conflict',
+    'missing-id': 'Missing ID',
+  };
+  const importActionLabel = {
+    import: 'Import',
+    skip: 'Skip',
+    clone: 'Clone With New ID',
+    replace: 'Replace Existing',
+  };
   let importFileData = null;
+  let importPreviewState = null;
+  let importReportState = null;
+
+  function getImportAction(item) {
+    if (!importPreviewState) return item.recommendedAction;
+    const defaults = importPreviewState.resolution.defaults || {};
+    const overrides = importPreviewState.resolution.overrides || {};
+    return overrides[item.key] || defaults[item.status] || item.recommendedAction;
+  }
+
+  function getImportSelectionCount() {
+    if (!importPreviewState?.preview?.items) return 0;
+    return importPreviewState.preview.items.filter(item => getImportAction(item) !== 'skip').length;
+  }
+
+  function updateImportButton() {
+    const count = getImportSelectionCount();
+    importBtn.textContent = count ? `Import ${count} Record${count === 1 ? '' : 's'}` : 'Import';
+    importBtn.disabled = !importPreviewState || count === 0;
+  }
+
+  function renderImportReport() {
+    if (!importReportState) return '';
+    const report = importReportState;
+    const rows = report.remappedIds.length
+      ? report.remappedIds.map(item => `
+          <div class="import-report-row">
+            <span class="export-type-badge ${item.type}">${importTypeLabel[item.type] || item.type}</span>
+            <span class="import-report-label">${escHtml(item.label || item.fromId || 'Untitled')}</span>
+            <span class="import-report-id">${escHtml(item.fromId)} → ${escHtml(item.toId)}</span>
+          </div>
+        `).join('')
+      : '<p class="settings-hint" style="margin:10px 0 0;">No IDs had to be remapped in the last import.</p>';
+
+    return `
+      <div class="import-preview-panel" style="margin-top:14px;">
+        <div class="import-preview-head">
+          <div>
+            <div class="settings-subhead" style="margin:0;">Last Import Report</div>
+            <p class="settings-hint" style="margin-top:6px;">
+              ${report.totals.imported} imported, ${report.totals.cloned} cloned, ${report.totals.replaced} replaced, ${report.totals.skipped} skipped.
+            </p>
+          </div>
+        </div>
+        <div class="import-preview-summary">
+          <span class="import-summary-pill success">Processed ${report.totals.processed}</span>
+          <span class="import-summary-pill">Remapped ${report.remappedIds.length}</span>
+        </div>
+        <div class="import-report-list">${rows}</div>
+      </div>
+    `;
+  }
+
+  function renderImportPreview() {
+    if (!importPreviewState) {
+      importPreviewEl.innerHTML = renderImportReport();
+      updateImportButton();
+      return;
+    }
+
+    const { preview } = importPreviewState;
+    const decisionItems = preview.items.filter(item => item.status !== 'new');
+    const selectedCount = getImportSelectionCount();
+    const rows = decisionItems.length
+      ? decisionItems.map(item => `
+          <div class="import-item-row">
+            <div class="import-item-main">
+              <div class="import-item-top">
+                <span class="export-type-badge ${item.type}">${importTypeLabel[item.type] || item.type}</span>
+                <span class="import-item-label">${escHtml(item.label || item.sourceId || 'Untitled')}</span>
+                <span class="import-item-status ${item.status}">${importStatusLabel[item.status] || item.status}</span>
+              </div>
+              <div class="import-item-meta">
+                Incoming ID: <code>${escHtml(item.sourceId || 'none')}</code>
+                ${item.existingCampaignId ? ` · Existing campaign: <code>${escHtml(item.existingCampaignId)}</code>` : ''}
+                ${item.existingLabel ? ` · Existing record: ${escHtml(item.existingLabel)}` : ''}
+              </div>
+            </div>
+            <label class="import-action-select-wrap">
+              <span>Action</span>
+              <select data-import-item-key="${escAttr(item.key)}" class="import-action-select">
+                ${item.availableActions.map(action => `
+                  <option value="${action}" ${getImportAction(item) === action ? 'selected' : ''}>${importActionLabel[action] || action}</option>
+                `).join('')}
+              </select>
+            </label>
+          </div>
+        `).join('')
+      : '<p class="settings-hint" style="margin:10px 0 0;">No duplicates or conflicts. Everything in this file is ready to import as-is.</p>';
+
+    importPreviewEl.innerHTML = `
+      <div class="import-preview-panel">
+        <div class="import-preview-head">
+          <div>
+            <div class="settings-subhead" style="margin:0;">Import Preview</div>
+            <p class="settings-hint" style="margin-top:6px;">
+              Review duplicates and conflicts before writing anything. New records will import unchanged.
+            </p>
+          </div>
+        </div>
+        <div class="import-preview-summary">
+          <span class="import-summary-pill success">${preview.counts.new} new</span>
+          <span class="import-summary-pill warn">${preview.counts.duplicate} duplicates</span>
+          <span class="import-summary-pill danger">${preview.counts.conflict} conflicts</span>
+          <span class="import-summary-pill">${preview.counts['missing-id']} missing IDs</span>
+          <span class="import-summary-pill accent">${selectedCount} selected</span>
+        </div>
+        <div class="import-defaults-row">
+          <label class="import-action-select-wrap">
+            <span>Duplicates</span>
+            <select data-import-default-status="duplicate" class="import-action-select">
+              <option value="skip" ${importPreviewState.resolution.defaults.duplicate === 'skip' ? 'selected' : ''}>Skip</option>
+              <option value="clone" ${importPreviewState.resolution.defaults.duplicate === 'clone' ? 'selected' : ''}>Clone With New ID</option>
+              <option value="replace" ${importPreviewState.resolution.defaults.duplicate === 'replace' ? 'selected' : ''}>Replace Existing</option>
+            </select>
+          </label>
+          <label class="import-action-select-wrap">
+            <span>Conflicts</span>
+            <select data-import-default-status="conflict" class="import-action-select">
+              <option value="clone" ${importPreviewState.resolution.defaults.conflict === 'clone' ? 'selected' : ''}>Clone With New ID</option>
+              <option value="skip" ${importPreviewState.resolution.defaults.conflict === 'skip' ? 'selected' : ''}>Skip</option>
+              <option value="replace" ${importPreviewState.resolution.defaults.conflict === 'replace' ? 'selected' : ''}>Replace Existing</option>
+            </select>
+          </label>
+        </div>
+        <div class="import-item-list">${rows}</div>
+      </div>
+      ${renderImportReport()}
+    `;
+
+    importPreviewEl.querySelectorAll('[data-import-default-status]').forEach(select => {
+      select.addEventListener('change', () => {
+        importPreviewState.resolution.defaults[select.dataset.importDefaultStatus] = select.value;
+        renderImportPreview();
+      });
+    });
+    importPreviewEl.querySelectorAll('[data-import-item-key]').forEach(select => {
+      select.addEventListener('change', () => {
+        importPreviewState.resolution.overrides[select.dataset.importItemKey] = select.value;
+        renderImportPreview();
+      });
+    });
+
+    updateImportButton();
+  }
+
+  async function loadImportPreview(bundle) {
+    const res = await fetch('/api/settings/import-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bundle),
+    });
+    const preview = await res.json();
+    if (!res.ok) throw new Error(preview.error || 'Preview failed');
+    importPreviewState = {
+      preview,
+      resolution: {
+        defaults: {
+          duplicate: 'skip',
+          conflict: 'clone',
+          'missing-id': 'clone',
+        },
+        overrides: {},
+      },
+    };
+    renderImportPreview();
+  }
 
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0];
-    const previewEl = document.getElementById('import-preview');
-    if (!file) { fileNameEl.textContent = 'No file selected'; importBtn.disabled = true; importFileData = null; return; }
+    if (!file) {
+      fileNameEl.textContent = 'No file selected';
+      importFileData = null;
+      importPreviewState = null;
+      renderImportPreview();
+      return;
+    }
+
     fileNameEl.textContent = file.name;
+    importPreviewEl.innerHTML = '<p class="settings-hint" style="margin-top:12px;">Analyzing import file…</p>';
+    importBtn.disabled = true;
     const reader = new FileReader();
-    reader.onload = e => {
+
+    reader.onload = async e => {
       try {
         importFileData = JSON.parse(e.target.result);
-        if (!importFileData.sessions && !importFileData.encounters && !importFileData.npcs && !importFileData.locations) throw new Error('Invalid format');
-        const currentSessionIds = new Set(exportData.sessions.map(s => s.id));
-        const currentEncounterIds = new Set(exportData.encounters.map(enc => enc.id));
-        const currentNpcIds = new Set(exportData.npcs.map(npc => npc.id));
-        const currentLocationIds = new Set(exportData.locations.map(location => location.id));
-        const incomingSessions = importFileData.sessions || [];
-        const incomingEncounters = importFileData.encounters || [];
-        const incomingNpcs = importFileData.npcs || [];
-        const incomingLocations = importFileData.locations || [];
-        const newSessions = incomingSessions.filter(s => s.id && !currentSessionIds.has(s.id)).length;
-        const duplicateSessions = incomingSessions.filter(s => s.id && currentSessionIds.has(s.id)).length;
-        const newEncounters = incomingEncounters.filter(enc => enc.id && !currentEncounterIds.has(enc.id)).length;
-        const duplicateEncounters = incomingEncounters.filter(enc => enc.id && currentEncounterIds.has(enc.id)).length;
-        const newNpcs = incomingNpcs.filter(npc => npc.id && !currentNpcIds.has(npc.id)).length;
-        const duplicateNpcs = incomingNpcs.filter(npc => npc.id && currentNpcIds.has(npc.id)).length;
-        const newLocations = incomingLocations.filter(location => location.id && !currentLocationIds.has(location.id)).length;
-        const duplicateLocations = incomingLocations.filter(location => location.id && currentLocationIds.has(location.id)).length;
-        previewEl.textContent = `Preview: ${newSessions} new session(s), ${duplicateSessions} duplicate session(s), ${newEncounters} new encounter(s), ${duplicateEncounters} duplicate encounter(s), ${newNpcs} new NPC(s), ${duplicateNpcs} duplicate NPC(s), ${newLocations} new location(s), ${duplicateLocations} duplicate location(s). Duplicates will be skipped.`;
-        importBtn.disabled = false;
+        if (!importFileData.sessions && !importFileData.encounters && !importFileData.npcs && !importFileData.locations) {
+          throw new Error('Invalid format');
+        }
+        await loadImportPreview(importFileData);
       } catch {
         fileNameEl.textContent = 'Invalid JSON file';
-        importBtn.disabled = true;
         importFileData = null;
-        previewEl.textContent = '';
+        importPreviewState = null;
+        renderImportPreview();
       }
     };
     reader.readAsText(file);
   });
 
   importBtn.addEventListener('click', async () => {
-    if (!importFileData) return;
+    if (!importFileData || !importPreviewState) return;
     importBtn.disabled = true;
     importBtn.textContent = 'Importing…';
     try {
@@ -1028,22 +1335,28 @@
           encounters: importFileData.encounters || [],
           npcs: importFileData.npcs || [],
           locations: importFileData.locations || [],
+          resolution: importPreviewState.resolution,
         }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Import failed');
-      showToast(`Imported ${result.importedSessions} session(s), ${result.importedEncounters} encounter(s), ${result.importedNpcs} NPC(s), and ${result.importedLocations} location(s).`, 'success');
+      importReportState = result.report || null;
+      showToast(
+        `Imported ${result.report?.totals.imported || 0}, cloned ${result.report?.totals.cloned || 0}, replaced ${result.report?.totals.replaced || 0}, skipped ${result.report?.totals.skipped || 0}.`,
+        'success'
+      );
       fileInput.value = '';
       fileNameEl.textContent = 'No file selected';
-      document.getElementById('import-preview').textContent = '';
       importFileData = null;
+      importPreviewState = null;
+      renderImportPreview();
       loadExportList();
       loadBackups();
+      loadLifecycleRecords();
     } catch (err) {
       showToast('Import failed: ' + err.message, 'error');
     } finally {
-      importBtn.disabled = false;
-      importBtn.textContent = 'Import';
+      updateImportButton();
     }
   });
 
@@ -1059,14 +1372,71 @@
     }
   });
 
+  const lifecycleRefreshBtn = document.getElementById('btn-lifecycle-refresh');
+  if (lifecycleRefreshBtn) {
+    lifecycleRefreshBtn.addEventListener('click', () => {
+      loadLifecycleRecords();
+    });
+  }
+
+  const emptyTrashBtn = document.getElementById('btn-empty-trash');
+  if (emptyTrashBtn) {
+    emptyTrashBtn.addEventListener('click', async () => {
+      const trashed = lifecycleItems.filter(item => item.status === 'trashed').map(item => ({ type: item.type, id: item.id }));
+      if (!trashed.length) {
+        showToast('Trash is already empty.', 'success');
+        return;
+      }
+      const ok = await showConfirm(
+        `Permanently delete ${trashed.length} trashed record(s)? This cannot be undone.`,
+        { title: 'Empty Trash', confirmLabel: 'Delete Permanently', danger: true }
+      );
+      if (!ok) return;
+      try {
+        await deleteLifecycleItems(trashed, `Deleted ${trashed.length} trashed record(s).`);
+      } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+      }
+    });
+  }
+
   loadExportList();
   loadBackups();
+  loadLifecycleRecords();
   buildSettingsNav();
+
+  let toastTimer = null;
 
   function showToast(msg, type = 'success') {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    if (!t) return;
+    clearTimeout(toastTimer);
+    t.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = msg;
+    t.appendChild(span);
     t.className = `toast ${type} show`;
-    setTimeout(() => { t.className = 'toast'; }, 4000);
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 4000);
+  }
+
+  function showToastWithAction(msg, type, actionLabel, onAction) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    clearTimeout(toastTimer);
+    t.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = msg;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', async () => {
+      t.className = 'toast';
+      await onAction();
+    });
+    t.appendChild(span);
+    t.appendChild(btn);
+    t.className = `toast toast-has-action ${type} show`;
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 6000);
   }
 })();

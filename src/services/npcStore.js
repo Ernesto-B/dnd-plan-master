@@ -1,8 +1,8 @@
 const fs = require('fs').promises;
-const { getDataFile, getSeedFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const NPCS_FILE = getDataFile('npcs.json');
-const SEED_FILE = getSeedFile('npcs.seed.json');
 
 function orderValue(item, fallbackIndex) {
   return Number.isFinite(item?.sortOrder) ? item.sortOrder : fallbackIndex;
@@ -28,17 +28,6 @@ async function readStore() {
     const content = await fs.readFile(NPCS_FILE, 'utf8');
     return JSON.parse(content);
   } catch {
-    return await seedStore();
-  }
-}
-
-async function seedStore() {
-  try {
-    const raw = await fs.readFile(SEED_FILE, 'utf8');
-    const store = JSON.parse(raw);
-    await writeStore(store);
-    return store;
-  } catch {
     return { npcs: [] };
   }
 }
@@ -48,13 +37,17 @@ async function writeStore(store) {
   await fs.writeFile(NPCS_FILE, JSON.stringify(store, null, 2), 'utf8');
 }
 
+async function replaceAllFull(npcs) {
+  await writeStore({ npcs: Array.isArray(npcs) ? npcs : [] });
+}
+
 async function getAllNpcs(campaignId) {
   const store = await readStore();
   const belongs = n =>
     !campaignId ||
     n.campaignId === campaignId ||
     (!n.campaignId && campaignId === 'c-default');
-  return orderedNpcs(store.npcs).filter(belongs).map(n => ({
+  return orderedNpcs(store.npcs.map(normalizeRecord)).filter(n => belongs(n) && isActive(n)).map(n => ({
     id:               n.id,
     name:             n.name,
     nickname:         n.nickname || '',
@@ -70,12 +63,13 @@ async function getAllNpcs(campaignId) {
 
 async function getAllFull() {
   const store = await readStore();
-  return orderedNpcs(store.npcs);
+  return orderedNpcs(store.npcs.map(normalizeRecord));
 }
 
 async function getNpc(id) {
   const store = await readStore();
-  return store.npcs.find(n => n.id === id) || null;
+  const found = store.npcs.find(n => n.id === id);
+  return found ? normalizeRecord(found) : null;
 }
 
 function randomId() {
@@ -107,12 +101,16 @@ async function saveNpc(data) {
     createdAt:        new Date().toISOString(),
     sortOrder:        nextSortOrder(store.npcs),
     isDemo:           data.isDemo || false,
+    status:           ACTIVE,
   };
 
   const idx = store.npcs.findIndex(n => n.id === id);
   if (idx >= 0) {
     npc.createdAt = store.npcs[idx].createdAt;
     npc.sortOrder = orderValue(store.npcs[idx], idx);
+    npc.status = normalizeRecord(store.npcs[idx]).status;
+    if (store.npcs[idx].archivedAt) npc.archivedAt = store.npcs[idx].archivedAt;
+    if (store.npcs[idx].trashedAt) npc.trashedAt = store.npcs[idx].trashedAt;
     store.npcs[idx] = npc;
   } else {
     store.npcs.push(npc);
@@ -212,4 +210,22 @@ async function syncSessionLinks(sessionId, newNpcIds, oldNpcIds) {
   if (changed) await writeStore(store);
 }
 
-module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks, reorderNpcs };
+async function updateStatus(id, status) {
+  const store = await readStore();
+  const idx = store.npcs.findIndex(n => n.id === id);
+  if (idx < 0) throw new Error(`NPC ${id} not found`);
+  store.npcs[idx] = setStatus(store.npcs[idx], status);
+  await writeStore(store);
+  return normalizeRecord(store.npcs[idx]);
+}
+
+async function listByStatuses(campaignId, statuses = [ACTIVE]) {
+  const store = await readStore();
+  const belongs = n =>
+    !campaignId ||
+    n.campaignId === campaignId ||
+    (!n.campaignId && campaignId === 'c-default');
+  return orderedNpcs(store.npcs.map(normalizeRecord)).filter(n => belongs(n) && matchesStatus(n, statuses));
+}
+
+module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks, reorderNpcs, replaceAllFull, updateStatus, listByStatuses };

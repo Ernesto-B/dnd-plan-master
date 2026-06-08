@@ -5,8 +5,7 @@ let lastVisibleNpcIds = [];
   const container = document.getElementById('npcs-container');
 
   try {
-    const res = await fetch('/api/npcs');
-    allNpcs = await res.json();
+    await refreshNpcs();
   } catch {
     container.innerHTML = '<div class="empty-state"><p>Could not load NPCs.</p></div>';
     return;
@@ -44,7 +43,25 @@ let lastVisibleNpcIds = [];
     containerId: 'npcs-container',
     type: 'npc',
     apiBase: '/api/npcs',
+    allowArchive: true,
     getAllItems: () => allNpcs,
+    reloadItems: refreshNpcs,
+    renderItems: () => renderTable(allNpcs),
+    duplicate: {
+      createUrl: '/api/npcs',
+      label: 'NPC',
+      buildPayload: npc => {
+        const data = { ...npc };
+        delete data.id;
+        delete data.createdAt;
+        delete data.campaignId;
+        delete data.sortOrder;
+        return {
+          ...data,
+          name: duplicateLabel(data.name || npc.name, 'Copy'),
+        };
+      },
+    },
     onDelete: (id) => { allNpcs = allNpcs.filter(n => n.id !== id); },
     onTagsUpdate: (id, tags) => {
       const n = allNpcs.find(x => x.id === id);
@@ -57,6 +74,12 @@ let lastVisibleNpcIds = [];
     },
   });
 })();
+
+async function refreshNpcs() {
+  const res = await fetch('/api/npcs');
+  if (!res.ok) throw new Error('Could not load NPCs');
+  allNpcs = await res.json();
+}
 
 function renderTable(npcs, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
@@ -237,4 +260,9 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => { t.className = 'toast'; }, 5000);
+}
+
+function duplicateLabel(value, suffix) {
+  const base = String(value || '').trim();
+  return base ? `${base} (${suffix})` : suffix;
 }

@@ -24,6 +24,7 @@
       fetch(`/api/encounters/${id}`),
       fetch(`/api/encounters/${id}/links`),
       fetch(`/api/encounters/${id}/linked-npcs`),
+      WikiLinks.preload(),
     ]);
     if (!encounterRes.ok) throw new Error('Not found');
     encounter = await encounterRes.json();
@@ -35,7 +36,7 @@
   }
 
   document.title = `${encounter.name} — D&D Session Master`;
-  content.innerHTML = `<div class="markdown-body">${marked.parse(encounter.markdown || '')}</div>`;
+  content.innerHTML = `<div class="markdown-body">${marked.parse(WikiLinks.preprocessMarkdown(encounter.markdown || ''))}</div>`;
   buildMarkdownToc();
   mountTagEditor(id, encounter.data?.tags || [], '/api/encounters', '#tags-anchor');
   setupConnectionsPanel(encounter, linkedSessions, linkedNpcs);
@@ -155,17 +156,17 @@ function setupConnectionsPanel(encounter, linkedSessions, linkedNpcs) {
 
 
 async function deleteEncounter(id) {
-  const ok = await showConfirm(`Delete this encounter plan? This cannot be undone.`, {
-    title: 'Delete Encounter Plan',
-    confirmLabel: 'Delete',
+  const ok = await showConfirm(`Move this encounter plan to trash? You can restore it later from Settings.`, {
+    title: 'Move Encounter Plan to Trash',
+    confirmLabel: 'Move to Trash',
     danger: true,
   });
   if (!ok) return;
 
   try {
     const res = await fetch(`/api/encounters/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
-    showToast('Encounter plan deleted.', 'success');
+    if (!res.ok) throw new Error((await res.json()).error || 'Move to trash failed');
+    showToast('Encounter plan moved to trash.', 'success');
     setTimeout(() => { location.href = '/encounters'; }, 1000);
   } catch (err) {
     showToast('Delete failed: ' + err.message, 'error');
