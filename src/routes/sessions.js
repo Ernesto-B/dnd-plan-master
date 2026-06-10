@@ -147,6 +147,21 @@ router.get('/:id/linked-npcs', async (req, res) => {
   }
 });
 
+router.get('/:id/linked-locations', async (req, res) => {
+  try {
+    const session = await sessionStore.getSession(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const ids = session.data?.linkedLocations || [];
+    const results = await Promise.all(ids.map(async lid => {
+      const loc = await locationStore.getLocation(lid);
+      return { id: lid, name: loc?.name || lid, exists: !!loc };
+    }));
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get single session
 router.get('/:id', async (req, res) => {
   try {
@@ -190,6 +205,27 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Save error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/links', async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const session = await sessionStore.getSession(sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const patch = {};
+    if (Array.isArray(req.body.linkedNpcs)) {
+      await npcStore.syncSessionLinks(sessionId, req.body.linkedNpcs, session.data?.linkedNpcs || []);
+      patch.linkedNpcs = req.body.linkedNpcs;
+    }
+    if (Array.isArray(req.body.linkedLocations)) {
+      await locationStore.syncSessionLinks(sessionId, req.body.linkedLocations, session.data?.linkedLocations || []);
+      patch.linkedLocations = req.body.linkedLocations;
+    }
+    if (Object.keys(patch).length) await sessionStore.updateLinks(sessionId, patch);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
 });
 

@@ -93,6 +93,18 @@ async function updateTags(id, tags) {
   return normalizedTags;
 }
 
+async function updateLinks(id, patch) {
+  const store = await readStore();
+  const idx = store.sessions.findIndex(s => s.id === id);
+  if (idx < 0) throw new Error(`Session ${id} not found`);
+  const s = store.sessions[idx];
+  if (!s.data) s.data = {};
+  if (Array.isArray(patch.linkedNpcs)) s.data.linkedNpcs = patch.linkedNpcs;
+  if (Array.isArray(patch.linkedLocations)) s.data.linkedLocations = patch.linkedLocations;
+  await writeStore(store);
+  return normalizeRecord(s);
+}
+
 async function getSession(id) {
   const store = await readStore();
   const found = store.sessions.find(s => s.id === id);
@@ -202,4 +214,4 @@ async function listByStatuses(campaignId, statuses = [ACTIVE]) {
   return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && matchesStatus(s, statuses));
 }
 
-module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, reorderSessions, replaceAllFull, updateStatus, listByStatuses };
+module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, updateLinks, reorderSessions, replaceAllFull, updateStatus, listByStatuses };

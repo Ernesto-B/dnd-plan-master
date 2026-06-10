@@ -163,6 +163,17 @@ async function deleteFaction(id) {
   await writeStore(store);
 }
 
+async function updateLinks(id, patch) {
+  const store = await readStore();
+  const idx = store.factions.findIndex(f => f.id === id);
+  if (idx < 0) throw new Error(`Faction ${id} not found`);
+  ['linkedSessions', 'linkedEncounters', 'linkedNpcs', 'linkedLocations'].forEach(field => {
+    if (Array.isArray(patch[field])) store.factions[idx][field] = patch[field];
+  });
+  await writeStore(store);
+  return store.factions[idx];
+}
+
 async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.factions.findIndex(faction => faction.id === id);
@@ -243,6 +254,7 @@ module.exports = {
   getFaction,
   saveFaction,
   deleteFaction,
+  updateLinks,
   updateTags,
   importFactions,
   reorderFactions,

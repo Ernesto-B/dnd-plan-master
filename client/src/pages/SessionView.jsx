@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
+import LinksEditor from '../components/LinksEditor.jsx';
 import { wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
 import { renderMarkdown, buildMarkdownToc } from '../lib/markdown.js';
 import { renderDmTableHTML } from '../lib/dmTable.js';
@@ -14,6 +15,7 @@ export default function SessionView() {
   const [session, setSession] = useState(null);
   const [encounters, setEncounters] = useState([]);
   const [npcs, setNpcs] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
@@ -23,10 +25,11 @@ export default function SessionView() {
     let alive = true;
     (async () => {
       try {
-        const [sRes, lRes, nRes] = await Promise.all([
+        const [sRes, lRes, nRes, locRes] = await Promise.all([
           fetch(`/api/sessions/${id}`),
           fetch(`/api/sessions/${id}/links`),
           fetch(`/api/sessions/${id}/linked-npcs`),
+          fetch(`/api/sessions/${id}/linked-locations`),
           wikiPreload(),
         ]);
         if (!sRes.ok) throw new Error('not found');
@@ -35,6 +38,7 @@ export default function SessionView() {
         setSession(data);
         setEncounters(lRes.ok ? await lRes.json() : []);
         setNpcs(nRes.ok ? await nRes.json() : []);
+        setLocations(locRes.ok ? await locRes.json() : []);
         document.title = `Session ${id} — D&D Session Master`;
       } catch { if (alive) setError(true); }
     })();
@@ -44,8 +48,14 @@ export default function SessionView() {
   useEffect(() => {
     if (!session || tagsMounted.current) return;
     buildMarkdownToc();
-    const anchor = document.getElementById('tags-anchor');
-    if (anchor) { anchor.innerHTML = ''; mountTags(id, session.data?.tags || [], '/api/sessions', '#tags-anchor'); tagsMounted.current = true; }
+    const h1 = document.querySelector('#session-markdown h1');
+    const selector = h1 ? '#session-markdown h1' : '#tags-anchor';
+    const anchor = document.querySelector(selector);
+    if (anchor) {
+      if (!h1) anchor.innerHTML = '';
+      mountTags(id, session.data?.tags || [], '/api/sessions', selector);
+      tagsMounted.current = true;
+    }
   }, [session, id]);
 
   // Lock body scroll + Escape-to-close while the DM modal is open.
@@ -148,8 +158,33 @@ export default function SessionView() {
           showPromote={session.status === 'draft'} onPromote={onPromote} promoting={promoting}
         />
         <main className="view-main">
-          <div id="tags-anchor" />
           <div className="markdown-body" id="session-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(session.markdown || '') }} />
+          <div className="view-links-section">
+            <p className="view-links-section-head">Connections</p>
+            <LinksEditor
+              key={`${id}-${npcs.length}-${locations.length}`}
+              id={id}
+              apiBase="/api/sessions"
+              groups={[
+                {
+                  key: 'linkedNpcs',
+                  label: 'NPCs',
+                  listApi: '/api/npcs',
+                  toOption: n => ({ value: n.id, label: n.nickname ? `${n.name} "${n.nickname}"` : n.name }),
+                  getHref: nid => `/npc/view/${nid}`,
+                  initial: npcs.map(n => ({ id: n.id, label: n.nickname ? `${n.name} "${n.nickname}"` : (n.name || n.id), href: `/npc/view/${n.id}` })),
+                },
+                {
+                  key: 'linkedLocations',
+                  label: 'Locations',
+                  listApi: '/api/locations',
+                  toOption: l => ({ value: l.id, label: l.name || l.id }),
+                  getHref: lid => `/location/view/${lid}`,
+                  initial: locations.map(l => ({ id: l.id, label: l.name || l.id, href: `/location/view/${l.id}` })),
+                },
+              ]}
+            />
+          </div>
         </main>
       </div>
       <aside id="toc-nav" className="toc-nav" />

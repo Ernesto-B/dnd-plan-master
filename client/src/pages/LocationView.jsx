@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
+import LinksEditor from '../components/LinksEditor.jsx';
 import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
 
 const Prose = ({ text, className, style }) => <p className={className} style={style} dangerouslySetInnerHTML={{ __html: wikiRender(text) }} />;
@@ -206,6 +207,29 @@ export default function LocationView() {
                 <Prose text={loc.onTheHorizon} className="npc-view-prose" />
               </div>
             )}
+
+            <div className="npc-view-section">
+              <div className="npc-view-section-label">Connections</div>
+              <LinksEditor
+                key={`${id}-${sessions.length}`}
+                id={id}
+                apiBase="/api/locations"
+                groups={[
+                  {
+                    key: 'linkedSessions',
+                    label: 'Sessions',
+                    listApi: '/api/sessions',
+                    toOption: s => ({ value: s.id, label: s.goal ? `${String(s.sessionNumber || '').padStart(3, '0')} — ${s.goal}` : `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}` }),
+                    getHref: sid => `/view/${sid}`,
+                    initial: sessions.map(s => ({
+                      id: s.id,
+                      label: s.goal || `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}`,
+                      href: `/view/${s.id}`,
+                    })),
+                  },
+                ]}
+              />
+            </div>
           </div>
         </main>
       </div>

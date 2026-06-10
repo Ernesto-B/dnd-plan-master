@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
+import LinksEditor from '../components/LinksEditor.jsx';
 import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
 
 const SKILL_LABELS = {
@@ -214,6 +215,37 @@ export default function NpcView() {
                 <ul className="npc-carry-list">{npc.carrying.map((i, k) => <li key={k}>{i}</li>)}</ul>
               </div>
             )}
+
+            <div className="npc-view-section">
+              <div className="npc-view-section-label">Connections</div>
+              <LinksEditor
+                key={`${id}-${sessions.length}-${encounters.length}`}
+                id={id}
+                apiBase="/api/npcs"
+                groups={[
+                  {
+                    key: 'linkedSessions',
+                    label: 'Sessions',
+                    listApi: '/api/sessions',
+                    toOption: s => ({ value: s.id, label: s.goal ? `${String(s.sessionNumber || '').padStart(3, '0')} — ${s.goal}` : `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}` }),
+                    getHref: sid => `/view/${sid}`,
+                    initial: sessions.map(s => ({
+                      id: s.id,
+                      label: s.goal || `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}`,
+                      href: `/view/${s.id}`,
+                    })),
+                  },
+                  {
+                    key: 'linkedEncounters',
+                    label: 'Encounter Plans',
+                    listApi: '/api/encounters',
+                    toOption: e => ({ value: e.id, label: e.name || e.id }),
+                    getHref: eid => `/encounter/view/${eid}`,
+                    initial: encounters.map(e => ({ id: e.id, label: e.name || e.id, href: `/encounter/view/${e.id}` })),
+                  },
+                ]}
+              />
+            </div>
           </div>
         </main>
       </div>

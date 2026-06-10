@@ -109,6 +109,40 @@ router.put('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.patch('/:id/links', async (req, res) => {
+  try {
+    const npcId = req.params.id;
+    const npc = await npcStore.getNpc(npcId);
+    if (!npc) return res.status(404).json({ error: 'NPC not found' });
+    const patch = {};
+    if (Array.isArray(req.body.linkedSessions)) {
+      const oldSessions = npc.linkedSessions || [];
+      const newSessions = req.body.linkedSessions;
+      const toAdd = newSessions.filter(sid => !oldSessions.includes(sid));
+      const toRemove = oldSessions.filter(sid => !newSessions.includes(sid));
+      for (const sid of toAdd) {
+        const sess = await sessionStore.getSession(sid);
+        if (sess?.data) {
+          const linkedNpcs = [...new Set([...(sess.data.linkedNpcs || []), npcId])];
+          await sessionStore.updateLinks(sid, { linkedNpcs });
+        }
+      }
+      for (const sid of toRemove) {
+        const sess = await sessionStore.getSession(sid);
+        if (sess?.data) {
+          await sessionStore.updateLinks(sid, { linkedNpcs: (sess.data.linkedNpcs || []).filter(n => n !== npcId) });
+        }
+      }
+      patch.linkedSessions = newSessions;
+    }
+    if (Array.isArray(req.body.linkedEncounters)) patch.linkedEncounters = req.body.linkedEncounters;
+    await npcStore.updateLinks(npcId, patch);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];

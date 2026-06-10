@@ -154,6 +154,21 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id/links', async (req, res) => {
+  try {
+    const faction = await factionStore.getFaction(req.params.id);
+    if (!faction) return res.status(404).json({ error: 'Faction not found' });
+    const patch = {};
+    ['linkedSessions', 'linkedEncounters', 'linkedNpcs', 'linkedLocations'].forEach(field => {
+      if (Array.isArray(req.body[field])) patch[field] = req.body[field];
+    });
+    await factionStore.updateLinks(req.params.id, patch);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];

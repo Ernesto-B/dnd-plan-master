@@ -130,6 +130,16 @@ async function deleteNpc(id) {
   await writeStore(store);
 }
 
+async function updateLinks(id, patch) {
+  const store = await readStore();
+  const idx = store.npcs.findIndex(n => n.id === id);
+  if (idx < 0) throw new Error(`NPC ${id} not found`);
+  if (Array.isArray(patch.linkedSessions)) store.npcs[idx].linkedSessions = patch.linkedSessions;
+  if (Array.isArray(patch.linkedEncounters)) store.npcs[idx].linkedEncounters = patch.linkedEncounters;
+  await writeStore(store);
+  return store.npcs[idx];
+}
+
 async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.npcs.findIndex(n => n.id === id);
@@ -231,4 +241,4 @@ async function listByStatuses(campaignId, statuses = [ACTIVE]) {
   return orderedNpcs(store.npcs.map(normalizeRecord)).filter(n => belongs(n) && matchesStatus(n, statuses));
 }
 
-module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, importNpcs, syncSessionLinks, reorderNpcs, replaceAllFull, updateStatus, listByStatuses };
+module.exports = { getAllNpcs, getAllFull, getNpc, saveNpc, deleteNpc, updateTags, updateLinks, importNpcs, syncSessionLinks, reorderNpcs, replaceAllFull, updateStatus, listByStatuses };

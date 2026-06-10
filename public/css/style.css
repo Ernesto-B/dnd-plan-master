@@ -3537,6 +3537,81 @@ body.dm-print-mode .dm-modal-body { padding: 0 !important; overflow: visible !im
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+/* ── LinksEditor — inline relationship editing on view pages ──────────── */
+.links-editor { display: flex; flex-direction: column; gap: 18px; }
+.links-editor-group { display: flex; flex-direction: column; gap: 7px; }
+.links-editor-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.links-editor-group-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.links-editor-add-btn {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: transparent;
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.links-editor-add-btn:hover { background: color-mix(in srgb, var(--gold) 12%, transparent); }
+.links-editor-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 24px; }
+.links-editor-empty { font-size: 13px; color: var(--muted); font-style: italic; }
+.links-editor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 5px 3px 9px;
+  font-size: 12px;
+}
+.links-editor-chip-link { color: var(--gold); text-decoration: none; }
+.links-editor-chip-link:hover { color: var(--text); }
+.links-editor-chip-x {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.links-editor-chip-x:hover { color: var(--text); }
+.links-editor-picker-wrap {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  overflow: hidden;
+}
+/* Container section used by SessionView / EncounterView (markdown-based pages) */
+.view-links-section {
+  margin-top: 32px;
+  padding: 28px 32px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--gold-dim);
+  border-radius: 2px;
+}
+.view-links-section-head {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
 .submit-note {
   font-family: var(--font-body);
   font-size: 13px;
@@ -6244,11 +6319,25 @@ body.run-mode { background: var(--bg); color: var(--text); margin: 0; padding: 0
 }
 
 .run-exit {
-  color: var(--text-dim);
-  font-size: 13px;
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text2);
   text-decoration: none;
+  border: 1px solid var(--border2);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.03);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
 }
-.run-exit:hover { color: var(--text); }
+.run-exit:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  background: rgba(201,150,42,0.07);
+}
 
 /* ── Layout ──────────────────────────────────────────────────────────────────── */
 .run-top-row {
@@ -6997,6 +7086,7 @@ body.run-popout #run-app { max-width: 100%; padding: 14px; }
   background: rgba(0,0,0,0.22);
   border-color: var(--border2);
   color: var(--text);
+  flex: none;
 }
 .run-lookup-search::placeholder { color: var(--muted); }
 
@@ -7466,4 +7556,149 @@ body.map-route.map-panel-open .toast { right: 312px; }
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* ── Settings: cleaner section headers ───────────────────────────────────── */
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 44px 0 18px;
+  scroll-margin-top: 72px;
+}
+.settings-section-head:first-of-type { margin-top: 28px; }
+.settings-section-head::before {
+  content: '';
+  width: 3px;
+  height: 20px;
+  background: var(--gold-dim);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.settings-section-head.danger::before { background: var(--danger); }
+.settings-section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--border2), transparent);
+}
+.settings-section-h {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin: 0;
+  white-space: nowrap;
+}
+.settings-section-head.danger .settings-section-h { color: var(--danger); }
+
+/* Title row with inline save status */
+.settings-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.settings-save-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
+  padding-top: 10px;
+  white-space: nowrap;
+}
+.settings-save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+/* ── Run mode: encounter completion & quick-combat ──────────────────────── */
+.run-enc-done { opacity: 0.45; }
+.run-enc-done .run-npc-name { text-decoration: line-through; }
+
+.run-enc-cb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border2);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+  margin-right: 6px;
+}
+.run-enc-cb.checked {
+  background: var(--gold-dim);
+  border-color: var(--gold-dim);
+}
+.run-enc-cb.checked::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #12121e;
+}
+
+.run-enc-combat-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 3px 8px;
+  color: var(--gold-dim);
+  border-color: rgba(201,150,42,0.25);
+}
+.run-enc-combat-btn:hover { background: rgba(201,150,42,0.12); color: var(--gold); border-color: var(--gold-dim); }
+
+/* Inline lookup button on session NPC / location cards */
+.run-record-lookup-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+  vertical-align: middle;
+  line-height: 1;
+  margin-left: 4px;
+}
+.run-npc-card:hover .run-record-lookup-btn,
+.run-location-card:hover .run-record-lookup-btn { opacity: 1; }
+.run-record-lookup-btn:hover { color: var(--gold); opacity: 1 !important; }
+
+/* Notes: multiple promote actions */
+.run-notes-actions { display: flex; gap: 5px; }
+
+/* Notes card: give textarea & footer horizontal inset matching the card head */
+.run-notes-card .run-notes-textarea {
+  margin: 10px 14px 0;
+  width: calc(100% - 28px);
+}
+.run-notes-card .run-notes-foot {
+  padding: 6px 14px 12px;
+}
+
+/* Tags injected inside .markdown-body (after h1) */
+.markdown-body .tag-input-wrap {
+  background: var(--surface);
+}
+.markdown-body > div:first-of-type:has(.tag-input-wrap) {
+  margin-bottom: 28px;
 }

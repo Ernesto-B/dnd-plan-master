@@ -76,6 +76,36 @@ router.put('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.patch('/:id/links', async (req, res) => {
+  try {
+    const locId = req.params.id;
+    const loc = await locationStore.getLocation(locId);
+    if (!loc) return res.status(404).json({ error: 'Location not found' });
+    if (!Array.isArray(req.body.linkedSessions)) return res.json({ success: true });
+    const oldSessions = loc.linkedSessions || [];
+    const newSessions = req.body.linkedSessions;
+    const toAdd = newSessions.filter(sid => !oldSessions.includes(sid));
+    const toRemove = oldSessions.filter(sid => !newSessions.includes(sid));
+    for (const sid of toAdd) {
+      const sess = await sessionStore.getSession(sid);
+      if (sess?.data) {
+        const linkedLocations = [...new Set([...(sess.data.linkedLocations || []), locId])];
+        await sessionStore.updateLinks(sid, { linkedLocations });
+      }
+    }
+    for (const sid of toRemove) {
+      const sess = await sessionStore.getSession(sid);
+      if (sess?.data) {
+        await sessionStore.updateLinks(sid, { linkedLocations: (sess.data.linkedLocations || []).filter(l => l !== locId) });
+      }
+    }
+    await locationStore.updateLinks(locId, { linkedSessions: newSessions });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];

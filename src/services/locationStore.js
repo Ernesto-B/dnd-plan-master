@@ -139,6 +139,15 @@ async function deleteLocation(id) {
   await writeStore(store);
 }
 
+async function updateLinks(id, patch) {
+  const store = await readStore();
+  const idx = store.locations.findIndex(l => l.id === id);
+  if (idx < 0) throw new Error(`Location ${id} not found`);
+  if (Array.isArray(patch.linkedSessions)) store.locations[idx].linkedSessions = patch.linkedSessions;
+  await writeStore(store);
+  return store.locations[idx];
+}
+
 async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.locations.findIndex(l => l.id === id);
@@ -200,6 +209,7 @@ module.exports = {
   getLocation,
   saveLocation,
   deleteLocation,
+  updateLinks,
   updateTags,
   importLocations,
   syncSessionLinks,

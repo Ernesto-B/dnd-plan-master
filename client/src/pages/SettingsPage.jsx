@@ -293,11 +293,16 @@ export default function SettingsPage() {
   return (
     <div className="settings-wrap">
       <div className="settings-main">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-subtitle">Configure your party roster, appearance, backups, and data. Changes save automatically.</p>
+        <div className="settings-title-row">
+          <div>
+            <h1 className="page-title">Settings</h1>
+            <p className="page-subtitle">Appearance, party roster, data, and backups.</p>
+          </div>
+          <span className="settings-save-status"><span className="settings-save-dot" />{status}</span>
+        </div>
 
         {/* 01 Appearance */}
-        <div className="section-header" id="settings-appearance"><span className="section-num">01</span><h2>Appearance</h2></div>
+        <div className="settings-section-head" id="settings-appearance"><h2 className="settings-section-h">Appearance</h2></div>
         <div className="card">
           <div className="settings-inline-row"><span className="settings-inline-label">Theme</span>
             <button type="button" className="btn btn-ghost" style={{ minWidth: 120 }} onClick={() => set({ theme: s.theme === 'dark' ? 'light' : 'dark' })}>{s.theme === 'dark' ? '☀ Switch to Light' : '☽ Switch to Dark'}</button></div>
@@ -323,7 +328,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 02 Party Roster */}
-        <div className="section-header" id="settings-party" style={{ marginTop: 32 }}><span className="section-num">02</span><h2>Party Roster {activeCampaign?.name && <span className="settings-campaign-tag">{activeCampaign.name}</span>}</h2></div>
+        <div className="settings-section-head" id="settings-party"><h2 className="settings-section-h">Party Roster {activeCampaign?.name && <span className="settings-campaign-tag">{activeCampaign.name}</span>}</h2></div>
         <div className="card">
           <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 16, fontStyle: 'italic' }}>Add one row per player. This roster belongs to the active campaign and is pre-filled in encounter forms.</p>
           <div id="party-list">
@@ -338,10 +343,9 @@ export default function SettingsPage() {
           </div>
           <button type="button" className="btn btn-add" onClick={() => set({ party: [...s.party, { name: '', playerClass: '', characterUrl: '' }] })}>+ Add Player</button>
         </div>
-        <div className="settings-autosave-bar"><span className="settings-autosave-badge">Auto-save</span><p className="settings-autosave-note">{status}</p></div>
 
         {/* 03 Export & Import */}
-        <div className="section-header" id="settings-export-import" style={{ marginTop: 40 }}><span className="section-num">03</span><h2>Export &amp; Import</h2></div>
+        <div className="settings-section-head" id="settings-export-import"><h2 className="settings-section-h">Export &amp; Import</h2></div>
         <div className="card">
           <h3 className="settings-subhead">Export Records</h3>
           <p className="settings-hint">Select records and the current campaign map to bundle into a JSON file you can share or import on another device.</p>
@@ -382,7 +386,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 04 Backups */}
-        <div className="section-header" id="settings-backups" style={{ marginTop: 40 }}><span className="section-num">04</span><h2>Backups</h2></div>
+        <div className="settings-section-head" id="settings-backups"><h2 className="settings-section-h">Backups</h2></div>
         <div className="card">
           <h3 className="settings-subhead">Local Backup Snapshots</h3>
           <p className="settings-hint">Create a full local snapshot of all records, maps, and settings. Restore any snapshot later.</p>
@@ -406,7 +410,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 05 Archive & Trash */}
-        <div className="section-header" id="settings-trash" style={{ marginTop: 40 }}><span className="section-num">05</span><h2>Archive &amp; Trash</h2></div>
+        <div className="settings-section-head" id="settings-trash"><h2 className="settings-section-h">Archive &amp; Trash</h2></div>
         <div className="card">
           <h3 className="settings-subhead">Lifecycle Manager</h3>
           <p className="settings-hint">Archived records are hidden from lists but restorable. Trashed records are soft-deleted until restored or purged.</p>
@@ -434,7 +438,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Danger zone */}
-        <div className="section-header" id="settings-danger" style={{ marginTop: 40 }}><span className="section-num" style={{ background: 'var(--crimson)', borderColor: 'var(--danger)' }}>!</span><h2 style={{ color: 'var(--danger)' }}>Danger Zone</h2></div>
+        <div className="settings-section-head danger" id="settings-danger"><h2 className="settings-section-h">Danger Zone</h2></div>
         <div className="card" style={{ borderColor: 'rgba(191,58,46,0.35)' }}>
           <p style={{ color: 'var(--text2)', fontSize: 15, marginBottom: 16 }}>Move all active sessions, encounters, NPCs, locations, and factions in the current campaign to trash. Exported files are unaffected, and you can restore from Archive &amp; Trash.</p>
           <button type="button" className="btn btn-danger" onClick={clearData}>Move All Active Records to Trash</button>

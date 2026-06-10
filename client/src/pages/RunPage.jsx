@@ -15,6 +15,23 @@ function useLocal(key, def) {
   return [v, setV];
 }
 
+function ScrollTopBtn() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return (
+    <button
+      className={`scroll-top-btn${visible ? ' visible' : ''}`}
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      title="Back to top"
+      aria-label="Scroll to top"
+    >↑</button>
+  );
+}
+
 export default function RunPage() {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -31,6 +48,7 @@ export default function RunPage() {
   const [sects, setSects] = useLocal(`dnd-sect-${id}`, {});
   const [combat, setCombat] = useLocal(`dnd-combat-${id}`, { active: false, selection: 'blank' });
   const [notes, setNotes] = useLocal(`dnd-notes-${id}`, { text: '', lastSavedAt: '' });
+  const [encDone, setEncDone] = useLocal(`dnd-enc-done-${id}`, {});
 
   const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupQ, setLookupQ] = useState('');
@@ -218,11 +236,41 @@ export default function RunPage() {
       toast('Notes saved to the session record.', 'success');
     } catch (err) { toast(err.message || 'Failed to save notes.', 'error'); }
   }
+  async function promoteToThreads() {
+    const text = notes.text.trim(); if (!text) return;
+    if (!await confirmDialog("Append these notes to this session's Open Threads?", { title: 'Save to Open Threads', confirmLabel: 'Save' })) return;
+    try {
+      const full = await (await fetch(`/api/sessions/${id}`)).json();
+      const fresh = { ...(full.data || {}), id: full.id || id };
+      const stamp = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+      const block = `--- Live notes (${stamp}) ---\n${text}`;
+      fresh.unresolvedThreads = fresh.unresolvedThreads ? `${fresh.unresolvedThreads}\n\n${block}` : block;
+      const r = await (await fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fresh) })).json();
+      if (r.error) throw new Error(r.error);
+      setSession(s => ({ ...s, data: { ...s.data, unresolvedThreads: fresh.unresolvedThreads } }));
+      setNotes({ text: '', lastSavedAt: stamp });
+      toast('Notes appended to Open Threads.', 'success');
+    } catch (err) { toast(err.message || 'Failed to save notes.', 'error'); }
+  }
+  function openRecordLookup(kind, name, sourceId) {
+    const items = kind === 'npc' ? npcIndex : locIndex;
+    const found = sourceId ? items.find(x => x.id === sourceId) : null;
+    const target = found || items.find(x => x.name.toLowerCase() === name.toLowerCase()) || items.find(x => x.name.toLowerCase().includes(name.toLowerCase()));
+    setLookupQ(target ? target.name : name);
+    setLookupOpen(true);
+    if (target) toggleLookup(kind, target);
+  }
   const NotesCard = () => (
     <div className="run-card run-notes-card">
-      <div className="run-card-head"><span className="run-card-title">LIVE NOTES</span><button className="run-sm-btn" title="Append to this session's Session Notes" onClick={promoteNotes}>↥ Save to Session</button></div>
+      <div className="run-card-head">
+        <span className="run-card-title">LIVE NOTES</span>
+        <div className="run-notes-actions">
+          <button className="run-sm-btn" title="Append to this session's Session Notes" onClick={promoteNotes}>↥ Session</button>
+          <button className="run-sm-btn" title="Append to this session's Open Threads" onClick={promoteToThreads}>↥ Threads</button>
+        </div>
+      </div>
       <textarea className="run-notes-textarea" placeholder="Jot quick notes as you play…" value={notes.text} onChange={e => setNotes(n => ({ ...n, text: e.target.value }))} />
-      <div className="run-notes-foot"><span className="run-notes-hint">{notes.lastSavedAt ? `Last saved to session ${notes.lastSavedAt}` : 'Saved locally as you type'}</span><button className="run-sm-btn run-sm-danger" onClick={clearNotes}>Clear</button></div>
+      <div className="run-notes-foot"><span className="run-notes-hint">{notes.lastSavedAt ? `Last saved ${notes.lastSavedAt}` : 'Saved locally as you type'}</span><button className="run-sm-btn run-sm-danger" onClick={clearNotes}>Clear</button></div>
     </div>
   );
 
@@ -324,10 +372,69 @@ export default function RunPage() {
             {NotesCard()}
 
             {(data.openingReadAloud || data.threeOptionsPrompt) && <Section k="opening" title="Opening Read-Aloud" defaultOpen>{data.openingReadAloud && <div className="run-read-aloud">{nl(data.openingReadAloud)}</div>}{data.threeOptionsPrompt && <div className="run-prose-block"><strong>Three Options:</strong> {nl(data.threeOptionsPrompt)}</div>}</Section>}
-            {(data.npcs || []).length > 0 && <Section k="npcs" title={`NPCs (${data.npcs.length})`} defaultOpen>{data.npcs.map((n, i) => <div className="run-npc-card" key={i}><div className="run-npc-name">{n.name}{n.faction && <span className="run-npc-faction"> · {n.faction}</span>}</div>{n.situation && <Row lbl="Situation">{n.situation}</Row>}{n.wants && <Row lbl="Wants">{n.wants}</Row>}{n.phrases && <Row lbl="Says" cls="run-npc-phrase">"{n.phrases}"</Row>}{n.bodyLanguage && <Row lbl="Body">{n.bodyLanguage}</Row>}{n.corneredLine && <Row lbl="Cornered" cls="run-npc-phrase">"{n.corneredLine}"</Row>}{n.neverDoes && <Row lbl="Never">{n.neverDoes}</Row>}</div>)}</Section>}
-            {(data.locations || []).length > 0 && <Section k="locations" title={`Locations (${data.locations.length})`}>{data.locations.map((l, i) => <div className="run-location-card" key={i}><div className="run-npc-name">{l.name}</div>{l.description && <div className="run-prose-block">{nl(l.description)}</div>}{l.sensoryDetail && <Row lbl="Sensory">{l.sensoryDetail}</Row>}{l.hiddenDetail && <Row lbl="Hidden">{l.hiddenDetail}</Row>}{(l.districts || []).filter(d => d.name).map((d, di) => <div className="run-district" key={di}><div className="run-district-name">↳ {d.name}</div>{d.readAloud && <div className="run-prose-block small">{nl(d.readAloud)}</div>}{(d.pointsOfInterest || []).filter(p => p.name || p.description).map((p, pi) => <div className="run-poi" key={pi}>• {p.name && <strong>{p.name}</strong>}{p.description && ` — ${p.description}`}</div>)}</div>)}</div>)}</Section>}
+            {(data.npcs || []).length > 0 && (
+              <Section k="npcs" title={`NPCs (${data.npcs.length})`} defaultOpen>
+                {data.npcs.map((n, i) => (
+                  <div className="run-npc-card" key={i}>
+                    <div className="run-npc-name">
+                      {n.name}
+                      {n.faction && <span className="run-npc-faction"> · {n.faction}</span>}
+                      <button className="run-record-lookup-btn" onClick={() => openRecordLookup('npc', n.name, n._sourceId)} title="Look up full NPC record">🔍</button>
+                    </div>
+                    {n.situation && <Row lbl="Situation">{n.situation}</Row>}
+                    {n.wants && <Row lbl="Wants">{n.wants}</Row>}
+                    {n.phrases && <Row lbl="Says" cls="run-npc-phrase">"{n.phrases}"</Row>}
+                    {n.bodyLanguage && <Row lbl="Body">{n.bodyLanguage}</Row>}
+                    {n.corneredLine && <Row lbl="Cornered" cls="run-npc-phrase">"{n.corneredLine}"</Row>}
+                    {n.neverDoes && <Row lbl="Never">{n.neverDoes}</Row>}
+                  </div>
+                ))}
+              </Section>
+            )}
+            {(data.locations || []).length > 0 && (
+              <Section k="locations" title={`Locations (${data.locations.length})`}>
+                {data.locations.map((l, i) => (
+                  <div className="run-location-card" key={i}>
+                    <div className="run-npc-name">
+                      {l.name}
+                      <button className="run-record-lookup-btn" onClick={() => openRecordLookup('location', l.name, l._sourceId)} title="Look up full location record">🔍</button>
+                    </div>
+                    {l.description && <div className="run-prose-block">{nl(l.description)}</div>}
+                    {l.sensoryDetail && <Row lbl="Sensory">{l.sensoryDetail}</Row>}
+                    {l.hiddenDetail && <Row lbl="Hidden">{l.hiddenDetail}</Row>}
+                    {(l.districts || []).filter(d => d.name).map((d, di) => (
+                      <div className="run-district" key={di}>
+                        <div className="run-district-name">↳ {d.name}</div>
+                        {d.readAloud && <div className="run-prose-block small">{nl(d.readAloud)}</div>}
+                        {(d.pointsOfInterest || []).filter(p => p.name || p.description).map((p, pi) => (
+                          <div className="run-poi" key={pi}>• {p.name && <strong>{p.name}</strong>}{p.description && ` — ${p.description}`}</div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </Section>
+            )}
             {(data.factionClocks || []).length > 0 && <Section k="clocks" title={`Faction Clocks (${data.factionClocks.length})`}>{data.factionClocks.map((c, i) => { const prog = parseInt(c.progress) || 0, max = parseInt(c.max) || 8; return <div className="run-clock-card" key={i}><div className="run-clock-row"><span className="run-npc-name" style={{ margin: 0 }}>{c.factionName}</span><span className="run-clock-count">{prog}/{max}</span></div><div className="run-clock-track"><div className="run-clock-fill" style={{ width: `${Math.min(100, prog / max * 100)}%` }} /></div>{c.goal && <Row lbl="Goal">{c.goal}</Row>}{c.completion && <Row lbl="Resolves">{c.completion}</Row>}</div>; })}</Section>}
-            {(data.encounters || []).length > 0 && <Section k="encounters" title={`Combat Encounters (${data.encounters.length})`}>{data.encounters.map((e, i) => <div className="run-enc-card" key={i}><div className="run-enc-head"><span className="run-npc-name" style={{ margin: 0 }}>{e.name}</span>{e.encounterPlanId && <a href={`/encounter/view/${e.encounterPlanId}`} className="run-enc-link" target="_blank" rel="noopener">Open Plan ↗</a>}</div>{e.summary && <div className="run-prose-block small">{nl(e.summary)}</div>}</div>)}</Section>}
+            {(data.encounters || []).length > 0 && (
+              <Section k="encounters" title={`Combat Encounters (${data.encounters.length})`}>
+                {data.encounters.map((e, i) => {
+                  const done = !!encDone[i];
+                  const encOptIdx = encOpts.findIndex(o => o === e);
+                  return (
+                    <div className={`run-enc-card${done ? ' run-enc-done' : ''}`} key={i}>
+                      <div className="run-enc-head">
+                        <button className={`run-enc-cb${done ? ' checked' : ''}`} onClick={() => setEncDone(d => ({ ...d, [i]: !d[i] }))} title={done ? 'Mark as not run' : 'Mark as run'} />
+                        <span className="run-npc-name" style={{ margin: 0 }}>{e.name}</span>
+                        {e.encounterPlanId && <a href={`/encounter/view/${e.encounterPlanId}`} className="run-enc-link" target="_blank" rel="noopener">Plan ↗</a>}
+                        {encOptIdx >= 0 && <button className="run-sm-btn run-enc-combat-btn" onClick={() => setCombat(c => ({ ...c, active: true, selection: String(encOptIdx) }))}>▶ Combat</button>}
+                      </div>
+                      {e.summary && <div className="run-prose-block small">{nl(e.summary)}</div>}
+                    </div>
+                  );
+                })}
+              </Section>
+            )}
             {data.sessionNotes && <Section k="notes" title="Session Notes" defaultOpen><div className="run-prose-block">{nl(data.sessionNotes)}</div></Section>}
             {(data.sessionRecap || data.unresolvedThreads) && <Section k="continuity" title="Continuity">{data.sessionRecap && <Row lbl="Recap">{data.sessionRecap}</Row>}{data.unresolvedThreads && <Row lbl="Threads"><pre className="run-pre">{data.unresolvedThreads}</pre></Row>}</Section>}
           </>
@@ -345,6 +452,7 @@ export default function RunPage() {
           </>}
         </div>
       </aside>
+      <ScrollTopBtn />
     </div>
   );
 }

@@ -36,12 +36,17 @@ export default function EncounterView() {
     return () => { alive = false; };
   }, [id]);
 
-  // After the markdown is in the DOM: build the heading TOC + mount tags once.
   useEffect(() => {
     if (!enc || tagsMounted.current) return;
     buildMarkdownToc();
-    const anchor = document.getElementById('tags-anchor');
-    if (anchor) { anchor.innerHTML = ''; mountTags(id, enc.data?.tags || [], '/api/encounters', '#tags-anchor'); tagsMounted.current = true; }
+    const h1 = document.querySelector('.markdown-body h1');
+    const selector = h1 ? '.markdown-body h1' : '#tags-anchor';
+    const anchor = document.querySelector(selector);
+    if (anchor) {
+      if (!h1) anchor.innerHTML = '';
+      mountTags(id, enc.data?.tags || [], '/api/encounters', selector);
+      tagsMounted.current = true;
+    }
   }, [enc, id]);
 
   if (error) return (
@@ -126,7 +131,6 @@ export default function EncounterView() {
           showPromote={enc.status === 'draft'} onPromote={onPromote} promoting={promoting}
         />
         <main className="view-main">
-          <div id="tags-anchor" />
           <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(enc.markdown || '') }} />
         </main>
       </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
+import LinksEditor from '../components/LinksEditor.jsx';
 import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
 
 const Prose = ({ text, className }) => <p className={className} dangerouslySetInnerHTML={{ __html: wikiRender(text) }} />;
@@ -207,6 +208,49 @@ export default function FactionView() {
                 </div>
               </div>
             )}
+
+            <div className="npc-view-section">
+              <div className="npc-view-section-label">Connections</div>
+              <LinksEditor
+                key={`${id}-${links.sessions.length}-${links.encounters.length}-${links.npcs.length}-${links.locations.length}`}
+                id={id}
+                apiBase="/api/factions"
+                groups={[
+                  {
+                    key: 'linkedSessions',
+                    label: 'Sessions',
+                    listApi: '/api/sessions',
+                    toOption: s => ({ value: s.id, label: s.goal ? `${String(s.sessionNumber || '').padStart(3, '0')} — ${s.goal}` : `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}` }),
+                    getHref: sid => `/view/${sid}`,
+                    initial: links.sessions.map(s => ({ id: s.id, label: s.goal || `Session ${String(s.sessionNumber || s.id).padStart(3, '0')}`, href: `/view/${s.id}` })),
+                  },
+                  {
+                    key: 'linkedEncounters',
+                    label: 'Encounter Plans',
+                    listApi: '/api/encounters',
+                    toOption: e => ({ value: e.id, label: e.name || e.id }),
+                    getHref: eid => `/encounter/view/${eid}`,
+                    initial: links.encounters.map(e => ({ id: e.id, label: e.name || e.id, href: `/encounter/view/${e.id}` })),
+                  },
+                  {
+                    key: 'linkedNpcs',
+                    label: 'NPCs',
+                    listApi: '/api/npcs',
+                    toOption: n => ({ value: n.id, label: n.nickname ? `${n.name} "${n.nickname}"` : n.name }),
+                    getHref: nid => `/npc/view/${nid}`,
+                    initial: links.npcs.map(n => ({ id: n.id, label: n.nickname ? `${n.name} "${n.nickname}"` : (n.name || n.id), href: `/npc/view/${n.id}` })),
+                  },
+                  {
+                    key: 'linkedLocations',
+                    label: 'Locations',
+                    listApi: '/api/locations',
+                    toOption: l => ({ value: l.id, label: l.name || l.id }),
+                    getHref: lid => `/location/view/${lid}`,
+                    initial: links.locations.map(l => ({ id: l.id, label: l.name || l.id, href: `/location/view/${l.id}` })),
+                  },
+                ]}
+              />
+            </div>
           </div>
         </main>
       </div>
