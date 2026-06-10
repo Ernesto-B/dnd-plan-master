@@ -54,7 +54,9 @@ async function createMainWindow() {
     mainWindow = null;
   });
 
-  await mainWindow.loadURL(`${serverInfo.url}/shell`);
+  // Load the React SPA root (was the iframe shell). VITE_DEV_SERVER_URL lets a
+  // developer point the desktop window at the Vite HMR server when iterating.
+  await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || `${serverInfo.url}/`);
 }
 
 // Renderer pages (e.g. the Run Mode initiative tracker) ask for a real app
@@ -85,7 +87,7 @@ ipcMain.handle('open-shell-window', async () => {
   openExternalLinksFrom(win.webContents);
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => {});
-  await win.loadURL(`${serverInfo.url}/shell`);
+  await win.loadURL(process.env.VITE_DEV_SERVER_URL || `${serverInfo.url}/`);
   return true;
 });
 

@@ -5,13 +5,16 @@
   "description": "D&D Session Planning Tool — form to markdown + print-ready PDF",
   "main": "electron/main.js",
   "scripts": {
+    "dev": "concurrently -k -n server,vite -c blue,magenta \"PORT=3000 node src/app.js\" \"vite\"",
+    "build": "vite build",
     "start": "npm run start:web",
     "start:web": "node src/app.js",
-    "start:desktop": "electron .",
-    "build:desktop": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac dmg zip",
-    "dist:win": "electron-builder --win nsis portable"
+    "test": "node --test",
+    "start:desktop": "npm run build && electron .",
+    "build:desktop": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip",
+    "dist:win": "npm run build && electron-builder --win nsis portable"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.8",
@@ -19,11 +22,17 @@
     "@fontsource/crimson-pro": "^5.2.8",
     "express": "^4.18.2",
     "marked": "^18.0.5",
-    "puppeteer": "^22.0.0"
+    "puppeteer": "^22.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
     "electron": "^42.3.3",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "vite": "^5.4.21"
   },
   "build": {
     "appId": "com.ernestobarreto.dndsessionmaster",
@@ -39,6 +48,7 @@
       "assets/**/*",
       "electron/**/*",
       "public/**/*",
+      "dist-client/**/*",
       "src/**/*",
       "data/*.seed.json",
       "package.json"

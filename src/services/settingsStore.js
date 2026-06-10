@@ -1,59 +1,24 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
+const { DEFAULT_SETTINGS, migrateSettingsStore } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const SETTINGS_FILE = getDataFile('settings.json');
 
-const DEFAULTS = {
-  party: [],
-  theme: 'dark',
-  uiScale: 1,
-  autosaveEnabled: true,
-  scheduledBackupsEnabled: false,
-  scheduledBackupIntervalHours: 24,
-  shortcuts: {
-    newSession: 'Alt+Shift+S',
-    newEncounter: 'Alt+Shift+E',
-    newNpc: 'Alt+Shift+N',
-    historyBack: 'Mod+[',
-    historyForward: 'Mod+]',
-    goSessions: 'Alt+1',
-    goEncounters: 'Alt+2',
-    goNpcs: 'Alt+3',
-    goCampaign: 'Alt+4',
-    goSettings: 'Alt+5',
-    focusSearch: '/',
-    savePrimary: 'Mod+S',
-  },
-};
-
 async function getSettings() {
-  try {
-    const content = await fs.readFile(SETTINGS_FILE, 'utf8');
-    const parsed = JSON.parse(content);
-    return {
-      ...DEFAULTS,
-      ...parsed,
-      shortcuts: { ...DEFAULTS.shortcuts, ...(parsed.shortcuts || {}) },
-    };
-  } catch {
-    return DEFAULTS;
-  }
+  return readVersionedStore(SETTINGS_FILE, () => migrateSettingsStore(DEFAULT_SETTINGS), migrateSettingsStore);
 }
 
 async function saveSettings(settings) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
   const current = await getSettings();
-  const merged = {
-    ...DEFAULTS,
+  const merged = migrateSettingsStore({
     ...current,
     ...settings,
     shortcuts: {
-      ...DEFAULTS.shortcuts,
       ...(current.shortcuts || {}),
       ...(settings.shortcuts || {}),
     },
-  };
-  await fs.writeFile(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');
+  });
+  await writeVersionedStore(SETTINGS_FILE, merged);
   return merged;
 }
 

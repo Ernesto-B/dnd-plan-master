@@ -3,6 +3,7 @@ data/sessions.json
 data/encounters.json
 data/settings.json
 dist/
+dist-client/
 builder-debug.yml
 .DS_Store
 Agents.md

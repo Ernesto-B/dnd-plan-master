@@ -1,5 +1,6 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
+const { migrateCampaignStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const CAMPAIGNS_FILE = getDataFile('campaigns.json');
 
@@ -8,17 +9,15 @@ function randomId() {
 }
 
 async function readStore() {
-  try {
-    const content = await fs.readFile(CAMPAIGNS_FILE, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return { campaigns: [], activeCampaignId: null };
-  }
+  return readVersionedStore(
+    CAMPAIGNS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, campaigns: [], activeCampaignId: null }),
+    migrateCampaignStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(CAMPAIGNS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(CAMPAIGNS_FILE, migrateCampaignStore(store));
 }
 
 // Called at server startup. Creates default campaign if none exist.

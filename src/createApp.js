@@ -45,32 +45,19 @@ function createApp() {
 
   const pub = p => path.join(__dirname, '..', 'public', p);
 
-  app.get('/', (_req, res) => res.sendFile(pub('campaign.html')));
-  app.get('/sessions', (_req, res) => res.sendFile(pub('sessions.html')));
-  app.get('/form', (_req, res) => res.sendFile(pub('form.html')));
-  app.get('/view/:id', (_req, res) => res.sendFile(pub('view.html')));
-  app.get('/encounters', (_req, res) => res.sendFile(pub('encounters.html')));
-  app.get('/encounter/new', (_req, res) => res.sendFile(pub('encounter-form.html')));
-  app.get('/encounter/edit/:id', (_req, res) => res.sendFile(pub('encounter-form.html')));
-  app.get('/encounter/view/:id', (_req, res) => res.sendFile(pub('encounter-view.html')));
-  app.get('/npcs', (_req, res) => res.sendFile(pub('npcs.html')));
-  app.get('/npc/new', (_req, res) => res.sendFile(pub('npc-form.html')));
-  app.get('/npc/edit/:id', (_req, res) => res.sendFile(pub('npc-form.html')));
-  app.get('/npc/view/:id', (_req, res) => res.sendFile(pub('npc-view.html')));
-  app.get('/locations', (_req, res) => res.sendFile(pub('locations.html')));
-  app.get('/location/new', (_req, res) => res.sendFile(pub('location-form.html')));
-  app.get('/location/edit/:id', (_req, res) => res.sendFile(pub('location-form.html')));
-  app.get('/location/view/:id', (_req, res) => res.sendFile(pub('location-view.html')));
-  app.get('/factions', (_req, res) => res.sendFile(pub('factions.html')));
-  app.get('/faction/new', (_req, res) => res.sendFile(pub('faction-form.html')));
-  app.get('/faction/edit/:id', (_req, res) => res.sendFile(pub('faction-form.html')));
-  app.get('/faction/view/:id', (_req, res) => res.sendFile(pub('faction-view.html')));
-  app.get('/campaign', (_req, res) => res.sendFile(pub('campaign.html')));
-  app.get('/campaigns', (_req, res) => res.sendFile(pub('campaigns.html')));
-  app.get('/settings', (_req, res) => res.sendFile(pub('settings.html')));
-  app.get('/run/:id',  (_req, res) => res.sendFile(pub('run.html')));
-  app.get('/shell',    (_req, res) => res.sendFile(pub('shell.html')));
-  app.get('/map',      (_req, res) => res.sendFile(pub('map.html')));
+  // ─── React SPA ───────────────────────────────────────────────────────────
+  // Migration complete: every page is now React. Express serves the Vite build
+  // and React Router owns all non-API paths. (`pub` retained for any future use.)
+  void pub;
+  // Serves the Vite build; React Router owns every path not claimed above.
+  const clientDir = path.join(__dirname, '..', 'dist-client');
+  app.use(express.static(clientDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next(); // unmatched API → 404
+    res.sendFile(path.join(clientDir, 'index.html'), err => {
+      if (err) res.status(500).send('SPA bundle missing — run `npm run build`.');
+    });
+  });
 
   return app;
 }

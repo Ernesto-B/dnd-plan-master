@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 2,
   "npcs": [
     {
       "id": "n-001",
@@ -30,7 +31,8 @@
       ],
       "createdAt": "2026-01-08T10:00:00.000Z",
       "sortOrder": 0,
-      "isDemo": false
+      "isDemo": false,
+      "status": "active"
     }
   ]
 }

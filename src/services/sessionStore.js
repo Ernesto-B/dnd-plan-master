@@ -1,6 +1,7 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
 const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { migrateSessionStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const SESSIONS_FILE = getDataFile('sessions.json');
 
@@ -24,21 +25,19 @@ function nextSortOrder(items) {
 }
 
 async function readStore() {
-  try {
-    const content = await fs.readFile(SESSIONS_FILE, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return { sessions: [] };
-  }
+  return readVersionedStore(
+    SESSIONS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, sessions: [] }),
+    migrateSessionStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(SESSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(SESSIONS_FILE, migrateSessionStore(store));
 }
 
 async function replaceAllFull(sessions) {
-  await writeStore({ sessions: Array.isArray(sessions) ? sessions : [] });
+  await writeStore({ schemaVersion: STORE_SCHEMA_VERSION, sessions: Array.isArray(sessions) ? sessions : [] });
 }
 
 async function getAllFull() {

@@ -1,26 +1,32 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { migrateMapStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const MAPS_FILE   = getDataFile('maps.json');
 const MAPS_IMG_DIR = path.join(getWritableDataDir(), 'maps');
 
 async function readStore() {
-  try {
-    return JSON.parse(await fs.readFile(MAPS_FILE, 'utf8'));
-  } catch {
-    return { maps: [] };
-  }
+  return readVersionedStore(
+    MAPS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, maps: [] }),
+    migrateMapStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(MAPS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(MAPS_FILE, migrateMapStore(store));
 }
 
 async function getMap(campaignId) {
   const store = await readStore();
   return store.maps.find(m => m.campaignId === campaignId) || null;
+}
+
+async function getAllMaps() {
+  const store = await readStore();
+  return store.maps;
 }
 
 async function saveMap(campaignId, data) {
@@ -38,6 +44,10 @@ async function saveMap(campaignId, data) {
   return record;
 }
 
+async function replaceAllMaps(maps) {
+  await writeStore({ schemaVersion: STORE_SCHEMA_VERSION, maps: Array.isArray(maps) ? maps : [] });
+}
+
 async function saveMapImage(campaignId, buffer, ext) {
   await fs.mkdir(MAPS_IMG_DIR, { recursive: true });
   const filename = `map-${campaignId}${ext}`;
@@ -46,7 +56,11 @@ async function saveMapImage(campaignId, buffer, ext) {
 }
 
 function getMapImagePath(filename) {
-  return path.join(MAPS_IMG_DIR, filename);
+  return path.join(MAPS_IMG_DIR, path.basename(String(filename || '')));
+}
+
+function getMapImageDir() {
+  return MAPS_IMG_DIR;
 }
 
 // Remove a campaign's map entirely: delete the image file (if any) and drop the
@@ -56,11 +70,20 @@ async function deleteMap(campaignId) {
   const record = store.maps.find(m => m.campaignId === campaignId);
   if (record?.imageFilename) {
     try {
-      await fs.unlink(path.join(MAPS_IMG_DIR, record.imageFilename));
+      await fs.unlink(getMapImagePath(record.imageFilename));
     } catch { /* file already gone — ignore */ }
   }
   store.maps = store.maps.filter(m => m.campaignId !== campaignId);
   await writeStore(store);
 }
 
-module.exports = { getMap, saveMap, saveMapImage, getMapImagePath, deleteMap };
+module.exports = {
+  getMap,
+  getAllMaps,
+  saveMap,
+  replaceAllMaps,
+  saveMapImage,
+  getMapImagePath,
+  getMapImageDir,
+  deleteMap,
+};

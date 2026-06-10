@@ -1,6 +1,7 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
 const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { migrateNpcStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const NPCS_FILE = getDataFile('npcs.json');
 
@@ -24,21 +25,19 @@ function nextSortOrder(items) {
 }
 
 async function readStore() {
-  try {
-    const content = await fs.readFile(NPCS_FILE, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return { npcs: [] };
-  }
+  return readVersionedStore(
+    NPCS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, npcs: [] }),
+    migrateNpcStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(NPCS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(NPCS_FILE, migrateNpcStore(store));
 }
 
 async function replaceAllFull(npcs) {
-  await writeStore({ npcs: Array.isArray(npcs) ? npcs : [] });
+  await writeStore({ schemaVersion: STORE_SCHEMA_VERSION, npcs: Array.isArray(npcs) ? npcs : [] });
 }
 
 async function getAllNpcs(campaignId) {

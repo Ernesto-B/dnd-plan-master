@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D&amp;D Session Master</title>
+  <!-- Theme bootstrap: set data-theme + --ui-scale before first paint (no FOUC).
+       Mirrors the old public/js/theme.js; reads the file-backed settings API. -->
+  <script>
+    (function () {
+      var theme = 'dark', uiScale = 1;
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/settings', false);
+        xhr.send();
+        if (xhr.status === 200) {
+          var s = JSON.parse(xhr.responseText);
+          if (s.theme) theme = s.theme;
+          if (s.uiScale) uiScale = parseFloat(s.uiScale);
+        }
+      } catch (_) {
+        theme = localStorage.getItem('dnd-theme') || 'dark';
+        uiScale = parseFloat(localStorage.getItem('dnd-ui-scale') || '1');
+      }
+      try {
+        localStorage.setItem('dnd-theme', theme);
+        localStorage.setItem('dnd-ui-scale', String(uiScale));
+      } catch (_) {}
+      if (!Number.isFinite(uiScale)) uiScale = 1;
+      uiScale = Math.max(0.85, Math.min(1.25, uiScale));
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.style.setProperty('--ui-scale', String(uiScale));
+    })();
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="toast" class="toast"></div>
+  <!-- Shared vanilla helpers reused by ported pages during the React migration.
+       Classic scripts (not modules) so their globals are reachable from React:
+       window.showConfirm, mountTagEditor/TagInput, WikiLinks,
+       RecordConnectionsPanel, ExportDialog. Served by Express from /js. -->
+  <script src="/js/dialog.js"></script>
+  <script src="/js/shortcuts.js"></script>
+  <script src="/js/tags.js"></script>
+  <script src="/js/wiki-links.js"></script>
+  <script src="/js/connections-panel.js"></script>
+  <script src="/js/export-dialog.js"></script>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

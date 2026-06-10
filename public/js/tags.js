@@ -199,3 +199,11 @@ function buildMarkdownToc(navSelector = '#toc-nav', contentSelector = '.markdown
 
   headings.forEach(h => observer.observe(h));
 }
+
+// Expose for the React SPA, which reaches these via `window.*` (FormKit does
+// `new window.TagInput(...)`). A top-level `function` like mountTagEditor is
+// already a global, but a top-level `class` is not attached to `window`.
+if (typeof window !== 'undefined') {
+  window.TagInput = TagInput;
+  window.mountTagEditor = mountTagEditor;
+}

@@ -117,9 +117,13 @@
   background-image: radial-gradient(ellipse 80% 50% at 50% 0%, #e8dcc8 0%, var(--bg) 70%);
 }
 
-[data-theme="light"] .top-nav {
+[data-theme="light"] .app-topbar {
   background: #e0d6c0;
   box-shadow: 0 1px 0 rgba(138,96,16,0.3), 0 2px 12px rgba(0,0,0,0.1);
+}
+[data-theme="light"] .app-sidebar {
+  background: #e0d6c0;
+  box-shadow: 1px 0 0 rgba(138,96,16,0.3), 2px 0 12px rgba(0,0,0,0.1);
 }
 
 [data-theme="light"] .create-dropdown {
@@ -179,23 +183,6 @@ a:hover { color: var(--gold-light); }
   line-height: 1.2;
 }
 
-.top-nav .nav-link.iconified {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.top-nav .nav-link.iconified .app-icon {
-  width: 1.15em;
-  height: 1.15em;
-}
-
-.top-nav .nav-link[href="/settings"].iconified .app-icon {
-  width: 1.45em;
-  height: 1.45em;
-  stroke-width: 1.75;
-}
-
 .sidebar-btn.iconified {
   display: inline-flex;
   align-items: center;
@@ -214,53 +201,178 @@ a:hover { color: var(--gold-light); }
   min-width: 0;
 }
 
-/* ─── Top Navigation ─── */
-.top-nav {
+/* ─── App chrome: collapsible icon sidebar + slim top bar ─── */
+:root {
+  --rail:      60px;   /* collapsed sidebar width            */
+  --rail-open: 216px;  /* expanded (hover / pinned) width    */
+  --topbar-h:  56px;
+}
+
+/* The fixed sidebar overlaps the left edge; content + top bar are inset by
+   body padding. Hover expansion overlays content; pinning pushes it. */
+body.has-app-chrome {
+  padding-left: var(--rail);
+}
+/* Enabled after first paint so a pinned rail doesn't slide the page on load. */
+body.has-app-chrome.chrome-anim {
+  transition: padding-left 0.18s ease;
+}
+body.has-app-chrome.sidebar-pinned { padding-left: var(--rail-open); }
+/* Print / DM-table modes hide the chrome, so reclaim the rail offset. */
+body.dm-table-mode { padding-left: 0; }
+@media print { body { padding-left: 0 !important; } }
+
+/* ── Sidebar ── */
+.app-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--rail);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  background: #070503;
+  border-right: 1px solid var(--border);
+  box-shadow: 1px 0 0 rgba(201,150,42,0.18), 2px 0 14px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+/* Transitions are enabled only after the first paint (nav.js adds .anim), so a
+   pinned rail doesn't animate open on page load. Expansion is driven by JS
+   .is-hovered (mouseenter), not CSS :hover — a fresh page that loads with the
+   cursor already parked over the rail must NOT auto-expand. */
+.app-sidebar.anim { transition: width 0.18s ease; }
+.app-sidebar.is-hovered,
+.app-sidebar.is-pinned { width: var(--rail-open); }
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 46px;
+  margin: 8px 8px 4px;
+  padding-left: 13px;
+  color: var(--gold);
+  border-radius: 8px;
+  flex: 0 0 auto;
+  text-shadow: 0 0 18px rgba(201,150,42,0.4);
+  transition: background 0.12s, color 0.12s;
+}
+.sidebar-brand .app-icon { width: 1.7em; height: 1.7em; stroke-width: 1.55; }
+.sidebar-brand:hover { color: var(--gold-light); background: rgba(201,150,42,0.08); }
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar-divider {
+  height: 1px;
+  margin: 7px 9px;
+  background: var(--border);
+  opacity: 0.7;
+  flex: 0 0 auto;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  height: 40px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: var(--muted);
+  white-space: nowrap;
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.12s, color 0.12s;
+}
+.sidebar-link .app-icon { width: 1.3em; height: 1.3em; flex: 0 0 auto; }
+.sidebar-link .icon-label {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.app-sidebar.is-hovered .sidebar-link .icon-label,
+.app-sidebar.is-pinned .sidebar-link .icon-label { opacity: 1; }
+
+.sidebar-link:hover { color: var(--text); background: rgba(201,150,42,0.08); }
+.sidebar-link.is-active { color: var(--gold); background: rgba(201,150,42,0.10); }
+.sidebar-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--gold);
+}
+
+.sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px 0;
+  margin: 4px 8px 2px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.sidebar-pin {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  height: 36px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px;
+  font: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+.sidebar-pin .app-icon { width: 1.2em; height: 1.2em; flex: 0 0 auto; }
+.sidebar-pin:hover { color: var(--gold); background: rgba(201,150,42,0.08); }
+.app-sidebar.is-pinned .sidebar-pin { color: var(--gold-dim); }
+
+/* ── Top bar ── */
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px 0 18px;
   background: #070503;
   border-bottom: 1px solid var(--border);
   /* Golden shimmer line */
   box-shadow: 0 1px 0 rgba(201,150,42,0.25), 0 2px 12px rgba(0,0,0,0.7);
-  padding: 0 32px;
+}
+.topbar-left {
   display: flex;
   align-items: center;
-  gap: 28px;
-  height: 56px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  gap: 14px;
+  min-width: 0;
 }
-
-.top-nav .brand {
-  font-family: 'Cinzel Decorative', serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--gold);
-  text-decoration: none;
-  letter-spacing: 0.5px;
-  text-shadow: 0 0 24px rgba(201, 150, 42, 0.35);
-  transition: text-shadow 0.2s;
-}
-.top-nav .brand:hover { text-shadow: 0 0 32px rgba(201, 150, 42, 0.6); }
-
-.top-nav .nav-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-left: auto;
+  flex-shrink: 0;
 }
-
-.top-nav a.nav-link {
-  font-family: var(--font-head);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-decoration: none;
-  transition: color 0.15s;
-}
-.top-nav a.nav-link:hover { color: var(--gold); }
-.top-nav a.nav-link-active { color: var(--gold); border-bottom: 2px solid var(--gold); padding-bottom: 2px; }
 
 /* ─── Nav history ─── */
 .nav-history-wrap {
@@ -464,11 +576,11 @@ a:hover { color: var(--gold-light); }
 .nav-shell-btn {
   background: transparent;
   border: 1px solid var(--border);
-  color: var(--text2);
+  color: var(--muted);
   border-radius: 6px;
   font-size: 14px;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -481,6 +593,17 @@ a:hover { color: var(--gold-light); }
   background: rgba(212,175,55,0.1);
   border-color: var(--gold-dim);
   color: var(--gold);
+}
+.nav-shell-btn .app-icon {
+  width: 1.2em;
+  height: 1.2em;
+  stroke-width: 1.7;
+}
+/* Top-bar settings gear: highlight when on the settings page */
+.nav-shell-btn.is-active {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+  background: var(--gold-subtle);
 }
 
 .nav-create-wrap {
@@ -1552,6 +1675,24 @@ textarea.medium { min-height: 110px; }
   line-height: 1.6;
 }
 
+.draft-state-chip {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff7de;
+  background: linear-gradient(135deg, rgba(184, 52, 21, 0.92), rgba(121, 25, 15, 0.96));
+  border: 1px solid rgba(255, 181, 94, 0.72);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 181, 94, 0.18), 0 8px 18px rgba(121, 25, 15, 0.24);
+  vertical-align: middle;
+  line-height: 1.6;
+}
+
 /* ─── More options button in table ─── */
 .action-cell { width: 36px; text-align: center; }
 .btn-more-row {
@@ -1822,7 +1963,8 @@ textarea.medium { min-height: 110px; }
 .view-sidebar {
   position: fixed;
   top: 72px;
-  left: 16px;
+  /* Fixed positioning ignores the body padding, so clear the sidebar rail. */
+  left: calc(var(--rail) + 16px);
   width: 152px;
   display: flex;
   flex-direction: column;
@@ -1831,7 +1973,9 @@ textarea.medium { min-height: 110px; }
   max-height: calc(100vh - 88px);
   overflow-y: auto;
   scrollbar-width: none;
+  transition: left 0.18s ease;
 }
+body.sidebar-pinned .view-sidebar { left: calc(var(--rail-open) + 16px); }
 .view-sidebar::-webkit-scrollbar { display: none; }
 
 .sidebar-btn {
@@ -2628,7 +2772,8 @@ textarea.medium { min-height: 110px; }
 }
 
 /* Legacy dm-table-mode (kept for back-compat) */
-body.dm-table-mode .top-nav,
+body.dm-table-mode .app-sidebar,
+body.dm-table-mode .app-topbar,
 body.dm-table-mode .view-actions,
 body.dm-table-mode .view-sidebar,
 body.dm-table-mode .toc-nav,
@@ -2665,7 +2810,8 @@ body.dm-print-mode .dm-modal-body { padding: 0 !important; overflow: visible !im
 /* NPC print mode: keep only the NPC record on the page */
 @media print {
   body.npc-print-mode > *:not(.view-layout) { display: none !important; }
-  body.npc-print-mode .top-nav,
+  body.npc-print-mode .app-sidebar,
+  body.npc-print-mode .app-topbar,
   body.npc-print-mode .view-sidebar,
   body.npc-print-mode .toc-nav,
   body.npc-print-mode .connections-panel-overlay,
@@ -3333,6 +3479,64 @@ body.dm-print-mode .dm-modal-body { padding: 0 !important; overflow: visible !im
   background: linear-gradient(to bottom, rgba(201,150,42,0.04), transparent 60px);
   border-image: linear-gradient(to right, transparent, var(--border2), transparent) 1;
 }
+
+/* ─── React form kit: sticky action bar + linked-record picker ─── */
+.form-page { padding-bottom: 28px; }
+.form-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  margin-top: 28px;
+  padding: 16px 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border2);
+  background: linear-gradient(to top, var(--bg) 0%, var(--bg) 62%, transparent 100%);
+}
+.section-header .section-note {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+  text-transform: none;
+  font-style: italic;
+}
+.linked-picker { display: flex; flex-direction: column; gap: 8px; }
+.linked-picker-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.linked-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text2);
+  transition: background 0.1s, color 0.1s;
+}
+.linked-picker-item:last-child { border-bottom: none; }
+.linked-picker-item:hover { background: var(--gold-subtle); color: var(--text); }
+.linked-picker-item.is-checked { color: var(--text); }
+.linked-picker-item input { accent-color: var(--gold); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+.linked-picker-empty { padding: 14px; color: var(--muted); font-size: 13px; font-style: italic; }
+.linked-picker-count {
+  font-size: 11px;
+  color: var(--gold-dim);
+  font-family: var(--font-head);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 .submit-note {
   font-family: var(--font-body);
   font-size: 13px;
@@ -3909,6 +4113,52 @@ body.dm-print-mode .dm-modal-body { padding: 0 !important; overflow: visible !im
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
+}
+.list-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 8px;
+}
+.list-status-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.list-status-tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+}
+.list-status-tab:hover,
+.list-status-tab:focus-visible {
+  color: var(--gold);
+  border-color: rgba(201, 150, 42, 0.34);
+  background: rgba(201, 150, 42, 0.08);
+  outline: none;
+}
+.list-status-tab.is-active {
+  color: var(--gold-light);
+  border-color: rgba(201, 150, 42, 0.5);
+  background: rgba(201, 150, 42, 0.12);
+  box-shadow: 0 0 0 1px rgba(201, 150, 42, 0.12);
+}
+.list-status-meta {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
 }
 .search-main {
   display: flex;
@@ -6866,6 +7116,14 @@ body.map-page.map-panel-open .toast {
   flex: 1 1 0;
   min-height: 0;
 }
+/* React map page: lives inside the app chrome, so size to the area below the
+   sticky top bar (legacy used body.map-page full-height flex). */
+body.map-route { overflow: hidden; }
+body.map-route.map-panel-open .toast { right: 312px; }
+.map-shell.map-shell-chrome {
+  flex: none;
+  height: calc(100vh - var(--topbar-h));
+}
 
 /* Toolbar */
 .map-toolbar {
@@ -7146,6 +7404,35 @@ body.map-page.map-panel-open .toast {
   gap: 8px;
   margin-top: 4px;
 }
+.map-panel-linked-card {
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 150, 42, 0.16);
+  background: rgba(201, 150, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.map-panel-linked-type,
+.map-pin-info-kicker {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.map-panel-linked-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.map-panel-linked-meta,
+.map-pin-info-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
 .map-panel-goto {
   margin-top: 4px;
 }
@@ -7172,6 +7459,7 @@ body.map-page.map-panel-open .toast {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  margin-top: 10px;
   margin-bottom: 14px;
 }
 .map-pin-info-actions {

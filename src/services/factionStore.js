@@ -1,6 +1,7 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
 const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { migrateFactionStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const FACTIONS_FILE = getDataFile('factions.json');
 
@@ -24,21 +25,19 @@ function nextSortOrder(items) {
 }
 
 async function readStore() {
-  try {
-    const content = await fs.readFile(FACTIONS_FILE, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return { factions: [] };
-  }
+  return readVersionedStore(
+    FACTIONS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, factions: [] }),
+    migrateFactionStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(FACTIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(FACTIONS_FILE, migrateFactionStore(store));
 }
 
 async function replaceAllFull(factions) {
-  await writeStore({ factions: Array.isArray(factions) ? factions : [] });
+  await writeStore({ schemaVersion: STORE_SCHEMA_VERSION, factions: Array.isArray(factions) ? factions : [] });
 }
 
 function clampInteger(value, min, max, fallback = '') {

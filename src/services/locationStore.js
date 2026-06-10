@@ -1,25 +1,24 @@
-const fs = require('fs').promises;
-const { getDataFile, getWritableDataDir } = require('./appPaths');
+const { getDataFile } = require('./appPaths');
 const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { migrateLocationStore, STORE_SCHEMA_VERSION } = require('./schema');
+const { readVersionedStore, writeVersionedStore } = require('./versionedStore');
 
 const LOCATIONS_FILE = getDataFile('locations.json');
 
 async function readStore() {
-  try {
-    const content = await fs.readFile(LOCATIONS_FILE, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return { locations: [] };
-  }
+  return readVersionedStore(
+    LOCATIONS_FILE,
+    () => ({ schemaVersion: STORE_SCHEMA_VERSION, locations: [] }),
+    migrateLocationStore,
+  );
 }
 
 async function writeStore(store) {
-  await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(LOCATIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  await writeVersionedStore(LOCATIONS_FILE, migrateLocationStore(store));
 }
 
 async function replaceAllFull(locations) {
-  await writeStore({ locations: Array.isArray(locations) ? locations : [] });
+  await writeStore({ schemaVersion: STORE_SCHEMA_VERSION, locations: Array.isArray(locations) ? locations : [] });
 }
 
 async function getAllLocations(campaignId) {

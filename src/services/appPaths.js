@@ -15,6 +15,11 @@ function getBundledDataDir() {
 }
 
 function getWritableDataDir() {
+  const overrideDir = String(process.env.DND_DATA_DIR || '').trim();
+  if (overrideDir) {
+    return path.resolve(overrideDir);
+  }
+
   const electronApp = getElectronApp();
   if (electronApp) {
     return path.join(electronApp.getPath('userData'), 'data');

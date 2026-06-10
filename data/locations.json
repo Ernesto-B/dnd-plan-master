@@ -1,7 +1,9 @@
 {
+  "schemaVersion": 2,
   "locations": [
     {
       "id": "l-001",
+      "campaignId": "c-default",
       "name": "Saltmere Docks",
       "government": "Nominally overseen by the Harbor Warden's Office, but the dockworkers' guild runs the day-to-day business of the wharves.",
       "populationSize": "~2,400 (swells during the autumn fishing season)",
@@ -46,7 +48,8 @@
         "demo"
       ],
       "createdAt": "2026-01-08T10:00:00.000Z",
-      "isDemo": true
+      "isDemo": false,
+      "status": "active"
     }
   ]
 }

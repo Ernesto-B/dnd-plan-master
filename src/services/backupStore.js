@@ -7,7 +7,18 @@ const npcStore = require('./npcStore');
 const locationStore = require('./locationStore');
 const factionStore = require('./factionStore');
 const settingsStore = require('./settingsStore');
+const mapBundle = require('./mapBundle');
+const {
+  BUNDLE_SCHEMA_VERSION,
+  migrateSessionStore,
+  migrateEncounterStore,
+  migrateNpcStore,
+  migrateLocationStore,
+  migrateFactionStore,
+  migrateSettingsStore,
+} = require('./schema');
 const { getWritableDataDir, getDataFile } = require('./appPaths');
+const { writeVersionedStore } = require('./versionedStore');
 
 const BACKUP_DIR = path.join(getWritableDataDir(), 'backups');
 const MAX_BACKUPS = 20;
@@ -28,6 +39,7 @@ async function ensureBackupDir() {
 async function createBackup() {
   await ensureBackupDir();
   const payload = {
+    schemaVersion: BUNDLE_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     settings: await settingsStore.getSettings(),
     sessions: await sessionStore.getAllFull(),
@@ -35,6 +47,7 @@ async function createBackup() {
     npcs: await npcStore.getAllFull(),
     locations: await locationStore.getAllFull(),
     factions: await factionStore.getAllFull(),
+    maps: await mapBundle.serializeAllMaps(),
   };
 
   const name = backupName();
@@ -66,9 +79,10 @@ async function listBackups() {
           npcCount: Array.isArray(parsed.npcs) ? parsed.npcs.length : 0,
           locationCount: Array.isArray(parsed.locations) ? parsed.locations.length : 0,
           factionCount: Array.isArray(parsed.factions) ? parsed.factions.length : 0,
+          mapCount: Array.isArray(parsed.maps) ? parsed.maps.length : 0,
         });
       } catch {
-        items.push({ name, createdAt: null, sessionCount: 0, encounterCount: 0, npcCount: 0, locationCount: 0, factionCount: 0 });
+        items.push({ name, createdAt: null, sessionCount: 0, encounterCount: 0, npcCount: 0, locationCount: 0, factionCount: 0, mapCount: 0 });
       }
     }
     return items;
@@ -82,12 +96,13 @@ async function restoreBackup(name) {
   const parsed = JSON.parse(raw);
 
   await fs.mkdir(getWritableDataDir(), { recursive: true });
-  await fs.writeFile(getDataFile('sessions.json'), JSON.stringify({ sessions: parsed.sessions || [] }, null, 2), 'utf8');
-  await fs.writeFile(getDataFile('encounters.json'), JSON.stringify({ encounters: parsed.encounters || [] }, null, 2), 'utf8');
-  await fs.writeFile(getDataFile('npcs.json'), JSON.stringify({ npcs: parsed.npcs || [] }, null, 2), 'utf8');
-  await fs.writeFile(getDataFile('locations.json'), JSON.stringify({ locations: parsed.locations || [] }, null, 2), 'utf8');
-  await fs.writeFile(getDataFile('factions.json'), JSON.stringify({ factions: parsed.factions || [] }, null, 2), 'utf8');
-  await fs.writeFile(getDataFile('settings.json'), JSON.stringify({ ...(parsed.settings || {}) }, null, 2), 'utf8');
+  await writeVersionedStore(getDataFile('sessions.json'), migrateSessionStore({ sessions: parsed.sessions || [] }));
+  await writeVersionedStore(getDataFile('encounters.json'), migrateEncounterStore({ encounters: parsed.encounters || [] }));
+  await writeVersionedStore(getDataFile('npcs.json'), migrateNpcStore({ npcs: parsed.npcs || [] }));
+  await writeVersionedStore(getDataFile('locations.json'), migrateLocationStore({ locations: parsed.locations || [] }));
+  await writeVersionedStore(getDataFile('factions.json'), migrateFactionStore({ factions: parsed.factions || [] }));
+  await writeVersionedStore(getDataFile('settings.json'), migrateSettingsStore(parsed.settings || {}));
+  const restoredMaps = await mapBundle.replaceAllMapsFromBundles(parsed.maps || []);
 
   return {
     sessionCount: Array.isArray(parsed.sessions) ? parsed.sessions.length : 0,
@@ -95,6 +110,7 @@ async function restoreBackup(name) {
     npcCount: Array.isArray(parsed.npcs) ? parsed.npcs.length : 0,
     locationCount: Array.isArray(parsed.locations) ? parsed.locations.length : 0,
     factionCount: Array.isArray(parsed.factions) ? parsed.factions.length : 0,
+    mapCount: restoredMaps.length,
   };
 }
 
