@@ -2,6 +2,7 @@ const sessionStore = require('./sessionStore');
 const encounterStore = require('./encounterStore');
 const npcStore = require('./npcStore');
 const locationStore = require('./locationStore');
+const factionStore = require('./factionStore');
 
 const TYPE_CONFIG = {
   session: {
@@ -32,9 +33,16 @@ const TYPE_CONFIG = {
       return record?.name || `Location ${record?.id || ''}`.trim();
     },
   },
+  faction: {
+    collection: 'factions',
+    prefix: 'f-',
+    getLabel(record) {
+      return record?.name || `Faction ${record?.id || ''}`.trim();
+    },
+  },
 };
 
-const PREVIEW_ORDER = ['session', 'encounter', 'npc', 'location'];
+const PREVIEW_ORDER = ['session', 'encounter', 'npc', 'location', 'faction'];
 const ACTIONS_BY_STATUS = {
   new: ['import'],
   'missing-id': ['clone'],
@@ -73,18 +81,20 @@ function normalizeBundle(bundle) {
     encounters: Array.isArray(bundle?.encounters) ? bundle.encounters : [],
     npcs: Array.isArray(bundle?.npcs) ? bundle.npcs : [],
     locations: Array.isArray(bundle?.locations) ? bundle.locations : [],
+    factions: Array.isArray(bundle?.factions) ? bundle.factions : [],
   };
 }
 
 async function loadCurrentRecords() {
-  const [sessions, encounters, npcs, locations] = await Promise.all([
+  const [sessions, encounters, npcs, locations, factions] = await Promise.all([
     sessionStore.getAllFull(),
     encounterStore.getAllFull(),
     npcStore.getAllFull(),
     locationStore.getAllFull(),
+    factionStore.getAllFull(),
   ]);
 
-  return { sessions, encounters, npcs, locations };
+  return { sessions, encounters, npcs, locations, factions };
 }
 
 function buildPreviewFromRecords(bundle, currentRecords) {
@@ -94,6 +104,7 @@ function buildPreviewFromRecords(bundle, currentRecords) {
     encounter: new Map((currentRecords.encounters || []).map(item => [item.id, item])),
     npc: new Map((currentRecords.npcs || []).map(item => [item.id, item])),
     location: new Map((currentRecords.locations || []).map(item => [item.id, item])),
+    faction: new Map((currentRecords.factions || []).map(item => [item.id, item])),
   };
 
   const items = [];
@@ -224,6 +235,18 @@ function cloneLocation(record, finalId, campaignId, sessionRemap) {
   };
 }
 
+function cloneFaction(record, finalId, campaignId, sessionRemap, encounterRemap, npcRemap, locationRemap) {
+  return {
+    ...record,
+    id: finalId,
+    campaignId,
+    linkedSessions: remapList(record?.linkedSessions, sessionRemap),
+    linkedEncounters: remapList(record?.linkedEncounters, encounterRemap),
+    linkedNpcs: remapList(record?.linkedNpcs, npcRemap),
+    linkedLocations: remapList(record?.linkedLocations, locationRemap),
+  };
+}
+
 function nextSortOrder(items) {
   return (items || []).reduce((max, item, index) => {
     const value = Number.isFinite(item?.sortOrder) ? item.sortOrder : index;
@@ -260,12 +283,14 @@ async function executeImport(bundle, resolution, campaignId) {
     encounter: preview.bundle.encounters,
     npc: preview.bundle.npcs,
     location: preview.bundle.locations,
+    faction: preview.bundle.factions,
   };
   const remaps = {
     session: new Map(),
     encounter: new Map(),
     npc: new Map(),
     location: new Map(),
+    faction: new Map(),
   };
   const finalIdsByKey = new Map();
 
@@ -286,6 +311,7 @@ async function executeImport(bundle, resolution, campaignId) {
     encounters: [...currentRecords.encounters],
     npcs: [...currentRecords.npcs],
     locations: [...currentRecords.locations],
+    factions: [...currentRecords.factions],
   };
   const report = {
     totals: { imported: 0, cloned: 0, replaced: 0, skipped: 0, processed: plans.length },
@@ -294,6 +320,7 @@ async function executeImport(bundle, resolution, campaignId) {
       encounter: buildTypeReport(),
       npc: buildTypeReport(),
       location: buildTypeReport(),
+      faction: buildTypeReport(),
     },
     items: [],
     remappedIds: [],
@@ -302,6 +329,7 @@ async function executeImport(bundle, resolution, campaignId) {
   let sessionSortOrder = nextSortOrder(finalRecords.sessions);
   let encounterSortOrder = nextSortOrder(finalRecords.encounters);
   let npcSortOrder = nextSortOrder(finalRecords.npcs);
+  let factionSortOrder = nextSortOrder(finalRecords.factions);
 
   for (const type of PREVIEW_ORDER) {
     const cfg = TYPE_CONFIG[type];
@@ -347,6 +375,11 @@ async function executeImport(bundle, resolution, campaignId) {
         transformed.sortOrder = plan.action === 'replace' && existing && Number.isFinite(existing.sortOrder)
           ? existing.sortOrder
           : npcSortOrder++;
+      } else if (type === 'faction') {
+        transformed = cloneFaction(incoming, finalId, campaignId, remaps.session, remaps.encounter, remaps.npc, remaps.location);
+        transformed.sortOrder = plan.action === 'replace' && existing && Number.isFinite(existing.sortOrder)
+          ? existing.sortOrder
+          : factionSortOrder++;
       } else {
         transformed = cloneLocation(incoming, finalId, campaignId, remaps.session);
       }
@@ -391,6 +424,7 @@ async function executeImport(bundle, resolution, campaignId) {
     encounterStore.replaceAllFull(finalRecords.encounters),
     npcStore.replaceAllFull(finalRecords.npcs),
     locationStore.replaceAllFull(finalRecords.locations),
+    factionStore.replaceAllFull(finalRecords.factions),
   ]);
 
   return report;

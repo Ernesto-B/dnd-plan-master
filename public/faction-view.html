@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NPC — D&D Session Master</title>
+  <title>Faction — D&D Session Master</title>
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -13,8 +13,9 @@
   <span class="nav-sep"></span>
   <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
-  <a href="/npcs" class="nav-link nav-link-active">NPCs</a>
+  <a href="/npcs" class="nav-link">NPCs</a>
   <a href="/locations" class="nav-link">Locations</a>
+  <a href="/factions" class="nav-link nav-link-active">Factions</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
@@ -23,27 +24,28 @@
       <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
       <a href="/location/new">Location</a>
+      <a href="/faction/new">Faction</a>
     </div>
   </div>
 </nav>
 
 <div class="view-layout">
   <aside class="view-sidebar">
-    <a href="/npcs" class="sidebar-btn sidebar-back" data-tooltip="Return to the main NPC list." data-icon="back">All NPCs</a>
-    <button class="sidebar-btn sidebar-primary hidden" id="btn-promote-draft" data-tooltip="Convert this draft into a normal NPC and remove its Draft marker." data-icon="promote">Promote Draft</button>
-    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this NPC in the editor to change their current state, links, or notes." data-icon="edit">Edit NPC</button>
-    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session and encounter for this NPC in one clickable panel." data-icon="connections">View All Connections</button>
+    <a href="/factions" class="sidebar-btn sidebar-back" data-tooltip="Return to the main factions list." data-icon="back">All Factions</a>
+    <button class="sidebar-btn sidebar-primary hidden" id="btn-promote-draft" data-tooltip="Convert this draft into a normal faction and remove its Draft marker." data-icon="promote">Promote Draft</button>
+    <button class="sidebar-btn" id="btn-edit" data-tooltip="Open this faction in the editor to change its agenda, clocks, or linked records." data-icon="edit">Edit Faction</button>
+    <button class="sidebar-btn" id="btn-connections" data-tooltip="See every linked session, encounter, NPC, and location for this faction in one panel." data-icon="connections">View All Connections</button>
     <div class="sidebar-sep"></div>
-    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this NPC as Markdown and/or PDF files." data-icon="export">Export</button>
-    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this NPC plus all linked sessions and encounters as separate files." data-icon="export">Export with Connections</button>
+    <button class="sidebar-btn" id="btn-export" data-tooltip="Export this faction as Markdown and/or PDF files." data-icon="export">Export</button>
+    <button class="sidebar-btn" id="btn-export-connections" data-tooltip="Export this faction plus all linked records as separate files." data-icon="export">Export with Connections</button>
     <div class="sidebar-spacer"></div>
-    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this NPC from the app." data-icon="delete">Delete</button>
+    <button class="sidebar-btn sidebar-danger" id="btn-delete" data-tooltip="Permanently delete this faction from the app." data-icon="delete">Delete</button>
   </aside>
 
   <main class="view-main">
     <div id="tags-anchor"></div>
-    <div id="npc-content">
-      <div class="empty-state"><p>Loading NPC…</p></div>
+    <div id="faction-content">
+      <div class="empty-state"><p>Loading faction…</p></div>
     </div>
   </main>
 </div>
@@ -57,7 +59,7 @@
 <script src="/js/connections-panel.js"></script>
 <script src="/js/export-dialog.js"></script>
 <script src="/js/wiki-links.js"></script>
-<script src="/js/npc-view.js"></script>
+<script src="/js/faction-view.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
 <script src="/js/icons.js"></script>

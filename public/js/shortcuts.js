@@ -5,6 +5,7 @@
     { action: 'newSession', label: 'New Session Plan', description: 'Open the session form.', defaultCombo: 'Alt+Shift+S' },
     { action: 'newEncounter', label: 'New Encounter Plan', description: 'Open the encounter form.', defaultCombo: 'Alt+Shift+E' },
     { action: 'newNpc', label: 'New NPC', description: 'Open the NPC form.', defaultCombo: 'Alt+Shift+N' },
+    { action: 'newFaction', label: 'New Faction', description: 'Open the faction form.', defaultCombo: 'Alt+Shift+F' },
     { action: 'historyBack', label: 'Go Back', description: 'Return to the previous page or app state in history.', defaultCombo: 'Mod+[' },
     { action: 'historyForward', label: 'Go Forward', description: 'Go forward to the next page or app state in history.', defaultCombo: 'Mod+]' },
     { action: 'goSessions', label: 'Go to Sessions', description: 'Jump to the sessions list.', defaultCombo: 'Alt+1' },
@@ -12,6 +13,7 @@
     { action: 'goNpcs', label: 'Go to NPCs', description: 'Jump to the NPC list.', defaultCombo: 'Alt+3' },
     { action: 'goCampaign', label: 'Go to Campaign', description: 'Jump to the campaign view.', defaultCombo: 'Alt+4' },
     { action: 'goSettings', label: 'Go to Settings', description: 'Jump to the settings page.', defaultCombo: 'Alt+5' },
+    { action: 'goFactions', label: 'Go to Factions', description: 'Jump to the factions list.', defaultCombo: 'Alt+6' },
     { action: 'focusSearch', label: 'Focus Search', description: 'Place the cursor in the active page search field.', defaultCombo: '/' },
     { action: 'savePrimary', label: 'Save / Primary Action', description: 'Trigger the page’s main save or submit button.', defaultCombo: 'Mod+S' },
   ];
@@ -211,11 +213,13 @@
       newSession: '/form',
       newEncounter: '/encounter/new',
       newNpc: '/npc/new',
+      newFaction: '/faction/new',
       goSessions: '/sessions',
       goEncounters: '/encounters',
       goNpcs: '/npcs',
       goCampaign: '/campaign',
       goSettings: '/settings',
+      goFactions: '/factions',
     };
 
     if (action === 'historyBack') {

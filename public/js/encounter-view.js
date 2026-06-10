@@ -40,6 +40,7 @@
   buildMarkdownToc();
   mountTagEditor(id, encounter.data?.tags || [], '/api/encounters', '#tags-anchor');
   setupConnectionsPanel(encounter, linkedSessions, linkedNpcs);
+  setupDraftActions(encounter, id);
 
   document.getElementById('btn-edit').addEventListener('click', () => {
     location.href = `/encounter/edit/${id}`;
@@ -120,6 +121,31 @@
 
   document.getElementById('btn-delete').addEventListener('click', () => deleteEncounter(id));
 })();
+
+function setupDraftActions(encounter, id) {
+  const promoteBtn = document.getElementById('btn-promote-draft');
+  if (!promoteBtn || encounter.status !== 'draft') return;
+  promoteBtn.classList.remove('hidden');
+  promoteBtn.addEventListener('click', async () => {
+    promoteBtn.disabled = true;
+    promoteBtn.textContent = 'Promoting…';
+    try {
+      const res = await fetch(`/api/encounters/${id}/state`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Promotion failed');
+      showToast('Draft promoted to encounter plan.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      showToast('Promote failed: ' + err.message, 'error');
+      promoteBtn.disabled = false;
+      promoteBtn.textContent = 'Promote Draft';
+    }
+  });
+}
 
 function setupConnectionsPanel(encounter, linkedSessions, linkedNpcs) {
   const btn = document.getElementById('btn-connections');

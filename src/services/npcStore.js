@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const { getDataFile, getWritableDataDir } = require('./appPaths');
-const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const NPCS_FILE = getDataFile('npcs.json');
 
@@ -47,7 +47,7 @@ async function getAllNpcs(campaignId) {
     !campaignId ||
     n.campaignId === campaignId ||
     (!n.campaignId && campaignId === 'c-default');
-  return orderedNpcs(store.npcs.map(normalizeRecord)).filter(n => belongs(n) && isActive(n)).map(n => ({
+  return orderedNpcs(store.npcs.map(normalizeRecord)).filter(n => belongs(n) && isLive(n)).map(n => ({
     id:               n.id,
     name:             n.name,
     nickname:         n.nickname || '',
@@ -56,6 +56,7 @@ async function getAllNpcs(campaignId) {
     linkedEncounters: n.linkedEncounters || [],
     tags:             n.tags || [],
     createdAt:        n.createdAt,
+    status:           n.status || ACTIVE,
     isDemo:           n.isDemo || false,
     campaignId:       n.campaignId || 'c-default',
   }));
@@ -97,11 +98,11 @@ async function saveNpc(data) {
       : String(data.carrying || '').split('\n').map(s => s.trim()).filter(Boolean),
     linkedSessions:   Array.isArray(data.linkedSessions)   ? data.linkedSessions   : [],
     linkedEncounters: Array.isArray(data.linkedEncounters) ? data.linkedEncounters : [],
-    tags:             Array.isArray(data.tags)   ? data.tags   : [],
+    tags:             normalizeTagsForStatus(data.tags, data.status || ACTIVE),
     createdAt:        new Date().toISOString(),
     sortOrder:        nextSortOrder(store.npcs),
     isDemo:           data.isDemo || false,
-    status:           ACTIVE,
+    status:           data.status === DRAFT ? DRAFT : ACTIVE,
   };
 
   const idx = store.npcs.findIndex(n => n.id === id);
@@ -109,8 +110,10 @@ async function saveNpc(data) {
     npc.createdAt = store.npcs[idx].createdAt;
     npc.sortOrder = orderValue(store.npcs[idx], idx);
     npc.status = normalizeRecord(store.npcs[idx]).status;
+    npc.tags = normalizeTagsForStatus(data.tags, npc.status);
     if (store.npcs[idx].archivedAt) npc.archivedAt = store.npcs[idx].archivedAt;
     if (store.npcs[idx].trashedAt) npc.trashedAt = store.npcs[idx].trashedAt;
+    if (store.npcs[idx].restorableStatus) npc.restorableStatus = store.npcs[idx].restorableStatus;
     store.npcs[idx] = npc;
   } else {
     store.npcs.push(npc);
@@ -132,9 +135,10 @@ async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.npcs.findIndex(n => n.id === id);
   if (idx < 0) throw new Error(`NPC ${id} not found`);
-  store.npcs[idx].tags = tags;
+  const current = normalizeRecord(store.npcs[idx]);
+  store.npcs[idx].tags = normalizeTagsForStatus(tags, current.status);
   await writeStore(store);
-  return tags;
+  return store.npcs[idx].tags;
 }
 
 async function importNpcs(incoming) {

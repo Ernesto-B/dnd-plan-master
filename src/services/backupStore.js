@@ -3,6 +3,9 @@ const path = require('path');
 
 const sessionStore = require('./sessionStore');
 const encounterStore = require('./encounterStore');
+const npcStore = require('./npcStore');
+const locationStore = require('./locationStore');
+const factionStore = require('./factionStore');
 const settingsStore = require('./settingsStore');
 const { getWritableDataDir, getDataFile } = require('./appPaths');
 
@@ -29,6 +32,9 @@ async function createBackup() {
     settings: await settingsStore.getSettings(),
     sessions: await sessionStore.getAllFull(),
     encounters: await encounterStore.getAllFull(),
+    npcs: await npcStore.getAllFull(),
+    locations: await locationStore.getAllFull(),
+    factions: await factionStore.getAllFull(),
   };
 
   const name = backupName();
@@ -57,9 +63,12 @@ async function listBackups() {
           createdAt: parsed.createdAt || null,
           sessionCount: Array.isArray(parsed.sessions) ? parsed.sessions.length : 0,
           encounterCount: Array.isArray(parsed.encounters) ? parsed.encounters.length : 0,
+          npcCount: Array.isArray(parsed.npcs) ? parsed.npcs.length : 0,
+          locationCount: Array.isArray(parsed.locations) ? parsed.locations.length : 0,
+          factionCount: Array.isArray(parsed.factions) ? parsed.factions.length : 0,
         });
       } catch {
-        items.push({ name, createdAt: null, sessionCount: 0, encounterCount: 0 });
+        items.push({ name, createdAt: null, sessionCount: 0, encounterCount: 0, npcCount: 0, locationCount: 0, factionCount: 0 });
       }
     }
     return items;
@@ -75,11 +84,17 @@ async function restoreBackup(name) {
   await fs.mkdir(getWritableDataDir(), { recursive: true });
   await fs.writeFile(getDataFile('sessions.json'), JSON.stringify({ sessions: parsed.sessions || [] }, null, 2), 'utf8');
   await fs.writeFile(getDataFile('encounters.json'), JSON.stringify({ encounters: parsed.encounters || [] }, null, 2), 'utf8');
+  await fs.writeFile(getDataFile('npcs.json'), JSON.stringify({ npcs: parsed.npcs || [] }, null, 2), 'utf8');
+  await fs.writeFile(getDataFile('locations.json'), JSON.stringify({ locations: parsed.locations || [] }, null, 2), 'utf8');
+  await fs.writeFile(getDataFile('factions.json'), JSON.stringify({ factions: parsed.factions || [] }, null, 2), 'utf8');
   await fs.writeFile(getDataFile('settings.json'), JSON.stringify({ ...(parsed.settings || {}) }, null, 2), 'utf8');
 
   return {
     sessionCount: Array.isArray(parsed.sessions) ? parsed.sessions.length : 0,
     encounterCount: Array.isArray(parsed.encounters) ? parsed.encounters.length : 0,
+    npcCount: Array.isArray(parsed.npcs) ? parsed.npcs.length : 0,
+    locationCount: Array.isArray(parsed.locations) ? parsed.locations.length : 0,
+    factionCount: Array.isArray(parsed.factions) ? parsed.factions.length : 0,
   };
 }
 

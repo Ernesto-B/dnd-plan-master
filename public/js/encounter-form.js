@@ -8,6 +8,7 @@ let pendingPdfB64    = null;
 let pendingMarkdown  = null;
 let pendingFilename  = null;
 let pendingPdfBlobUrl = null;
+let currentEncounterStatus = 'active';
 let autosaveEnabled   = true;
 let draftSaveTimer    = null;
 
@@ -265,6 +266,7 @@ function collectFormData() {
 
   return {
     id:                  document.getElementById('enc-name').dataset.editId || undefined,
+    status:              currentEncounterStatus === 'draft' ? 'draft' : undefined,
     name:                g('enc-name'),
     sessionId:           g('enc-session') || null,
     fiction:             g('enc-fiction'),
@@ -340,10 +342,19 @@ async function initEditMode() {
     const res = await fetch(`/api/encounters/${editId}`);
     if (!res.ok) return;
     const enc = await res.json();
+    currentEncounterStatus = enc.status || 'active';
+    if (currentEncounterStatus !== 'draft') {
+      document.getElementById('btn-save-draft')?.classList.add('hidden');
+    }
     populateForm(enc.data, editId);
     if (window.autoResizeAll) window.autoResizeAll();
     document.getElementById('page-title').textContent = 'Edit Encounter Plan';
     document.getElementById('page-subtitle').textContent = 'Update the encounter plan, then preview and save.';
+    if (currentEncounterStatus === 'draft') {
+      document.getElementById('btn-submit').textContent = 'Preview Draft Changes';
+      const draftBtn = document.getElementById('btn-save-draft');
+      if (draftBtn) draftBtn.textContent = 'Save Draft';
+    }
     const backLink = document.getElementById('form-back-link');
     if (backLink) { backLink.href = `/encounter/view/${editId}`; backLink.textContent = '← Back to Encounter'; }
   } catch { /* not in edit mode */ }
@@ -610,6 +621,31 @@ document.getElementById('btn-save-confirm').addEventListener('click', async () =
   }
 });
 
+document.getElementById('btn-save-draft').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-draft');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const body = { ...collectFormData(), status: 'draft' };
+    const saveRes = await fetch('/api/encounters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const saved = await saveRes.json();
+    if (!saveRes.ok) throw new Error(saved.error || 'Save failed');
+
+    clearDraft();
+    showToast('Draft saved.', 'success');
+    setTimeout(() => { location.href = `/encounter/view/${saved.id}`; }, 900);
+  } catch (err) {
+    showToast('Save error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = currentEncounterStatus === 'draft' ? 'Save Draft' : 'Save as Draft';
+  }
+});
+
 // Load sessions + init
 async function initEncounterFormPage() {
   let settings = {};
@@ -619,6 +655,7 @@ async function initEncounterFormPage() {
   } catch {}
 
   autosaveEnabled = settings.autosaveEnabled !== false;
+  document.getElementById('btn-save-draft')?.classList.remove('hidden');
   await loadSessionOptions(null);
   buildSectionNav();
   await initEditMode();

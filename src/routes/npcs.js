@@ -7,7 +7,7 @@ const markdownGenerator = require('../services/npcMarkdownGenerator');
 const pdfGenerator = require('../services/pdfGenerator');
 const pdfTemplate = require('../templates/npcPdfTemplate');
 const campaignStore = require('../services/campaignStore');
-const { TRASHED, normalizeStatus, isActive } = require('../services/recordLifecycle');
+const { TRASHED, normalizeStatus, isLive } = require('../services/recordLifecycle');
 
 function filename(id) {
   return `npc-${String(id).replace(/^n-?/i, '')}`;
@@ -21,8 +21,8 @@ router.get('/', async (_req, res) => {
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
     ]);
-    const activeSessionIds = new Set(sessions.filter(isActive).map(session => session.id));
-    const activeEncounterIds = new Set(encounters.filter(isActive).map(encounter => encounter.id));
+    const activeSessionIds = new Set(sessions.filter(isLive).map(session => session.id));
+    const activeEncounterIds = new Set(encounters.filter(isLive).map(encounter => encounter.id));
     res.json(npcs.map(npc => ({
       ...npc,
       linkedSessions: (npc.linkedSessions || []).filter(id => activeSessionIds.has(id)),
@@ -112,8 +112,8 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
-    await npcStore.updateTags(req.params.id, tags);
-    res.json({ success: true, tags });
+    const updatedTags = await npcStore.updateTags(req.params.id, tags);
+    res.json({ success: true, tags: updatedTags });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
@@ -123,7 +123,7 @@ router.patch('/:id/state', async (req, res) => {
   try {
     const status = normalizeStatus(req.body?.status);
     const updated = await npcStore.updateStatus(req.params.id, status);
-    res.json({ success: true, status: updated.status });
+    res.json({ success: true, status: updated.status, tags: updated.tags || [] });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }

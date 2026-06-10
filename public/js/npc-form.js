@@ -2,6 +2,7 @@ const SKILL_KEYS = ['perception','insight','medicine','investigation','arcana','
 
 let editNpcId = null;
 let tagInputInstance = null;
+let currentNpcStatus = 'active';
 
 (async function () {
   const isEdit  = location.pathname.includes('/edit/');
@@ -13,6 +14,7 @@ let tagInputInstance = null;
     document.querySelector('.page-subtitle').textContent = 'Update this character\'s profile.';
     const backLink = document.getElementById('form-back-link');
     if (backLink) { backLink.href = `/npc/view/${pathId}`; backLink.textContent = '← Back to NPC'; }
+    document.getElementById('btn-save-draft')?.classList.add('hidden');
   }
 
   // Tag input
@@ -28,6 +30,14 @@ let tagInputInstance = null;
       const res = await fetch(`/api/npcs/${pathId}`);
       if (!res.ok) throw new Error('Not found');
       const npc = await res.json();
+      currentNpcStatus = npc.status || 'active';
+      if (currentNpcStatus === 'draft') {
+        const saveBtn = document.getElementById('btn-save');
+        const draftBtn = document.getElementById('btn-save-draft');
+        if (draftBtn) draftBtn.classList.remove('hidden');
+        if (saveBtn) saveBtn.textContent = 'Save Draft';
+        if (draftBtn) draftBtn.textContent = 'Save Draft';
+      }
       populate(npc);
       if (window.autoResizeAll) window.autoResizeAll();
     } catch {
@@ -35,7 +45,8 @@ let tagInputInstance = null;
     }
   }
 
-  document.getElementById('btn-save').addEventListener('click', save);
+  document.getElementById('btn-save').addEventListener('click', () => save());
+  document.getElementById('btn-save-draft').addEventListener('click', () => save('draft'));
   document.getElementById('npc-form').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
   });
@@ -110,7 +121,7 @@ function populate(npc) {
   });
 }
 
-async function save() {
+async function save(statusOverride) {
   const name = document.getElementById('npc-name').value.trim();
   if (!name) {
     document.getElementById('npc-name').focus();
@@ -130,6 +141,7 @@ async function save() {
   const linkedEncounters = [...encSel.selectedOptions].map(o => o.value).filter(Boolean);
 
   const body = {
+    status: statusOverride || (currentNpcStatus === 'draft' ? 'draft' : undefined),
     name,
     nickname:         document.getElementById('npc-nickname').value.trim(),
     commonPhrase:     document.getElementById('npc-phrase').value.trim(),
@@ -144,7 +156,8 @@ async function save() {
     tags: tagInputInstance ? tagInputInstance.getTags() : [],
   };
 
-  const btn = document.getElementById('btn-save');
+  const isDraftSave = statusOverride === 'draft';
+  const btn = document.getElementById(isDraftSave ? 'btn-save-draft' : 'btn-save');
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
@@ -162,7 +175,7 @@ async function save() {
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Save NPC';
+    btn.textContent = isDraftSave || currentNpcStatus === 'draft' ? 'Save Draft' : 'Save NPC';
   }
 }
 

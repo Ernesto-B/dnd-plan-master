@@ -80,6 +80,7 @@
     panel.innerHTML = type === 'session'  ? buildSessionHTML(full)
                     : type === 'npc'      ? buildNpcHTML(full)
                     : type === 'location' ? buildLocationHTML(full)
+                    : type === 'faction'  ? buildFactionHTML(full)
                     : buildEncounterHTML(full);
     positionPanel(row);
 
@@ -419,6 +420,55 @@
     return parts.join('');
   }
 
+  function buildFactionHTML(faction) {
+    const parts = [];
+
+    parts.push(`<div class="hp-header">
+      <div class="hp-title">${esc(faction.name)}</div>
+      ${tagsHTML(faction.tags)}
+    </div>`);
+
+    const snapshotParts = [
+      faction.origin ? field('Origin', esc(faction.origin)) : '',
+      (faction.size !== '' && faction.size != null) ? field('Size', esc(String(faction.size))) : '',
+      field('Party Reputation', esc(reputationLabel(faction.partyReputation))),
+    ].join('');
+    if (snapshotParts) parts.push(section('Snapshot', snapshotParts, true));
+
+    if (faction.goal) {
+      parts.push(section('Goal', `<p class="hp-readout">${esc(faction.goal)}</p>`, true));
+    }
+
+    const clocks = (faction.factionClocks || []).filter(clock =>
+      clock.name || clock.advanceTrigger || clock.setbackTrigger || (clock.stepDescriptions || []).some(Boolean)
+    );
+    if (clocks.length) {
+      const clockParts = clocks.map(clock => `
+        <div class="hp-entity">
+          <div class="hp-entity-name">${esc(clock.name || 'Unnamed Clock')}</div>
+          ${clock.advanceTrigger ? `<p><span class="hp-label">Advances:</span> ${esc(clock.advanceTrigger)}</p>` : ''}
+          ${clock.setbackTrigger ? `<p><span class="hp-label">Setbacks:</span> ${esc(clock.setbackTrigger)}</p>` : ''}
+          ${(clock.stepDescriptions || []).length
+            ? `<ol class="hp-list">${clock.stepDescriptions.map(step => `<li>${esc(step || 'No change noted yet.')}</li>`).join('')}</ol>`
+            : ''}
+        </div>
+      `).join('<hr class="hp-divider">');
+      parts.push(section(`Faction Clocks (${clocks.length})`, clockParts));
+    }
+
+    const links = [
+      (faction.linkedSessions || []).length ? `${faction.linkedSessions.length} session${faction.linkedSessions.length === 1 ? '' : 's'}` : '',
+      (faction.linkedEncounters || []).length ? `${faction.linkedEncounters.length} encounter${faction.linkedEncounters.length === 1 ? '' : 's'}` : '',
+      (faction.linkedNpcs || []).length ? `${faction.linkedNpcs.length} NPC${faction.linkedNpcs.length === 1 ? '' : 's'}` : '',
+      (faction.linkedLocations || []).length ? `${faction.linkedLocations.length} location${faction.linkedLocations.length === 1 ? '' : 's'}` : '',
+    ].filter(Boolean);
+    if (links.length) {
+      parts.push(section('Linked Records', `<ul class="hp-list">${links.map(text => `<li>${esc(text)}</li>`).join('')}</ul>`));
+    }
+
+    return parts.join('');
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function field(label, content) {
     return `<div class="hp-field"><span class="hp-label">${esc(label)}</span><div class="hp-field-body">${content}</div></div>`;
@@ -426,7 +476,21 @@
 
   function tagsHTML(tags) {
     if (!tags || !tags.length) return '';
-    return `<div class="hp-tags">${tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join(' ')}</div>`;
+    return `<div class="hp-tags">${tags.map(t => `<span class="tag-chip${String(t || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${esc(t)}</span>`).join(' ')}</div>`;
+  }
+
+  function reputationLabel(value) {
+    const score = Number(value) || 0;
+    const labels = {
+      '-3': 'Hostile',
+      '-2': 'Distrusted',
+      '-1': 'Cold',
+      '0': 'Neutral',
+      '1': 'Warm',
+      '2': 'Trusted',
+      '3': 'Allied',
+    };
+    return `${score > 0 ? '+' : ''}${score} ${labels[String(score)] || ''}`.trim();
   }
 
   function positionPanel(row) {

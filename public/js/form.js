@@ -11,6 +11,7 @@ let pendingMarkdown     = null;
 let pendingFilename     = null;
 let pendingPdfBlobUrl   = null;
 let editSessionId       = null;
+let currentSessionStatus = 'active';
 let autosaveEnabled     = true;
 let draftSaveTimer      = null;
 
@@ -378,6 +379,7 @@ function v(id) { return (document.getElementById(id)?.value ?? '').trim(); }
 function collectFormData() {
   return {
     id:                 editSessionId || undefined,
+    status:             currentSessionStatus === 'draft' ? 'draft' : undefined,
     sessionNumber:      v('sessionNumber'),
     date:               v('date'),
     partyLevel:         v('partyLevel'),
@@ -501,6 +503,15 @@ async function initEditMode() {
   }
 
   editSessionId = editId;
+  currentSessionStatus = session.status || 'active';
+  if (currentSessionStatus !== 'draft') {
+    document.getElementById('btn-save-draft')?.classList.add('hidden');
+  }
+  if (currentSessionStatus === 'draft') {
+    document.getElementById('btn-submit').textContent = 'Preview Draft Changes';
+    const draftBtn = document.getElementById('btn-save-draft');
+    if (draftBtn) draftBtn.textContent = 'Save Draft';
+  }
   populateForm(session.data || {});
   if (window.autoResizeAll) window.autoResizeAll();
 }
@@ -714,6 +725,31 @@ document.getElementById('btn-save-confirm').addEventListener('click', async () =
     saveNote.textContent = '';
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save + Export Files…';
+  }
+});
+
+document.getElementById('btn-save-draft').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-draft');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const body = { ...collectFormData(), status: 'draft' };
+    const saveRes = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const saved = await saveRes.json();
+    if (!saveRes.ok) throw new Error(saved.error || 'Save failed');
+
+    clearDraft();
+    showToast('Draft saved.', 'success');
+    setTimeout(() => { location.href = `/view/${saved.id}`; }, 900);
+  } catch (err) {
+    showToast('Save error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = currentSessionStatus === 'draft' ? 'Save Draft' : 'Save as Draft';
   }
 });
 
@@ -1067,6 +1103,7 @@ async function importLocationFromDb(locationId) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function initFormPage() {
   document.getElementById('date').valueAsDate = new Date();
+  document.getElementById('btn-save-draft')?.classList.remove('hidden');
   try {
     const res = await fetch('/api/settings');
     if (res.ok) {

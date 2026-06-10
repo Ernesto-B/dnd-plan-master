@@ -4,9 +4,10 @@ const sessionStore  = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
 const npcStore      = require('../services/npcStore');
 const locationStore = require('../services/locationStore');
+const factionStore = require('../services/factionStore');
 const entityConnections = require('../services/entityConnections');
 const campaignStore = require('../services/campaignStore');
-const { isActive } = require('../services/recordLifecycle');
+const { isLive } = require('../services/recordLifecycle');
 
 // Simple scoring: 3=exact, 2=starts-with, 1=includes, 0=no match
 function matchScore(field, q) {
@@ -25,11 +26,13 @@ function best(fields, q) {
 
 // Parse sigil prefix: "npc: foo" → { type: 'npc', q: 'foo' }
 function parseQuery(raw) {
-  const m = raw.match(/^(npc|session|sessions|sess|enc|encounter|encounters|loc|location|locations|tag):\s*(.*)/i);
+  const m = raw.match(/^(npc|session|sessions|sess|enc|encounter|encounters|loc|location|locations|fac|faction|factions|tag):\s*(.*)/i);
   if (m) {
     const prefix = m[1].toLowerCase();
     const type = prefix.startsWith('enc')
       ? 'enc'
+      : prefix.startsWith('fac')
+        ? 'faction'
       : prefix.startsWith('loc')
         ? 'location'
         : prefix.startsWith('sess')
@@ -51,7 +54,7 @@ router.get('/', async (req, res) => {
     if (!type || type === 'session') {
       const sessions = await sessionStore.getAllFull();
       for (const s of sessions) {
-        if (!isActive(s)) continue;
+        if (!isLive(s)) continue;
         const d = s.data || {};
         const sc = q
           ? best([String(s.sessionNumber), s.date, s.goal, (s.tags || []).join(' '),
@@ -116,6 +119,24 @@ router.get('/', async (req, res) => {
           subtitle: l.description || l.government || '',
           url:      `/location/view/${l.id}`,
           score:    sc,
+        });
+      }
+    }
+
+    if (!type || type === 'faction') {
+      const campaignId = await campaignStore.getActiveCampaignId();
+      const factions = await factionStore.getAllFactions(campaignId);
+      for (const faction of factions) {
+        const sc = q
+          ? best([faction.name, faction.origin, faction.goal, String(faction.size || ''), String(faction.partyReputation || ''), (faction.tags || []).join(' ')], q)
+          : 1;
+        if (sc > 0) results.push({
+          type: 'faction',
+          id: faction.id,
+          title: faction.name || faction.id,
+          subtitle: faction.goal || faction.origin || '',
+          url: `/faction/view/${faction.id}`,
+          score: sc,
         });
       }
     }

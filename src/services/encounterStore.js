@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const { getDataFile, getWritableDataDir } = require('./appPaths');
-const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const ENCOUNTERS_FILE = getDataFile('encounters.json');
 
@@ -66,12 +66,13 @@ async function getAllEncounters(campaignId) {
     !campaignId ||
     e.campaignId === campaignId ||
     (!e.campaignId && campaignId === 'c-default');
-  return orderedEncounters(store.encounters.map(normalizeRecord)).filter(e => belongs(e) && isActive(e)).map(e => ({
+  return orderedEncounters(store.encounters.map(normalizeRecord)).filter(e => belongs(e) && isLive(e)).map(e => ({
     id: e.id,
     name: e.name,
     sessionId: e.sessionId || null,
     fiction: e.fiction,
     createdAt: e.createdAt,
+    status: e.status || ACTIVE,
     isDemo: e.isDemo || false,
     tags: e.tags || [],
     campaignId: e.campaignId || 'c-default',
@@ -82,10 +83,12 @@ async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.encounters.findIndex(e => e.id === id);
   if (idx < 0) throw new Error(`Encounter ${id} not found`);
-  store.encounters[idx].tags = tags;
-  if (store.encounters[idx].data) store.encounters[idx].data.tags = tags;
+  const current = normalizeRecord(store.encounters[idx]);
+  const normalizedTags = normalizeTagsForStatus(tags, current.status);
+  store.encounters[idx].tags = normalizedTags;
+  if (store.encounters[idx].data) store.encounters[idx].data.tags = normalizedTags;
   await writeStore(store);
-  return tags;
+  return normalizedTags;
 }
 
 async function getEncounter(id) {
@@ -110,19 +113,23 @@ async function saveEncounter(data, markdown) {
     fiction: data.fiction,
     createdAt: new Date().toISOString(),
     sortOrder: nextSortOrder(store.encounters),
-    tags: Array.isArray(data.tags) ? data.tags : [],
-    status: ACTIVE,
+    tags: normalizeTagsForStatus(data.tags, data.status || ACTIVE),
+    status: data.status === DRAFT ? DRAFT : ACTIVE,
     data: { ...data, id },
     markdown,
   };
+  encounter.data.tags = encounter.tags;
 
   const idx = store.encounters.findIndex(e => e.id === id);
   if (idx >= 0) {
     encounter.createdAt = store.encounters[idx].createdAt;
     encounter.sortOrder = orderValue(store.encounters[idx], idx);
     encounter.status = normalizeRecord(store.encounters[idx]).status;
+    encounter.tags = normalizeTagsForStatus(data.tags, encounter.status);
+    encounter.data.tags = encounter.tags;
     if (store.encounters[idx].archivedAt) encounter.archivedAt = store.encounters[idx].archivedAt;
     if (store.encounters[idx].trashedAt) encounter.trashedAt = store.encounters[idx].trashedAt;
+    if (store.encounters[idx].restorableStatus) encounter.restorableStatus = store.encounters[idx].restorableStatus;
     store.encounters[idx] = encounter;
   } else {
     store.encounters.push(encounter);

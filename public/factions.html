@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Locations — D&D Session Master</title>
+  <title>Factions — D&D Session Master</title>
   <script src="/js/theme.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -14,7 +14,8 @@
   <a href="/sessions" class="nav-link">Sessions</a>
   <a href="/encounters" class="nav-link">Encounters</a>
   <a href="/npcs" class="nav-link">NPCs</a>
-  <a href="/locations" class="nav-link nav-link-active">Locations</a>
+  <a href="/locations" class="nav-link">Locations</a>
+  <a href="/factions" class="nav-link nav-link-active">Factions</a>
   <a href="/settings" class="nav-link">Settings</a>
   <div class="nav-create-wrap">
     <button class="nav-create-btn" id="nav-create-btn">+ Create New <span class="caret">▾</span></button>
@@ -23,24 +24,22 @@
       <a href="/encounter/new">Encounter</a>
       <a href="/npc/new">NPC</a>
       <a href="/location/new">Location</a>
+      <a href="/faction/new">Faction</a>
     </div>
   </div>
 </nav>
 
 <div class="container wide">
   <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; margin-top:8px;">
-    <h1 class="page-title">Locations</h1>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <a href="/map" class="btn btn-ghost btn-sm" data-icon="location">World Map</a>
-      <a href="/location/new" class="btn btn-primary" data-icon="plus">New Location</a>
-    </div>
+    <h1 class="page-title">Factions</h1>
+    <a href="/faction/new" class="btn btn-primary" data-icon="plus">New Faction</a>
   </div>
-  <p class="page-subtitle">Places your players will visit — click any row to view the full write-up.</p>
+  <p class="page-subtitle">Power groups, guilds, cults, and courts that shape the campaign behind the scenes.</p>
 
   <div id="search-bar"></div>
   <div id="ms-toolbar"></div>
-  <div id="locations-container">
-    <div class="empty-state"><p>Loading Locations…</p></div>
+  <div id="factions-container">
+    <div class="empty-state"><p>Loading factions…</p></div>
   </div>
 </div>
 
@@ -52,7 +51,7 @@
 <script src="/js/context-menu.js"></script>
 <script src="/js/hover-preview.js"></script>
 <script src="/js/shortcuts.js"></script>
-<script src="/js/locations.js"></script>
+<script src="/js/factions.js"></script>
 <script src="/js/global-search.js"></script>
 <script src="/js/tab-client.js"></script>
 <script src="/js/icons.js"></script>

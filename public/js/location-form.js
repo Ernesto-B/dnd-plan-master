@@ -3,6 +3,7 @@ const MAX_POI  = 5;
 
 let editLocationId = null;
 let tagInputInstance = null;
+let currentLocationStatus = 'active';
 
 (async function () {
   const isEdit  = location.pathname.includes('/edit/');
@@ -14,6 +15,7 @@ let tagInputInstance = null;
     document.querySelector('.page-subtitle').textContent = 'Update this place\'s details.';
     const backLink = document.getElementById('form-back-link');
     if (backLink) { backLink.href = `/location/view/${pathId}`; backLink.textContent = '← Back to Location'; }
+    document.getElementById('btn-save-draft')?.classList.add('hidden');
   }
 
   // Tag input
@@ -34,6 +36,14 @@ let tagInputInstance = null;
       const res = await fetch(`/api/locations/${pathId}`);
       if (!res.ok) throw new Error('Not found');
       const loc = await res.json();
+      currentLocationStatus = loc.status || 'active';
+      if (currentLocationStatus === 'draft') {
+        const saveBtn = document.getElementById('btn-save');
+        const draftBtn = document.getElementById('btn-save-draft');
+        if (draftBtn) draftBtn.classList.remove('hidden');
+        if (saveBtn) saveBtn.textContent = 'Save Draft';
+        if (draftBtn) draftBtn.textContent = 'Save Draft';
+      }
       populate(loc);
       if (window.autoResizeAll) window.autoResizeAll();
     } catch {
@@ -41,7 +51,8 @@ let tagInputInstance = null;
     }
   }
 
-  document.getElementById('btn-save').addEventListener('click', save);
+  document.getElementById('btn-save').addEventListener('click', () => save());
+  document.getElementById('btn-save-draft').addEventListener('click', () => save('draft'));
   document.getElementById('location-form').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
   });
@@ -191,7 +202,7 @@ function populate(loc) {
   });
 }
 
-async function save() {
+async function save(statusOverride) {
   const name = document.getElementById('loc-name').value.trim();
   if (!name) {
     document.getElementById('loc-name').focus();
@@ -203,6 +214,7 @@ async function save() {
   const linkedSessions = [...sessionSel.selectedOptions].map(o => o.value).filter(Boolean);
 
   const body = {
+    status: statusOverride || (currentLocationStatus === 'draft' ? 'draft' : undefined),
     name,
     government:          document.getElementById('loc-government').value.trim(),
     populationSize:      document.getElementById('loc-population-size').value.trim(),
@@ -219,7 +231,8 @@ async function save() {
     tags: tagInputInstance ? tagInputInstance.getTags() : [],
   };
 
-  const btn = document.getElementById('btn-save');
+  const isDraftSave = statusOverride === 'draft';
+  const btn = document.getElementById(isDraftSave ? 'btn-save-draft' : 'btn-save');
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
@@ -237,7 +250,7 @@ async function save() {
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Save Location';
+    btn.textContent = isDraftSave || currentLocationStatus === 'draft' ? 'Save Draft' : 'Save Location';
   }
 }
 

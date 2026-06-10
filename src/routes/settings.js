@@ -5,11 +5,12 @@ const sessionStore   = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
 const npcStore       = require('../services/npcStore');
 const locationStore  = require('../services/locationStore');
+const factionStore   = require('../services/factionStore');
 const campaignStore  = require('../services/campaignStore');
 const backupStore    = require('../services/backupStore');
 const backupScheduler = require('../services/backupScheduler');
 const importPlanner = require('../services/importPlanner');
-const { ACTIVE, ARCHIVED, TRASHED, isActive, normalizeStatus } = require('../services/recordLifecycle');
+const { ACTIVE, DRAFT, ARCHIVED, TRASHED, isLive, normalizeStatus } = require('../services/recordLifecycle');
 
 function belongsToCampaign(record, campaignId) {
   return (
@@ -51,6 +52,14 @@ const STORE_BY_TYPE = {
     setStatus: (id, status) => locationStore.updateStatus(id, status),
     title: record => record.name || record.id,
     subtitle: record => record.description || '',
+  },
+  faction: {
+    label: 'Faction',
+    list: (...args) => factionStore.listByStatuses(...args),
+    remove: id => factionStore.deleteFaction(id),
+    setStatus: (id, status) => factionStore.updateStatus(id, status),
+    title: record => record.name || record.id,
+    subtitle: record => record.goal || record.origin || '',
   },
 };
 
@@ -118,17 +127,19 @@ router.post('/', async (req, res) => {
 router.get('/export-data', async (_req, res) => {
   try {
     const campaignId = await campaignStore.getActiveCampaignId();
-    const [sessions, encounters, npcs, locations] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
       npcStore.getAllFull(),
       locationStore.getAllFull(),
+      factionStore.getAllFull(),
     ]);
     res.json({
-      sessions: sessions.filter(session => belongsToCampaign(session, campaignId) && isActive(session)),
-      encounters: encounters.filter(encounter => belongsToCampaign(encounter, campaignId) && isActive(encounter)),
-      npcs: npcs.filter(npc => belongsToCampaign(npc, campaignId) && isActive(npc)),
-      locations: locations.filter(location => belongsToCampaign(location, campaignId) && isActive(location)),
+      sessions: sessions.filter(session => belongsToCampaign(session, campaignId) && isLive(session)),
+      encounters: encounters.filter(encounter => belongsToCampaign(encounter, campaignId) && isLive(encounter)),
+      npcs: npcs.filter(npc => belongsToCampaign(npc, campaignId) && isLive(npc)),
+      locations: locations.filter(location => belongsToCampaign(location, campaignId) && isLive(location)),
+      factions: factions.filter(faction => belongsToCampaign(faction, campaignId) && isLive(faction)),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -143,6 +154,7 @@ router.post('/import', async (req, res) => {
       encounters = [],
       npcs = [],
       locations = [],
+      factions = [],
       resolution = {},
     } = req.body;
     const report = await importPlanner.executeImport({
@@ -150,6 +162,7 @@ router.post('/import', async (req, res) => {
       encounters,
       npcs,
       locations,
+      factions,
     }, resolution, campaignId);
     res.json({ report });
   } catch (err) {
@@ -197,17 +210,19 @@ router.post('/restore', async (req, res) => {
 router.get('/records/lifecycle', async (_req, res) => {
   try {
     const campaignId = await campaignStore.getActiveCampaignId();
-    const [sessions, encounters, npcs, locations] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
       sessionStore.listByStatuses(campaignId, [ARCHIVED, TRASHED]),
       encounterStore.listByStatuses(campaignId, [ARCHIVED, TRASHED]),
       npcStore.listByStatuses(campaignId, [ARCHIVED, TRASHED]),
       locationStore.listByStatuses(campaignId, [ARCHIVED, TRASHED]),
+      factionStore.listByStatuses(campaignId, [ARCHIVED, TRASHED]),
     ]);
     const items = [
       ...sessions.map(record => summarizeLifecycleRecord('session', record)),
       ...encounters.map(record => summarizeLifecycleRecord('encounter', record)),
       ...npcs.map(record => summarizeLifecycleRecord('npc', record)),
       ...locations.map(record => summarizeLifecycleRecord('location', record)),
+      ...factions.map(record => summarizeLifecycleRecord('faction', record)),
     ].sort((a, b) => String(b.changedAt || '').localeCompare(String(a.changedAt || '')));
     res.json({ items });
   } catch (err) {
@@ -243,17 +258,19 @@ router.delete('/records/permanent', async (req, res) => {
 router.delete('/data', async (_req, res) => {
   try {
     const campaignId = await campaignStore.getActiveCampaignId();
-    const [sessions, encounters, npcs, locations] = await Promise.all([
-      sessionStore.listByStatuses(campaignId, [ACTIVE]),
-      encounterStore.listByStatuses(campaignId, [ACTIVE]),
-      npcStore.listByStatuses(campaignId, [ACTIVE]),
-      locationStore.listByStatuses(campaignId, [ACTIVE]),
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
+      sessionStore.listByStatuses(campaignId, [ACTIVE, DRAFT]),
+      encounterStore.listByStatuses(campaignId, [ACTIVE, DRAFT]),
+      npcStore.listByStatuses(campaignId, [ACTIVE, DRAFT]),
+      locationStore.listByStatuses(campaignId, [ACTIVE, DRAFT]),
+      factionStore.listByStatuses(campaignId, [ACTIVE, DRAFT]),
     ]);
     const items = [
       ...sessions.map(record => ({ type: 'session', id: record.id })),
       ...encounters.map(record => ({ type: 'encounter', id: record.id })),
       ...npcs.map(record => ({ type: 'npc', id: record.id })),
       ...locations.map(record => ({ type: 'location', id: record.id })),
+      ...factions.map(record => ({ type: 'faction', id: record.id })),
     ];
     const count = await updateItemsStatus(items, TRASHED);
     res.json({ success: true, count, items });

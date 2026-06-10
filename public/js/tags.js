@@ -45,7 +45,7 @@ class TagInput {
     [...this._wrap.querySelectorAll('.tag-chip')].forEach(c => c.remove());
     this._tags.forEach((t, i) => {
       const chip = document.createElement('span');
-      chip.className = 'tag-chip removable';
+      chip.className = `tag-chip removable${isDraftTag(t) ? ' is-draft' : ''}`;
       chip.innerHTML = `${escTagText(t)} <span class="tag-x">✕</span>`;
       chip.addEventListener('click', e => {
         e.stopPropagation();
@@ -71,7 +71,7 @@ function renderTagChips(parent, tags, maxVisible = 3) {
   const visible = tags.slice(0, maxVisible);
   visible.forEach(t => {
     const chip = document.createElement('span');
-    chip.className = 'tag-chip';
+    chip.className = `tag-chip${isDraftTag(t) ? ' is-draft' : ''}`;
     chip.textContent = t;
     parent.appendChild(chip);
   });
@@ -95,9 +95,13 @@ function escHtml(str) {
   return d.innerHTML;
 }
 
+function isDraftTag(tag) {
+  return String(tag || '').trim().toLowerCase() === 'draft';
+}
+
 function tagChipsHtml(tags, maxVisible = 3) {
   if (!tags || !tags.length) return '';
-  const visible = tags.slice(0, maxVisible).map(t => `<span class="tag-chip">${escHtml(t)}</span>`);
+  const visible = tags.slice(0, maxVisible).map(t => `<span class="tag-chip${isDraftTag(t) ? ' is-draft' : ''}">${escHtml(t)}</span>`);
   if (tags.length > maxVisible) visible.push(`<span class="tag-chip overflow">+${tags.length - maxVisible}</span>`);
   return visible.join(' ');
 }
@@ -130,11 +134,13 @@ function mountTagEditor(id, initialTags, apiBase, anchorSelector = '.view-action
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try {
-        await fetch(`${apiBase}/${id}/tags`, {
+        const res = await fetch(`${apiBase}/${id}/tags`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tags: tagInput.getTags() }),
         });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && Array.isArray(result.tags)) tagInput.setTags(result.tags);
       } catch {}
     }, 600);
   };
@@ -142,6 +148,7 @@ function mountTagEditor(id, initialTags, apiBase, anchorSelector = '.view-action
   const editor = wrap.querySelector('.tag-input-wrap');
   editor.addEventListener('keydown', autoSave);
   editor.addEventListener('click', autoSave);
+  editor.addEventListener('focusout', autoSave);
 }
 
 function buildMarkdownToc(navSelector = '#toc-nav', contentSelector = '.markdown-body') {

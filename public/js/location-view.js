@@ -32,6 +32,7 @@
 
   mountTagEditor(id, loc.tags || [], '/api/locations');
   setupConnectionsPanel(loc, linkedSessionDetails);
+  setupDraftActions(loc, id);
 
   document.getElementById('btn-edit').addEventListener('click', () => {
     location.href = `/location/edit/${id}`;
@@ -111,6 +112,31 @@
     });
   });
 })();
+
+function setupDraftActions(loc, id) {
+  const promoteBtn = document.getElementById('btn-promote-draft');
+  if (!promoteBtn || loc.status !== 'draft') return;
+  promoteBtn.classList.remove('hidden');
+  promoteBtn.addEventListener('click', async () => {
+    promoteBtn.disabled = true;
+    promoteBtn.textContent = 'Promoting…';
+    try {
+      const res = await fetch(`/api/locations/${id}/state`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Promotion failed');
+      showToast('Draft promoted to location.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      showToast('Promote failed: ' + err.message, 'error');
+      promoteBtn.disabled = false;
+      promoteBtn.textContent = 'Promote Draft';
+    }
+  });
+}
 
 function buildHTML(loc) {
   const parts = [];
@@ -224,15 +250,27 @@ function buildToc() {
 function mountTagEditor(id, initialTags, apiBase) {
   const container = document.getElementById('loc-tags-container');
   if (!container) return;
-  new TagInput(container, initialTags, {
-    onUpdate: async (tags) => {
-      await fetch(`${apiBase}/${id}/tags`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      });
-    },
-  });
+  const tagInput = new TagInput(container, initialTags);
+  let saveTimer;
+  const autoSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        const tags = tagInput.getTags();
+        const res = await fetch(`${apiBase}/${id}/tags`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && Array.isArray(result.tags)) tagInput.setTags(result.tags);
+      } catch {}
+    }, 600);
+  };
+  const editor = container.querySelector('.tag-input-wrap');
+  editor?.addEventListener('keydown', autoSave);
+  editor?.addEventListener('click', autoSave);
+  editor?.addEventListener('focusout', autoSave);
 }
 
 function setupConnectionsPanel(loc, linkedSessionDetails) {

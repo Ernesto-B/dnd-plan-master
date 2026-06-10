@@ -8,11 +8,12 @@
     const activeCampaign = await fetchJson('/api/campaigns/active');
     if (!activeCampaign) throw new Error('Could not load current campaign');
 
-    const [sessions, encounters, npcs, locations, continuitySessions] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions, continuitySessions] = await Promise.all([
       fetchJson('/api/sessions', []),
       fetchJson('/api/encounters', []),
       fetchJson('/api/npcs', []),
       fetchJson('/api/locations', []),
+      fetchJson('/api/factions', []),
       fetchJson('/api/sessions/campaign', []),
     ]);
 
@@ -22,6 +23,7 @@
       encounters,
       npcs,
       locations,
+      factions,
       continuitySessions,
     });
   } catch (err) {
@@ -41,11 +43,12 @@
     }
   }
 
-  function renderDashboard({ campaign, sessions, encounters, npcs, locations, continuitySessions }) {
+  function renderDashboard({ campaign, sessions, encounters, npcs, locations, factions, continuitySessions }) {
     const latestSession = [...sessions].sort(compareByRecentSession)[0] || null;
     const latestEncounter = [...encounters].sort(compareByRecent)[0] || null;
     const latestNpc = [...npcs].sort(compareByRecent)[0] || null;
     const latestLocation = [...locations].sort(compareByRecent)[0] || null;
+    const latestFaction = [...factions].sort(compareByRecent)[0] || null;
     const continuity = summarizeContinuity(continuitySessions);
     const party = Array.isArray(campaign.partyRoster) ? campaign.partyRoster : [];
 
@@ -53,12 +56,13 @@
       <div class="dashboard-hero-copy">
         <div class="dashboard-eyebrow">Current Campaign</div>
         <h1 class="page-title">${escHtml(campaign.name || 'Campaign')}</h1>
-        <p class="page-subtitle">${escHtml(campaign.description || 'Your overview of the current campaign. Start here, then jump into sessions, encounters, NPCs, and continuity work from one place.')}</p>
+        <p class="page-subtitle">${escHtml(campaign.description || 'Your overview of the current campaign. Start here, then jump into sessions, encounters, NPCs, locations, factions, and continuity work from one place.')}</p>
         <div class="dashboard-hero-actions">
           <a href="/form" class="btn btn-primary">New Session</a>
           <a href="/encounter/new" class="btn btn-ghost">New Encounter</a>
           <a href="/npc/new" class="btn btn-ghost">New NPC</a>
           <a href="/location/new" class="btn btn-ghost">New Location</a>
+          <a href="/faction/new" class="btn btn-ghost">New Faction</a>
           <a href="/campaigns" class="btn btn-ghost">Manage Campaigns</a>
         </div>
       </div>
@@ -89,6 +93,11 @@
         href: `/location/view/${latestLocation.id}`,
         title: latestLocation.name || latestLocation.id,
         tooltip: latestLocation.description || 'No location description recorded.',
+      }),
+      statCard('Factions', factions.length, '/factions', latestFaction && {
+        href: `/faction/view/${latestFaction.id}`,
+        title: latestFaction.name || latestFaction.id,
+        tooltip: latestFaction.goal || latestFaction.origin || 'No faction goal recorded.',
       }),
     ].join('');
 

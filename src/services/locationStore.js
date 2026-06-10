@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const { getDataFile, getWritableDataDir } = require('./appPaths');
-const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const LOCATIONS_FILE = getDataFile('locations.json');
 
@@ -28,7 +28,7 @@ async function getAllLocations(campaignId) {
     !campaignId ||
     l.campaignId === campaignId ||
     (!l.campaignId && campaignId === 'c-default');
-  return store.locations.map(normalizeRecord).filter(l => belongs(l) && isActive(l)).map(l => ({
+  return store.locations.map(normalizeRecord).filter(l => belongs(l) && isLive(l)).map(l => ({
     id:             l.id,
     name:           l.name,
     description:    l.description || '',
@@ -36,6 +36,7 @@ async function getAllLocations(campaignId) {
     linkedSessions: l.linkedSessions || [],
     tags:           l.tags || [],
     createdAt:      l.createdAt,
+    status:         l.status || ACTIVE,
     isDemo:         l.isDemo || false,
     campaignId:     l.campaignId || 'c-default',
   }));
@@ -107,18 +108,20 @@ async function saveLocation(data) {
     districts:           sanitizeDistricts(data.districts),
     onTheHorizon:        String(data.onTheHorizon || '').trim(),
     linkedSessions:      Array.isArray(data.linkedSessions) ? data.linkedSessions : [],
-    tags:                Array.isArray(data.tags) ? data.tags : [],
+    tags:                normalizeTagsForStatus(data.tags, data.status || ACTIVE),
     createdAt:           new Date().toISOString(),
     isDemo:              data.isDemo || false,
-    status:              ACTIVE,
+    status:              data.status === DRAFT ? DRAFT : ACTIVE,
   };
 
   const idx = store.locations.findIndex(l => l.id === id);
   if (idx >= 0) {
     location.createdAt = store.locations[idx].createdAt;
     location.status = normalizeRecord(store.locations[idx]).status;
+    location.tags = normalizeTagsForStatus(data.tags, location.status);
     if (store.locations[idx].archivedAt) location.archivedAt = store.locations[idx].archivedAt;
     if (store.locations[idx].trashedAt) location.trashedAt = store.locations[idx].trashedAt;
+    if (store.locations[idx].restorableStatus) location.restorableStatus = store.locations[idx].restorableStatus;
     store.locations[idx] = location;
   } else {
     store.locations.push(location);
@@ -141,9 +144,10 @@ async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.locations.findIndex(l => l.id === id);
   if (idx < 0) throw new Error(`Location ${id} not found`);
-  store.locations[idx].tags = tags;
+  const current = normalizeRecord(store.locations[idx]);
+  store.locations[idx].tags = normalizeTagsForStatus(tags, current.status);
   await writeStore(store);
-  return tags;
+  return store.locations[idx].tags;
 }
 
 async function syncSessionLinks(sessionId, newLocationIds, oldLocationIds) {

@@ -13,6 +13,28 @@
     if (settingsLink) nav.insertBefore(link, settingsLink);
   }
 
+  if (nav && !nav.querySelector('.nav-link[href="/map"]')) {
+    const settingsLink = nav.querySelector('.nav-link[href="/settings"]');
+    const link = document.createElement('a');
+    link.href = '/map';
+    link.className = 'nav-link';
+    link.textContent = 'Map';
+    if (settingsLink) nav.insertBefore(link, settingsLink);
+  }
+
+  if (nav && !nav.querySelector('.nav-link[href="/factions"]')) {
+    const locationsLink = nav.querySelector('.nav-link[href="/locations"]');
+    const link = document.createElement('a');
+    link.href = '/factions';
+    link.className = 'nav-link';
+    link.textContent = 'Factions';
+    if (locationsLink && typeof locationsLink.after === 'function') locationsLink.after(link);
+    else {
+      const settingsLink = nav.querySelector('.nav-link[href="/settings"]');
+      if (settingsLink) nav.insertBefore(link, settingsLink);
+    }
+  }
+
   if (nav && !nav.querySelector('.nav-history-wrap')) {
     const wrap = document.createElement('div');
     wrap.className = 'nav-history-wrap';
@@ -113,6 +135,8 @@
     || pathname.startsWith('/npc/edit/')
     || pathname.startsWith('/location/new')
     || pathname.startsWith('/location/edit/')
+    || pathname.startsWith('/faction/new')
+    || pathname.startsWith('/faction/edit/')
     || searchParams.has('edit');
   const activeByPath = [
     { href: '/campaign', match: pathname === '/' || pathname === '/campaign' || pathname === '/campaigns' },
@@ -120,6 +144,8 @@
     { href: '/encounters', match: pathname === '/encounters' || pathname.startsWith('/encounter/') },
     { href: '/npcs', match: pathname === '/npcs' || pathname.startsWith('/npc/') },
     { href: '/locations', match: pathname === '/locations' || pathname.startsWith('/location/') },
+    { href: '/factions', match: pathname === '/factions' || pathname.startsWith('/faction/') },
+    { href: '/map',       match: pathname === '/map' },
     { href: '/settings', match: pathname === '/settings' },
   ];
   const active = activeByPath.find(item => item.match);
@@ -134,7 +160,9 @@
     '/encounters': 'encounters',
     '/npcs': 'npc',
     '/locations': 'location',
+    '/factions': 'faction',
     '/campaign': 'campaign',
+    '/map':      'location',
     '/settings': 'settings',
   };
   nav?.querySelectorAll('.nav-link').forEach(link => {
@@ -142,6 +170,11 @@
     if (icon) {
       link.dataset.icon = icon;
       link.dataset.iconDecorated = '0';
+      if (link.getAttribute('href') === '/settings') {
+        link.dataset.iconOnly = 'true';
+        link.setAttribute('aria-label', 'Settings');
+        link.setAttribute('title', 'Settings');
+      }
     }
   });
 
@@ -280,6 +313,27 @@
         },
       ],
     },
+    factions: {
+      title: 'Factions',
+      intro: 'This page tracks the power groups moving in the background: guilds, cults, noble houses, militias, and conspiracies.',
+      sections: [
+        {
+          title: 'Use this page for',
+          bullets: [
+            'Create factions with a clear goal, current reputation, and up to three clocks.',
+            'Link factions to sessions, encounters, NPCs, and locations so campaign connections stay useful.',
+            'Use drafts for half-formed groups you want on the board before the details are finished.',
+          ],
+        },
+        {
+          title: 'Best practice',
+          bullets: [
+            'Make each clock describe a concrete shift in power, visibility, or risk.',
+            'Update the faction after sessions where the party helped or hurt its agenda.',
+          ],
+        },
+      ],
+    },
     'location-view': {
       title: 'Location View',
       intro: 'This page shows one location in detail, including its districts and linked sessions.',
@@ -295,6 +349,27 @@
           title: 'Best practice',
           bullets: [
             'Locations work best when they can change. Note what is different since the party last visited.',
+          ],
+        },
+      ],
+    },
+    'faction-view': {
+      title: 'Faction View',
+      intro: 'This page shows one faction in detail, including its current goal, standing with the party, and its active clocks.',
+      sections: [
+        {
+          title: 'Use this page for',
+          bullets: [
+            'Review the faction agenda before a session so their next move feels intentional.',
+            'Inspect linked sessions, encounters, NPCs, and locations from one record.',
+            'Export the faction by itself or together with every connected record.',
+          ],
+        },
+        {
+          title: 'Best practice',
+          bullets: [
+            'Treat faction clocks as live campaign state, not just prep notes.',
+            'If the party changes a faction relationship, update the reputation score immediately.',
           ],
         },
       ],
@@ -345,6 +420,27 @@
         },
       ],
     },
+    map: {
+      title: 'World Map',
+      intro: 'Upload your campaign world map, then drop pins on any point of interest and link them to location entries.',
+      sections: [
+        {
+          title: 'Use this page for',
+          bullets: [
+            'Upload a world map image (PNG, JPG, or WebP).',
+            'Switch to Edit mode and click anywhere on the map to place a pin.',
+            'Link each pin to an existing location record so you can navigate there directly.',
+          ],
+        },
+        {
+          title: 'Best practice',
+          bullets: [
+            'Keep pins sparse — one per major location is enough. Sub-districts belong inside the location record.',
+            'Update pin labels to match what your players know, not just the DM name.',
+          ],
+        },
+      ],
+    },
     settings: {
       title: 'Settings',
       intro: 'This page controls the global app behavior and the shared roster used by encounter planning.',
@@ -372,9 +468,12 @@
     if (pathname.startsWith('/encounter/view/')) return 'encounter-view';
     if (pathname.startsWith('/npc/view/')) return 'npc-view';
     if (pathname.startsWith('/location/view/')) return 'location-view';
+    if (pathname.startsWith('/faction/view/')) return 'faction-view';
     if (pathname === '/encounters') return 'encounters';
     if (pathname === '/npcs') return 'npcs';
     if (pathname === '/locations') return 'locations';
+    if (pathname === '/factions') return 'factions';
+    if (pathname === '/map') return 'map';
     if (pathname === '/' || pathname === '/campaign' || pathname === '/campaigns') return 'campaign';
     if (pathname === '/settings') return 'settings';
     return null;
@@ -473,6 +572,15 @@
 
   const wrap = document.querySelector('.nav-create-wrap');
   const btn  = document.getElementById('nav-create-btn');
+  if (wrap && !wrap.querySelector('.create-dropdown a[href="/faction/new"]')) {
+    const dropdown = wrap.querySelector('.create-dropdown');
+    if (dropdown) {
+      const link = document.createElement('a');
+      link.href = '/faction/new';
+      link.textContent = 'Faction';
+      dropdown.appendChild(link);
+    }
+  }
   if (wrap && btn) {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -487,6 +595,7 @@
     '/encounter/new': 'encounters',
     '/npc/new': 'npc',
     '/location/new': 'location',
+    '/faction/new': 'faction',
   };
   nav?.querySelectorAll('.create-dropdown a').forEach(link => {
     const icon = createIcons[link.getAttribute('href')];

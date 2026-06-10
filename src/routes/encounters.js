@@ -12,7 +12,7 @@ const pdfTemplate      = require('../templates/encounterPdfTemplate');
 const folderPicker     = require('../services/folderPicker');
 const planRelations    = require('../services/planRelations');
 const campaignStore    = require('../services/campaignStore');
-const { TRASHED, normalizeStatus, isActive } = require('../services/recordLifecycle');
+const { TRASHED, normalizeStatus, isLive } = require('../services/recordLifecycle');
 
 function filename(id) {
   return `encounter-${String(id).replace(/^[eE]-?0*/i, '')}`;
@@ -54,7 +54,7 @@ router.get('/', async (_req, res) => {
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
     ]);
-    const index = planRelations.buildRelationIndex(sessions.filter(isActive), encounters.filter(isActive));
+    const index = planRelations.buildRelationIndex(sessions.filter(isLive), encounters.filter(isLive));
     res.json(summaries.map(encounter => ({
       ...encounter,
       linkedSessionCount: index.encounterToSessions.get(encounter.id)?.size || 0,
@@ -130,8 +130,8 @@ router.post('/', async (req, res) => {
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
-    await encounterStore.updateTags(req.params.id, tags);
-    res.json({ success: true, tags });
+    const updatedTags = await encounterStore.updateTags(req.params.id, tags);
+    res.json({ success: true, tags: updatedTags });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
@@ -141,7 +141,7 @@ router.patch('/:id/state', async (req, res) => {
   try {
     const status = normalizeStatus(req.body?.status);
     const updated = await encounterStore.updateStatus(req.params.id, status);
-    res.json({ success: true, status: updated.status });
+    res.json({ success: true, status: updated.status, tags: updated.tags || [] });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }

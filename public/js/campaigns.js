@@ -91,11 +91,29 @@ async function buildCampaignExportFiles(id, name) {
     };
   });
 
+  const factionJobs = (bundle.factions || []).map(async faction => {
+    const exportRes = await fetch('/api/factions/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(faction),
+    });
+    const exported = await exportRes.json();
+    if (!exportRes.ok) return null;
+    return {
+      filename: exported.filename,
+      displayName: faction.name || faction.id,
+      type: 'faction',
+      markdown: exported.markdown,
+      pdf: exported.pdf,
+    };
+  });
+
   const results = await Promise.all([
     Promise.allSettled(sessionJobs),
     Promise.allSettled(encounterJobs),
     Promise.allSettled(npcJobs),
     Promise.allSettled(locationJobs),
+    Promise.allSettled(factionJobs),
   ]);
 
   results.flat().forEach(result => {
@@ -133,7 +151,7 @@ async function buildCampaignExportFiles(id, name) {
 
   document.getElementById('btn-generate-demo').addEventListener('click', async () => {
     const ok = await showConfirm(
-      'This recreates the "Demo Campaign" with its example sessions, NPCs, locations, and encounters. It will appear alongside your other campaigns — you can switch to it or delete it whenever you like.',
+      'This recreates the "Demo Campaign" with its example sessions, NPCs, locations, factions, and encounters. It will appear alongside your other campaigns — you can switch to it or delete it whenever you like.',
       { title: 'Generate Demo Campaign', confirmLabel: 'Generate' }
     );
     if (!ok) return;
@@ -165,7 +183,7 @@ async function buildCampaignExportFiles(id, name) {
         return;
       }
 
-      const counts = `${bundle.sessions.length} session(s), ${(bundle.encounters || []).length} encounter(s), ${(bundle.npcs || []).length} NPC(s), ${(bundle.locations || []).length} location(s)`;
+      const counts = `${bundle.sessions.length} session(s), ${(bundle.encounters || []).length} encounter(s), ${(bundle.npcs || []).length} NPC(s), ${(bundle.locations || []).length} location(s), ${(bundle.factions || []).length} faction(s)`;
       const ok = await showConfirm(
         `Import "${bundle.campaign.name || 'Imported Campaign'}" as a new campaign? This will create a new campaign containing ${counts} and its party roster.`,
         { title: 'Import Campaign', confirmLabel: 'Import' }
@@ -181,7 +199,7 @@ async function buildCampaignExportFiles(id, name) {
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Import failed');
         showToast(
-          `Imported "${result.campaign.name}" — ${result.importedSessions} session(s), ${result.importedEncounters} encounter(s), ${result.importedNpcs} NPC(s), ${result.importedLocations || 0} location(s).`,
+          `Imported "${result.campaign.name}" — ${result.importedSessions} session(s), ${result.importedEncounters} encounter(s), ${result.importedNpcs} NPC(s), ${result.importedLocations || 0} location(s), ${result.importedFactions || 0} faction(s).`,
           'success'
         );
         await loadCampaigns();

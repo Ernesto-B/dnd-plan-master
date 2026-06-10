@@ -173,12 +173,13 @@
 
     const groups = {
       session: visibleNodes.filter(node => node.entityType === 'session').sort(compareGraphNodes),
+      faction: visibleNodes.filter(node => node.entityType === 'faction').sort(compareGraphNodes),
       npc: visibleNodes.filter(node => node.entityType === 'npc').sort(compareGraphNodes),
       encounter: visibleNodes.filter(node => node.entityType === 'encounter').sort(compareGraphNodes),
       location: visibleNodes.filter(node => node.entityType === 'location').sort(compareGraphNodes),
     };
 
-    graphMapEl.innerHTML = ['session', 'npc', 'encounter', 'location'].map(type => `
+    graphMapEl.innerHTML = ['session', 'faction', 'npc', 'encounter', 'location'].map(type => `
       <section class="graph-column graph-column-${type}">
         <div class="graph-column-head">${graphTypeLabel(type, true)}</div>
         <div class="graph-column-list">
@@ -240,13 +241,14 @@
 
     const grouped = {
       session: matches.filter(node => node.entityType === 'session').sort(compareGraphNodes),
+      faction: matches.filter(node => node.entityType === 'faction').sort(compareGraphNodes),
       npc: matches.filter(node => node.entityType === 'npc').sort(compareGraphNodes),
       encounter: matches.filter(node => node.entityType === 'encounter').sort(compareGraphNodes),
       location: matches.filter(node => node.entityType === 'location').sort(compareGraphNodes),
     };
 
     const limit = 7;
-    ['session', 'npc', 'encounter', 'location'].forEach(type => {
+    ['session', 'faction', 'npc', 'encounter', 'location'].forEach(type => {
       grouped[type].slice(0, limit).forEach(node => visible.add(node.id));
     });
 
@@ -256,6 +258,7 @@
   function graphTypeLabel(type, plural) {
     const labels = {
       session: ['Session', 'Sessions'],
+      faction: ['Faction', 'Factions'],
       npc: ['NPC', 'NPCs'],
       encounter: ['Encounter', 'Encounters'],
       location: ['Location', 'Locations'],
@@ -284,7 +287,7 @@
       graphDetailEl.innerHTML = `
         <div class="campaign-graph-placeholder">
           <div class="campaign-guide-label">Select an Entity</div>
-          <p>Search to narrow the explorer, then click any card to inspect its connected sessions, encounters, and NPCs.</p>
+          <p>Search to narrow the explorer, then click any card to inspect its connected sessions, factions, encounters, NPCs, and locations.</p>
           <div class="campaign-guide-label" style="margin-top:16px;">Good Starting Points</div>
           <div class="graph-detail-links">${topConnected}</div>
         </div>
@@ -300,13 +303,14 @@
 
     const groupedLinks = {
       session: [],
+      faction: [],
       npc: [],
       encounter: [],
       location: [],
     };
     (selectedNode.links || []).forEach(linkId => {
       const linked = nodesById.get(linkId);
-      if (linked) groupedLinks[linked.entityType].push(linked);
+      if (linked && groupedLinks[linked.entityType]) groupedLinks[linked.entityType].push(linked);
     });
     Object.keys(groupedLinks).forEach(type => groupedLinks[type].sort(compareGraphNodes));
 
@@ -323,9 +327,10 @@
         <div class="graph-detail-meta">
           <a href="${escHtml(selectedNode.url)}" class="btn btn-primary">Open Record</a>
           <span class="graph-node-badge">${selectedNode.connectionCount} direct link${selectedNode.connectionCount === 1 ? '' : 's'}</span>
-          ${selectedNode.tags?.length ? `<div class="graph-detail-tags">${selectedNode.tags.map(tag => `<span class="tag-chip">${escHtml(tag)}</span>`).join('')}</div>` : ''}
+          ${selectedNode.tags?.length ? `<div class="graph-detail-tags">${selectedNode.tags.map(tag => `<span class="tag-chip${String(tag || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(tag)}</span>`).join('')}</div>` : ''}
         </div>
         ${renderGraphDetailSection('Connected Sessions', groupedLinks.session)}
+        ${renderGraphDetailSection('Connected Factions', groupedLinks.faction)}
         ${renderGraphDetailSection('Connected NPCs', groupedLinks.npc)}
         ${renderGraphDetailSection('Connected Encounters', groupedLinks.encounter)}
         ${renderGraphDetailSection('Connected Locations', groupedLinks.location)}
@@ -525,12 +530,15 @@
     const recentSessions = items.slice(0, 2);
     const recentNodeIds = new Set(recentSessions.map(session => `session:${session.id}`));
 
+    const factionNodes = [];
     const npcNodes = [];
     const locationNodes = [];
     for (const node of graphData.nodes) {
-      if (node.entityType !== 'npc' && node.entityType !== 'location') continue;
+      if (!['faction', 'npc', 'location'].includes(node.entityType)) continue;
       if (!(node.links || []).some(linkId => recentNodeIds.has(linkId))) continue;
-      (node.entityType === 'npc' ? npcNodes : locationNodes).push(node);
+      if (node.entityType === 'faction') factionNodes.push(node);
+      else if (node.entityType === 'npc') npcNodes.push(node);
+      else locationNodes.push(node);
     }
 
     const threads = [];
@@ -553,6 +561,7 @@
           </h2>
         </div>
         <div class="campaign-pickup-grid">
+          ${renderPickupChips('Factions To Watch', factionNodes, 'No factions are linked to your most recent sessions yet.')}
           ${renderPickupChips('NPCs To Revisit', npcNodes, 'No NPCs are linked to your most recent sessions yet.')}
           ${renderPickupChips('Locations To Revisit', locationNodes, 'No locations are linked to your most recent sessions yet.')}
           <section class="campaign-mini-card campaign-pickup-threads">
@@ -655,7 +664,7 @@ function sessionGuideLabel(session) {
 
 function renderTags(tags) {
   if (!tags || !tags.length) return '';
-  return `<div class="campaign-session-tags">${tags.map(tag => `<span class="tag-chip">${escHtml(tag)}</span>`).join('')}</div>`;
+  return `<div class="campaign-session-tags">${tags.map(tag => `<span class="tag-chip${String(tag || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(tag)}</span>`).join('')}</div>`;
 }
 
 function sessionLabel(session) {

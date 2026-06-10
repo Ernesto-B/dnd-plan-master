@@ -6,7 +6,7 @@ const markdownGenerator = require('../services/locationMarkdownGenerator');
 const pdfGenerator = require('../services/pdfGenerator');
 const pdfTemplate = require('../templates/locationPdfTemplate');
 const campaignStore = require('../services/campaignStore');
-const { TRASHED, normalizeStatus, isActive } = require('../services/recordLifecycle');
+const { TRASHED, normalizeStatus, isLive } = require('../services/recordLifecycle');
 
 function filename(id) {
   return `location-${String(id).replace(/^l-?/i, '')}`;
@@ -19,7 +19,7 @@ router.get('/', async (_req, res) => {
       locationStore.getAllLocations(campaignId),
       sessionStore.getAllFull(),
     ]);
-    const activeSessionIds = new Set(sessions.filter(isActive).map(session => session.id));
+    const activeSessionIds = new Set(sessions.filter(isLive).map(session => session.id));
     res.json(locations.map(location => ({
       ...location,
       linkedSessions: (location.linkedSessions || []).filter(id => activeSessionIds.has(id)),
@@ -79,8 +79,8 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id/tags', async (req, res) => {
   try {
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
-    await locationStore.updateTags(req.params.id, tags);
-    res.json({ success: true, tags });
+    const updatedTags = await locationStore.updateTags(req.params.id, tags);
+    res.json({ success: true, tags: updatedTags });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
@@ -90,7 +90,7 @@ router.patch('/:id/state', async (req, res) => {
   try {
     const status = normalizeStatus(req.body?.status);
     const updated = await locationStore.updateStatus(req.params.id, status);
-    res.json({ success: true, status: updated.status });
+    res.json({ success: true, status: updated.status, tags: updated.tags || [] });
   } catch (err) {
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }

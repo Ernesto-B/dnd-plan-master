@@ -322,6 +322,7 @@
         encounters: cfg.type === 'encounter' ? all.encounters.filter(e => idSet.has(e.id)) : [],
         npcs: cfg.type === 'npc' ? (all.npcs || []).filter(n => idSet.has(n.id)) : [],
         locations: cfg.type === 'location' ? (all.locations || []).filter(l => idSet.has(l.id)) : [],
+        factions: cfg.type === 'faction' ? (all.factions || []).filter(f => idSet.has(f.id)) : [],
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url  = URL.createObjectURL(blob);
@@ -445,8 +446,10 @@
           body: JSON.stringify({ tags }),
         });
         if (res.ok) {
+          const result = await res.json().catch(() => ({}));
+          const savedTags = Array.isArray(result.tags) ? result.tags : tags;
           ok++;
-          if (cfg.onTagsUpdate) cfg.onTagsUpdate(id, tags);
+          if (cfg.onTagsUpdate) cfg.onTagsUpdate(id, savedTags);
         }
       } catch {}
     }

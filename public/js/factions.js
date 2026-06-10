@@ -1,72 +1,75 @@
-let allNpcs = [];
-let lastVisibleNpcIds = [];
+let allFactions = [];
+let lastVisibleFactionIds = [];
 
 (async function () {
-  const container = document.getElementById('npcs-container');
+  const container = document.getElementById('factions-container');
 
   try {
-    await refreshNpcs();
+    await refreshFactions();
   } catch {
-    container.innerHTML = '<div class="empty-state"><p>Could not load NPCs.</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>Could not load factions.</p></div>';
     return;
   }
 
-  if (!allNpcs.length) {
+  if (!allFactions.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <p>No NPCs yet. Create your first character!</p>
-        <a href="/npc/new" class="btn btn-primary">+ New NPC</a>
+        <p>No factions yet. Create your first power group!</p>
+        <a href="/faction/new" class="btn btn-primary">+ New Faction</a>
       </div>`;
     return;
   }
 
-  renderTable(allNpcs);
+  renderTable(allFactions);
   initSearch({
     containerId: 'search-bar',
-    getAllItems: () => allNpcs,
+    getAllItems: () => allFactions,
     renderFn: renderTable,
     fields: [
-      n => n.id,
-      n => n.name,
-      n => n.nickname,
-      n => n.situation,
-      n => (n.tags || []).join(' '),
+      faction => faction.id,
+      faction => faction.name,
+      faction => faction.origin,
+      faction => faction.goal,
+      faction => (faction.tags || []).join(' '),
     ],
-    dateField: n => n.createdAt,
+    dateField: faction => faction.createdAt,
   });
   initHoverPreview({
-    containerId: 'npcs-container',
-    type: 'npc',
-    apiBase: '/api/npcs',
+    containerId: 'factions-container',
+    type: 'faction',
+    apiBase: '/api/factions',
   });
   initContextMenu({
-    containerId: 'npcs-container',
-    type: 'npc',
-    apiBase: '/api/npcs',
+    containerId: 'factions-container',
+    type: 'faction',
+    apiBase: '/api/factions',
     allowArchive: true,
-    getAllItems: () => allNpcs,
-    reloadItems: refreshNpcs,
-    renderItems: () => renderTable(allNpcs),
+    getAllItems: () => allFactions,
+    reloadItems: refreshFactions,
+    renderItems: () => renderTable(allFactions),
     duplicate: {
-      createUrl: '/api/npcs',
-      label: 'NPC',
-      buildPayload: npc => {
-        const data = { ...npc };
+      createUrl: '/api/factions',
+      label: 'Faction',
+      buildPayload: faction => {
+        const data = { ...faction };
         delete data.id;
         delete data.createdAt;
         delete data.campaignId;
         delete data.sortOrder;
+        delete data.archivedAt;
+        delete data.trashedAt;
+        delete data.restorableStatus;
         return {
           ...data,
-          name: duplicateLabel(data.name || npc.name, 'Copy'),
+          name: duplicateLabel(data.name || faction.name, 'Copy'),
         };
       },
     },
-    onDelete: (id) => { allNpcs = allNpcs.filter(n => n.id !== id); },
+    onDelete: id => { allFactions = allFactions.filter(faction => faction.id !== id); },
     onTagsUpdate: (id, tags) => {
-      const n = allNpcs.find(x => x.id === id);
-      if (n) n.tags = tags;
-      const row = document.querySelector(`#npcs-container .session-row[data-id="${CSS.escape(id)}"]`);
+      const faction = allFactions.find(item => item.id === id);
+      if (faction) faction.tags = tags;
+      const row = document.querySelector(`#factions-container .session-row[data-id="${CSS.escape(id)}"]`);
       if (row) {
         const wrap = row.querySelector('.tags-wrap');
         if (wrap) wrap.innerHTML = tags && tags.length ? '<br>' + tagChipsHtml(tags) : '';
@@ -75,50 +78,52 @@ let lastVisibleNpcIds = [];
   });
 })();
 
-async function refreshNpcs() {
-  const res = await fetch('/api/npcs');
-  if (!res.ok) throw new Error('Could not load NPCs');
-  allNpcs = await res.json();
+async function refreshFactions() {
+  const res = await fetch('/api/factions');
+  if (!res.ok) throw new Error('Could not load factions');
+  allFactions = await res.json();
 }
 
-function renderTable(npcs, isFiltered) {
+function renderTable(factions, isFiltered) {
   if (window.exitSelectMode) window.exitSelectMode();
-  const container = document.getElementById('npcs-container');
-  lastVisibleNpcIds = npcs.map(npc => npc.id);
+  const container = document.getElementById('factions-container');
+  lastVisibleFactionIds = factions.map(faction => faction.id);
 
-  if (!npcs.length) {
+  if (!factions.length) {
     container.innerHTML = isFiltered
-      ? `<div class="empty-state"><p>No NPCs match your search.</p></div>`
+      ? `<div class="empty-state"><p>No factions match your search.</p></div>`
       : `<div class="empty-state">
-           <p>No NPCs yet. Create your first character!</p>
-           <a href="/npc/new" class="btn btn-primary">+ New NPC</a>
+           <p>No factions yet. Create your first power group!</p>
+           <a href="/faction/new" class="btn btn-primary">+ New Faction</a>
          </div>`;
     return;
   }
 
-  const rows = npcs.map(n => {
-    const demoBadge = n.isDemo ? ' <span class="demo-badge">Demo</span>' : '';
+  const rows = factions.map(faction => {
+    const demoBadge = faction.isDemo ? ' <span class="demo-badge">Demo</span>' : '';
     const linkChips = [];
-    if (n.linkedSessions && n.linkedSessions.length)
-      linkChips.push(`<span class="link-count-chip">${n.linkedSessions.length} session${n.linkedSessions.length === 1 ? '' : 's'}</span>`);
-    if (n.linkedEncounters && n.linkedEncounters.length)
-      linkChips.push(`<span class="link-count-chip">${n.linkedEncounters.length} encounter${n.linkedEncounters.length === 1 ? '' : 's'}</span>`);
-    const tagChips = tagChipsHtml(n.tags);
+    if (faction.linkedSessions?.length) linkChips.push(linkCountChip(faction.linkedSessions.length, 'session'));
+    if (faction.linkedEncounters?.length) linkChips.push(linkCountChip(faction.linkedEncounters.length, 'encounter'));
+    if (faction.linkedNpcs?.length) linkChips.push(linkCountChip(faction.linkedNpcs.length, 'NPC'));
+    if (faction.linkedLocations?.length) linkChips.push(linkCountChip(faction.linkedLocations.length, 'location'));
+    const tagChips = tagChipsHtml(faction.tags);
+    const reputationText = reputationLabel(faction.partyReputation);
     return `
-      <tr class="session-row" data-id="${n.id}">
+      <tr class="session-row" data-id="${faction.id}">
         <td class="drag-cell">
-          <button class="row-drag-handle" type="button" draggable="true" title="Drag to reorder NPCs" aria-label="Drag to reorder NPC">⋮⋮</button>
+          <button class="row-drag-handle" type="button" draggable="true" title="Drag to reorder factions" aria-label="Drag to reorder faction">⋮⋮</button>
         </td>
         <td class="checkbox-cell"><input type="checkbox" class="row-checkbox"></td>
         <td class="clickable">
-          <span class="session-num npc-name-cell">${escHtml(n.name)}</span>${demoBadge}
-          ${n.nickname ? `<span class="npc-nickname"> "${escHtml(n.nickname)}"</span>` : ''}
+          <span class="session-num npc-name-cell">${escHtml(faction.name)}</span>${demoBadge}
+          ${faction.origin ? `<span class="npc-nickname"> · ${escHtml(faction.origin)}</span>` : ''}
           ${linkChips.length ? ' ' + linkChips.join(' ') : ''}
           <span class="tags-wrap">${tagChips ? '<br>' + tagChips : ''}</span>
         </td>
-        <td class="clickable session-goal">${escHtml(n.situation || '')}</td>
+        <td class="clickable session-goal">${escHtml(faction.goal || '')}</td>
+        <td class="clickable">${escHtml(reputationText)}</td>
         <td class="action-cell">
-          <button class="btn-more-row" data-id="${n.id}" title="More options">⋮</button>
+          <button class="btn-more-row" data-id="${faction.id}" title="More options">⋮</button>
         </td>
       </tr>`;
   }).join('');
@@ -128,9 +133,10 @@ function renderTable(npcs, isFiltered) {
       <thead>
         <tr>
           <th class="drag-cell" aria-label="Reorder"></th>
-          <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible NPCs"></th>
+          <th class="checkbox-cell"><input type="checkbox" class="row-checkbox select-all-checkbox" aria-label="Select all visible factions"></th>
           <th>Name</th>
-          <th>Situation</th>
+          <th>Goal</th>
+          <th>Reputation</th>
           <th style="width:44px"></th>
         </tr>
       </thead>
@@ -141,11 +147,11 @@ function renderTable(npcs, isFiltered) {
     td.style.cursor = 'pointer';
     td.addEventListener('click', () => {
       if (window.isMultiSelectMode && window.isMultiSelectMode()) return;
-      location.href = `/npc/view/${td.closest('tr').dataset.id}`;
+      location.href = `/faction/view/${td.closest('tr').dataset.id}`;
     });
   });
 
-  initRowReorder(container, '/api/npcs/reorder', isFiltered);
+  initRowReorder(container, '/api/factions/reorder', isFiltered);
 }
 
 function initRowReorder(container, apiUrl, isFiltered) {
@@ -211,23 +217,22 @@ function initRowReorder(container, apiUrl, isFiltered) {
 
       clearDragState();
 
-      const previousAllItems = allNpcs.slice();
+      const previousAllItems = allFactions.slice();
       const visibleIds = [...tbody.querySelectorAll('.session-row')].map(item => item.dataset.id);
-      allNpcs = mergeVisibleOrder(allNpcs, visibleIds);
+      allFactions = mergeVisibleOrder(allFactions, visibleIds);
 
       try {
         const res = await fetch(apiUrl, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: allNpcs.map(item => item.id) }),
+          body: JSON.stringify({ ids: allFactions.map(item => item.id) }),
         });
-        if (!res.ok) throw new Error('Could not save NPC order');
+        if (!res.ok) throw new Error('Could not save faction order');
       } catch (err) {
-        allNpcs = previousAllItems;
-        const visibleSet = new Set(lastVisibleNpcIds);
-        renderTable(isFiltered ? allNpcs.filter(item => visibleSet.has(item.id)) : allNpcs, isFiltered);
-        showToast(err.message || 'Could not save NPC order.', 'error');
-        return;
+        allFactions = previousAllItems;
+        const visibleSet = new Set(lastVisibleFactionIds);
+        renderTable(isFiltered ? allFactions.filter(item => visibleSet.has(item.id)) : allFactions, isFiltered);
+        showToast(err.message || 'Could not save faction order.', 'error');
       }
     });
   });
@@ -241,6 +246,24 @@ function mergeVisibleOrder(allItems, visibleIds) {
   return allItems.map(item => (visibleSet.has(item.id) ? orderedVisible[index++] : item));
 }
 
+function linkCountChip(count, label) {
+  return `<span class="link-count-chip">${count} ${label}${count === 1 ? '' : 's'}</span>`;
+}
+
+function reputationLabel(value) {
+  const score = Number(value) || 0;
+  const labels = {
+    '-3': 'Hostile',
+    '-2': 'Distrusted',
+    '-1': 'Cold',
+    '0': 'Neutral',
+    '1': 'Warm',
+    '2': 'Trusted',
+    '3': 'Allied',
+  };
+  return `${score > 0 ? '+' : ''}${score} ${labels[String(score)] || ''}`.trim();
+}
+
 function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
@@ -249,9 +272,14 @@ function escHtml(str) {
 
 function tagChipsHtml(tags, max = 3) {
   if (!tags || !tags.length) return '';
-  const visible = tags.slice(0, max).map(t => `<span class="tag-chip${String(t || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(t)}</span>`);
+  const visible = tags.slice(0, max).map(tag => `<span class="tag-chip${String(tag || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(tag)}</span>`);
   if (tags.length > max) visible.push(`<span class="tag-chip overflow">+${tags.length - max}</span>`);
   return visible.join(' ');
+}
+
+function duplicateLabel(value, suffix) {
+  const base = String(value || '').trim();
+  return base ? `${base} (${suffix})` : suffix;
 }
 
 function showToast(msg, type = 'success') {
@@ -260,9 +288,4 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => { t.className = 'toast'; }, 5000);
-}
-
-function duplicateLabel(value, suffix) {
-  const base = String(value || '').trim();
-  return base ? `${base} (${suffix})` : suffix;
 }

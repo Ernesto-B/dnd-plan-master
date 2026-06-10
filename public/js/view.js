@@ -46,6 +46,7 @@
   mountTagEditor(id, session.data?.tags || [], '/api/sessions', '#tags-anchor');
   setupDmModal(session, linkedEncounterLinks, linkedNpcLinks);
   setupConnectionsPanel(session, linkedEncounterLinks, linkedNpcLinks);
+  setupDraftActions(session, id);
 
   document.getElementById('btn-run').addEventListener('click', () => {
     location.href = `/run/${id}`;
@@ -156,6 +157,31 @@
 
   document.getElementById('btn-delete').addEventListener('click', () => deleteSession(id));
 })();
+
+function setupDraftActions(session, id) {
+  const promoteBtn = document.getElementById('btn-promote-draft');
+  if (!promoteBtn || session.status !== 'draft') return;
+  promoteBtn.classList.remove('hidden');
+  promoteBtn.addEventListener('click', async () => {
+    promoteBtn.disabled = true;
+    promoteBtn.textContent = 'Promoting…';
+    try {
+      const res = await fetch(`/api/sessions/${id}/state`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Promotion failed');
+      showToast('Draft promoted to session.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      showToast('Promote failed: ' + err.message, 'error');
+      promoteBtn.disabled = false;
+      promoteBtn.textContent = 'Promote Draft';
+    }
+  });
+}
 
 function setupConnectionsPanel(session, linkedEncounterLinks, linkedNpcLinks) {
   const btn = document.getElementById('btn-connections');
@@ -367,7 +393,7 @@ function formatDate(dateStr) {
 
 function tagChipsHtml(tags, max = 3) {
   if (!tags || !tags.length) return '';
-  const visible = tags.slice(0, max).map(t => `<span class="tag-chip">${escHtml(t)}</span>`);
+  const visible = tags.slice(0, max).map(t => `<span class="tag-chip${String(t || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(t)}</span>`);
   if (tags.length > max) visible.push(`<span class="tag-chip overflow">+${tags.length - max}</span>`);
   return visible.join(' ');
 }

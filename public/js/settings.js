@@ -455,7 +455,7 @@
 
   document.getElementById('btn-clear-data').addEventListener('click', async () => {
     const ok = await showConfirm(
-      'Move all active sessions, encounters, NPCs, and locations in this campaign to trash? You can restore them later from Archive & Trash.',
+      'Move all active sessions, encounters, NPCs, locations, and factions in this campaign to trash? You can restore them later from Archive & Trash.',
       { title: 'Move All to Trash', confirmLabel: 'Move to Trash', danger: true }
     );
     if (!ok) return;
@@ -487,7 +487,7 @@
 
   // ─── Export & Import ──────────────────────────────────────────────────────
 
-  let exportData = { sessions: [], encounters: [], npcs: [], locations: [] };
+  let exportData = { sessions: [], encounters: [], npcs: [], locations: [], factions: [] };
   let exportItems = [];
   let lifecycleItems = [];
   const selectedExportKeys = new Set();
@@ -501,6 +501,14 @@
   const locationToSessions = new Map();
   const encounterToNpcs = new Map();
   const npcToEncounters = new Map();
+  const sessionToFactions = new Map();
+  const factionToSessions = new Map();
+  const encounterToFactions = new Map();
+  const factionToEncounters = new Map();
+  const npcToFactions = new Map();
+  const factionToNpcs = new Map();
+  const locationToFactions = new Map();
+  const factionToLocations = new Map();
 
   function slugifyName(value, fallback = 'campaign') {
     return String(value || '')
@@ -590,11 +598,29 @@
       };
     });
 
+    const factionJobs = (bundle.factions || []).map(async faction => {
+      const exportRes = await fetch('/api/factions/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(faction),
+      });
+      const exported = await exportRes.json();
+      if (!exportRes.ok) return null;
+      return {
+        filename: exported.filename,
+        displayName: faction.name || faction.id,
+        type: 'faction',
+        markdown: exported.markdown,
+        pdf: exported.pdf,
+      };
+    });
+
     const results = await Promise.all([
       Promise.allSettled(sessionJobs),
       Promise.allSettled(encounterJobs),
       Promise.allSettled(npcJobs),
       Promise.allSettled(locationJobs),
+      Promise.allSettled(factionJobs),
     ]);
 
     results.flat().forEach(result => {
@@ -638,6 +664,13 @@
         tags: location.tags || [],
         createdAt: location.createdAt || null,
       })),
+      ...exportData.factions.map(faction => ({
+        type: 'faction',
+        id: faction.id,
+        label: faction.name || faction.id,
+        tags: faction.tags || [],
+        createdAt: faction.createdAt || null,
+      })),
     ];
   }
 
@@ -678,6 +711,7 @@
       exportData.encounters = Array.isArray(exportData.encounters) ? exportData.encounters : [];
       exportData.npcs = Array.isArray(exportData.npcs) ? exportData.npcs : [];
       exportData.locations = Array.isArray(exportData.locations) ? exportData.locations : [];
+      exportData.factions = Array.isArray(exportData.factions) ? exportData.factions : [];
     } catch (err) {
       listEl.innerHTML = `<p style="padding:12px; color:var(--danger); font-family:var(--font-body);">Could not load records: ${err.message}</p>`;
       return;
@@ -698,6 +732,14 @@
     locationToSessions.clear();
     encounterToNpcs.clear();
     npcToEncounters.clear();
+    sessionToFactions.clear();
+    factionToSessions.clear();
+    encounterToFactions.clear();
+    factionToEncounters.clear();
+    npcToFactions.clear();
+    factionToNpcs.clear();
+    locationToFactions.clear();
+    factionToLocations.clear();
 
     for (const enc of exportData.encounters) {
       if (enc.sessionId) {
@@ -737,6 +779,24 @@
         addToMap(sessionToLocations, sessionId, location.id);
       }
     }
+    for (const faction of exportData.factions) {
+      for (const sessionId of faction.linkedSessions || []) {
+        addToMap(factionToSessions, faction.id, sessionId);
+        addToMap(sessionToFactions, sessionId, faction.id);
+      }
+      for (const encounterId of faction.linkedEncounters || []) {
+        addToMap(factionToEncounters, faction.id, encounterId);
+        addToMap(encounterToFactions, encounterId, faction.id);
+      }
+      for (const npcId of faction.linkedNpcs || []) {
+        addToMap(factionToNpcs, faction.id, npcId);
+        addToMap(npcToFactions, npcId, faction.id);
+      }
+      for (const locationId of faction.linkedLocations || []) {
+        addToMap(factionToLocations, faction.id, locationId);
+        addToMap(locationToFactions, locationId, faction.id);
+      }
+    }
 
     flattenExportItems();
 
@@ -773,7 +833,7 @@
         <div class="export-item" style="display:flex; align-items:center; gap:12px;">
           <div style="flex:1;">
             <div class="export-item-label">${escHtml(backup.name)}</div>
-            <div class="export-item-id">${escHtml(backup.createdAt || 'Unknown date')} · ${backup.sessionCount} session(s) · ${backup.encounterCount} encounter(s)</div>
+            <div class="export-item-id">${escHtml(backup.createdAt || 'Unknown date')} · ${backup.sessionCount} session(s) · ${backup.encounterCount} encounter(s) · ${backup.npcCount || 0} NPC(s) · ${backup.locationCount || 0} location(s) · ${backup.factionCount || 0} faction(s)</div>
           </div>
           <button type="button" class="btn btn-ghost btn-restore-backup" data-name="${escAttr(backup.name)}">Restore</button>
         </div>
@@ -781,7 +841,7 @@
 
       listEl.querySelectorAll('.btn-restore-backup').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const ok = await showConfirm(`Restore backup ${btn.dataset.name}? This replaces the app's current sessions, encounters, and settings.`, {
+          const ok = await showConfirm(`Restore backup ${btn.dataset.name}? This replaces the app's current sessions, encounters, NPCs, locations, factions, and settings.`, {
             title: 'Restore Backup',
             confirmLabel: 'Restore',
             danger: true,
@@ -795,7 +855,7 @@
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || 'Restore failed');
-            showToast(`Restored ${result.sessionCount} session(s) and ${result.encounterCount} encounter(s) from backup.`, 'success');
+            showToast(`Restored ${result.sessionCount} session(s), ${result.encounterCount} encounter(s), ${result.npcCount || 0} NPC(s), ${result.locationCount || 0} location(s), and ${result.factionCount || 0} faction(s) from backup.`, 'success');
             setTimeout(() => { location.reload(); }, 1000);
           } catch (err) {
             showToast('Restore failed: ' + err.message, 'error');
@@ -904,6 +964,7 @@
       encounter: 'Encounter',
       npc: 'NPC',
       location: 'Location',
+      faction: 'Faction',
     }[type] || type;
   }
 
@@ -976,6 +1037,7 @@
       encounter: 'Encounter',
       npc: 'NPC',
       location: 'Location',
+      faction: 'Faction',
     }[type] || type;
     const item = document.createElement('label');
     item.className = 'export-item';
@@ -1033,14 +1095,23 @@
         addKeys('encounter', sessionToEncounters.get(id));
         addKeys('npc', sessionToNpcs.get(id));
         addKeys('location', sessionToLocations.get(id));
+        addKeys('faction', sessionToFactions.get(id));
       } else if (type === 'encounter') {
         addKeys('session', encounterToSessions.get(id));
         addKeys('npc', encounterToNpcs.get(id));
+        addKeys('faction', encounterToFactions.get(id));
       } else if (type === 'npc') {
         addKeys('session', npcToSessions.get(id));
         addKeys('encounter', npcToEncounters.get(id));
+        addKeys('faction', npcToFactions.get(id));
       } else if (type === 'location') {
         addKeys('session', locationToSessions.get(id));
+        addKeys('faction', locationToFactions.get(id));
+      } else if (type === 'faction') {
+        addKeys('session', factionToSessions.get(id));
+        addKeys('encounter', factionToEncounters.get(id));
+        addKeys('npc', factionToNpcs.get(id));
+        addKeys('location', factionToLocations.get(id));
       }
     }
 
@@ -1059,13 +1130,15 @@
     const encounterIds = new Set(checked.filter(x => x.type === 'encounter').map(x => x.id));
     const npcIds = new Set(checked.filter(x => x.type === 'npc').map(x => x.id));
     const locationIds = new Set(checked.filter(x => x.type === 'location').map(x => x.id));
+    const factionIds = new Set(checked.filter(x => x.type === 'faction').map(x => x.id));
     const payload = {
       sessions:   exportData.sessions.filter(s => sessionIds.has(s.id)),
       encounters: exportData.encounters.filter(e => encounterIds.has(e.id)),
       npcs: exportData.npcs.filter(npc => npcIds.has(npc.id)),
       locations: exportData.locations.filter(location => locationIds.has(location.id)),
+      factions: exportData.factions.filter(faction => factionIds.has(faction.id)),
     };
-    const total = payload.sessions.length + payload.encounters.length + payload.npcs.length + payload.locations.length;
+    const total = payload.sessions.length + payload.encounters.length + payload.npcs.length + payload.locations.length + payload.factions.length;
 
     ExportDialog.open({
       title: 'Export Selected Records',
@@ -1108,6 +1181,7 @@
     encounter: 'Encounter',
     npc: 'NPC',
     location: 'Location',
+    faction: 'Faction',
   };
   const importStatusLabel = {
     new: 'New',
@@ -1308,7 +1382,7 @@
     reader.onload = async e => {
       try {
         importFileData = JSON.parse(e.target.result);
-        if (!importFileData.sessions && !importFileData.encounters && !importFileData.npcs && !importFileData.locations) {
+        if (!importFileData.sessions && !importFileData.encounters && !importFileData.npcs && !importFileData.locations && !importFileData.factions) {
           throw new Error('Invalid format');
         }
         await loadImportPreview(importFileData);
@@ -1335,6 +1409,7 @@
           encounters: importFileData.encounters || [],
           npcs: importFileData.npcs || [],
           locations: importFileData.locations || [],
+          factions: importFileData.factions || [],
           resolution: importPreviewState.resolution,
         }),
       });

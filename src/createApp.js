@@ -6,9 +6,11 @@ const encountersRouter = require('./routes/encounters');
 const settingsRouter   = require('./routes/settings');
 const npcsRouter       = require('./routes/npcs');
 const locationsRouter  = require('./routes/locations');
+const factionsRouter   = require('./routes/factions');
 const searchRouter     = require('./routes/search');
 const exportRouter     = require('./routes/export');
 const campaignsRouter  = require('./routes/campaigns');
+const mapsRouter       = require('./routes/maps');
 const campaignStore    = require('./services/campaignStore');
 const demoSeed         = require('./services/demoSeed');
 
@@ -22,6 +24,8 @@ async function initApp() {
 function createApp() {
   const app = express();
 
+  // Must precede the global parser — map image uploads arrive as base64 JSON
+  app.use('/api/map/image', express.json({ limit: '50mb' }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
   app.get('/vendor/marked.js', (_req, res) => {
@@ -33,9 +37,11 @@ function createApp() {
   app.use('/api/settings', settingsRouter);
   app.use('/api/npcs', npcsRouter);
   app.use('/api/locations', locationsRouter);
+  app.use('/api/factions', factionsRouter);
   app.use('/api/search', searchRouter);
   app.use('/api/export', exportRouter);
   app.use('/api/campaigns', campaignsRouter);
+  app.use('/api/map', mapsRouter);
 
   const pub = p => path.join(__dirname, '..', 'public', p);
 
@@ -55,11 +61,16 @@ function createApp() {
   app.get('/location/new', (_req, res) => res.sendFile(pub('location-form.html')));
   app.get('/location/edit/:id', (_req, res) => res.sendFile(pub('location-form.html')));
   app.get('/location/view/:id', (_req, res) => res.sendFile(pub('location-view.html')));
+  app.get('/factions', (_req, res) => res.sendFile(pub('factions.html')));
+  app.get('/faction/new', (_req, res) => res.sendFile(pub('faction-form.html')));
+  app.get('/faction/edit/:id', (_req, res) => res.sendFile(pub('faction-form.html')));
+  app.get('/faction/view/:id', (_req, res) => res.sendFile(pub('faction-view.html')));
   app.get('/campaign', (_req, res) => res.sendFile(pub('campaign.html')));
   app.get('/campaigns', (_req, res) => res.sendFile(pub('campaigns.html')));
   app.get('/settings', (_req, res) => res.sendFile(pub('settings.html')));
   app.get('/run/:id',  (_req, res) => res.sendFile(pub('run.html')));
   app.get('/shell',    (_req, res) => res.sendFile(pub('shell.html')));
+  app.get('/map',      (_req, res) => res.sendFile(pub('map.html')));
 
   return app;
 }

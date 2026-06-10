@@ -2,8 +2,9 @@ const sessionStore = require('./sessionStore');
 const encounterStore = require('./encounterStore');
 const npcStore = require('./npcStore');
 const locationStore = require('./locationStore');
+const factionStore = require('./factionStore');
 const planRelations = require('./planRelations');
-const { isActive } = require('./recordLifecycle');
+const { isLive } = require('./recordLifecycle');
 
 function nodeId(type, id) {
   return `${type}:${id}`;
@@ -23,23 +24,26 @@ function belongsToCampaign(record, campaignId) {
 }
 
 async function buildEntityConnections(campaignId = 'c-default') {
-  const [sessions, encounters, npcs, locations] = await Promise.all([
+  const [sessions, encounters, npcs, locations, factions] = await Promise.all([
     sessionStore.getAllFull(),
     encounterStore.getAllFull(),
     npcStore.getAllFull(),
     locationStore.getAllFull(),
+    factionStore.getAllFull(),
   ]);
 
-  const campaignSessions = sessions.filter(session => belongsToCampaign(session, campaignId) && isActive(session));
-  const campaignEncounters = encounters.filter(encounter => belongsToCampaign(encounter, campaignId) && isActive(encounter));
-  const campaignNpcs = npcs.filter(npc => belongsToCampaign(npc, campaignId) && isActive(npc));
-  const campaignLocations = locations.filter(location => belongsToCampaign(location, campaignId) && isActive(location));
+  const campaignSessions = sessions.filter(session => belongsToCampaign(session, campaignId) && isLive(session));
+  const campaignEncounters = encounters.filter(encounter => belongsToCampaign(encounter, campaignId) && isLive(encounter));
+  const campaignNpcs = npcs.filter(npc => belongsToCampaign(npc, campaignId) && isLive(npc));
+  const campaignLocations = locations.filter(location => belongsToCampaign(location, campaignId) && isLive(location));
+  const campaignFactions = factions.filter(faction => belongsToCampaign(faction, campaignId) && isLive(faction));
 
   const relationIndex = planRelations.buildRelationIndex(campaignSessions, campaignEncounters);
   const sessionById = new Map(campaignSessions.map(session => [session.id, session]));
   const encounterById = new Map(campaignEncounters.map(encounter => [encounter.id, encounter]));
   const npcById = new Map(campaignNpcs.map(npc => [npc.id, npc]));
   const locationById = new Map(campaignLocations.map(location => [location.id, location]));
+  const factionById = new Map(campaignFactions.map(faction => [faction.id, faction]));
 
   const edgeMap = new Map();
 
@@ -69,6 +73,21 @@ async function buildEntityConnections(campaignId = 'c-default') {
   for (const location of campaignLocations) {
     for (const sessionId of location.linkedSessions || []) {
       if (sessionById.has(sessionId)) addEdge(edgeMap, 'location', location.id, 'session', sessionId);
+    }
+  }
+
+  for (const faction of campaignFactions) {
+    for (const sessionId of faction.linkedSessions || []) {
+      if (sessionById.has(sessionId)) addEdge(edgeMap, 'faction', faction.id, 'session', sessionId);
+    }
+    for (const encounterId of faction.linkedEncounters || []) {
+      if (encounterById.has(encounterId)) addEdge(edgeMap, 'faction', faction.id, 'encounter', encounterId);
+    }
+    for (const npcId of faction.linkedNpcs || []) {
+      if (npcById.has(npcId)) addEdge(edgeMap, 'faction', faction.id, 'npc', npcId);
+    }
+    for (const locationId of faction.linkedLocations || []) {
+      if (locationById.has(locationId)) addEdge(edgeMap, 'faction', faction.id, 'location', locationId);
     }
   }
 
@@ -154,6 +173,31 @@ async function buildEntityConnections(campaignId = 'c-default') {
         location.description,
         location.government,
         ...(location.tags || []),
+      ].join(' ').toLowerCase(),
+    })),
+    ...campaignFactions.map(faction => ({
+      id: nodeId('faction', faction.id),
+      entityType: 'faction',
+      rawId: faction.id,
+      label: faction.name || faction.id,
+      subtitle: faction.goal || faction.origin || 'No faction goal recorded.',
+      meta: faction.origin || '',
+      tags: faction.tags || [],
+      url: `/faction/view/${faction.id}`,
+      searchText: [
+        faction.id,
+        faction.name,
+        faction.origin,
+        faction.goal,
+        faction.size,
+        faction.partyReputation,
+        ...(faction.tags || []),
+        ...(faction.factionClocks || []).flatMap(clock => [
+          clock.name,
+          clock.advanceTrigger,
+          clock.setbackTrigger,
+          ...(clock.stepDescriptions || []),
+        ]),
       ].join(' ').toLowerCase(),
     })),
   ].map(node => ({

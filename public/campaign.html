@@ -61,6 +61,7 @@
     <div class="campaign-search-wrap">
       <input type="search" id="campaign-search" class="search-input campaign-search-input" placeholder="Search recap, threads, NPC updates, rewards, tags, or session goal…">
     </div>
+    <a href="/map" class="btn btn-ghost btn-sm" data-icon="location" style="flex-shrink:0;align-self:flex-start;">World Map</a>
   </div>
 
   <div id="campaign-guide" class="campaign-guide"></div>
@@ -90,12 +91,13 @@
       <span class="section-num">03</span>
       <h2>Entity Connections</h2>
     </div>
-    <p class="campaign-connections-note">Search for any session, encounter, NPC, tag, or note. The explorer will show your matches plus the directly linked records that matter for running the game.</p>
+    <p class="campaign-connections-note">Search for any session, encounter, NPC, location, faction, tag, or note. The explorer will show your matches plus the directly linked records that matter for running the game.</p>
     <div class="campaign-connections-toolbar">
-      <input type="search" id="entity-graph-search" class="search-input campaign-search-input" placeholder="Search sessions, encounters, NPCs, tags, IDs, or notes…">
+      <input type="search" id="entity-graph-search" class="search-input campaign-search-input" placeholder="Search sessions, encounters, NPCs, locations, factions, tags, IDs, or notes…">
       <div class="campaign-connections-filters" id="entity-graph-filters">
         <button type="button" class="search-chip active" data-type="all">All</button>
         <button type="button" class="search-chip" data-type="session">Sessions</button>
+        <button type="button" class="search-chip" data-type="faction">Factions</button>
         <button type="button" class="search-chip" data-type="npc">NPCs</button>
         <button type="button" class="search-chip" data-type="encounter">Encounters</button>
         <button type="button" class="search-chip" data-type="location">Locations</button>

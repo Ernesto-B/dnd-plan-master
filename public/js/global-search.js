@@ -21,7 +21,7 @@
     <div class="gs-box" role="dialog" aria-label="Global search">
       <div class="gs-input-row">
         <span class="gs-input-icon">⌕</span>
-        <input id="gs-input" class="gs-input" type="text" placeholder="Search sessions, encounters, NPCs, locations…" autocomplete="off" spellcheck="false">
+        <input id="gs-input" class="gs-input" type="text" placeholder="Search sessions, encounters, NPCs, locations, factions…" autocomplete="off" spellcheck="false">
         <div class="gs-input-tools">
           <span id="gs-scope-indicator" class="gs-scope-indicator" hidden></span>
           <kbd class="gs-esc-hint">Esc</kbd>
@@ -32,6 +32,7 @@
         <span class="gs-hint-chip" data-scope="encounter">enc: …</span>
         <span class="gs-hint-chip" data-scope="npc">npc: …</span>
         <span class="gs-hint-chip" data-scope="location">loc: …</span>
+        <span class="gs-hint-chip" data-scope="faction">fac: …</span>
       </div>
       <div id="gs-results" class="gs-results"></div>
     </div>`;
@@ -53,6 +54,7 @@
     encounter: { icon: '⚔',  label: 'Encounters' },
     npc:       { icon: '👤', label: 'NPCs'        },
     location:  { icon: '📍', label: 'Locations'   },
+    faction:   { icon: '⚑', label: 'Factions'     },
   };
 
   const SMART_SCOPES = [
@@ -60,6 +62,7 @@
     { key: 'encounter', aliases: ['enc', 'encounter', 'encounters'], label: 'Encounters', canonical: 'enc' },
     { key: 'npc', aliases: ['npc', 'npcs'], label: 'NPCs', canonical: 'npc' },
     { key: 'location', aliases: ['loc', 'location', 'locations'], label: 'Locations', canonical: 'loc' },
+    { key: 'faction', aliases: ['fac', 'faction', 'factions'], label: 'Factions', canonical: 'fac' },
   ];
 
   // ─── Open / close ────────────────────────────────────────────────────────────
@@ -154,7 +157,7 @@
       groups[item.type].push(item);
     }
 
-    const order = ['session', 'encounter', 'npc', 'location'];
+    const order = ['session', 'encounter', 'npc', 'location', 'faction'];
     let html = '';
     let idx  = 0;
 

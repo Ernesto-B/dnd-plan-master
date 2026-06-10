@@ -253,7 +253,7 @@ function escHtml(str) {
 
 function tagChipsHtml(tags, max = 3) {
   if (!tags || !tags.length) return '';
-  const visible = tags.slice(0, max).map(t => `<span class="tag-chip">${escHtml(t)}</span>`);
+  const visible = tags.slice(0, max).map(t => `<span class="tag-chip${String(t || '').trim().toLowerCase() === 'draft' ? ' is-draft' : ''}">${escHtml(t)}</span>`);
   if (tags.length > max) visible.push(`<span class="tag-chip overflow">+${tags.length - max}</span>`);
   return visible.join(' ');
 }

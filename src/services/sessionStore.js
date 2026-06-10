@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const { getDataFile, getWritableDataDir } = require('./appPaths');
-const { ACTIVE, normalizeRecord, isActive, setStatus, matchesStatus } = require('./recordLifecycle');
+const { ACTIVE, DRAFT, normalizeRecord, normalizeTagsForStatus, isLive, setStatus, matchesStatus } = require('./recordLifecycle');
 
 const SESSIONS_FILE = getDataFile('sessions.json');
 
@@ -68,13 +68,14 @@ async function getAllSessions(campaignId) {
     !campaignId ||
     s.campaignId === campaignId ||
     (!s.campaignId && campaignId === 'c-default');
-  return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && isActive(s)).map(s => ({
+  return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && isLive(s)).map(s => ({
     id: s.id,
     sessionNumber: s.sessionNumber,
     date: s.date,
     partyLevel: s.partyLevel,
     goal: s.goal,
     createdAt: s.createdAt,
+    status: s.status || ACTIVE,
     isDemo: s.isDemo || false,
     tags: s.tags || [],
     campaignId: s.campaignId || 'c-default',
@@ -85,10 +86,12 @@ async function updateTags(id, tags) {
   const store = await readStore();
   const idx = store.sessions.findIndex(s => s.id === id);
   if (idx < 0) throw new Error(`Session ${id} not found`);
-  store.sessions[idx].tags = tags;
-  if (store.sessions[idx].data) store.sessions[idx].data.tags = tags;
+  const current = normalizeRecord(store.sessions[idx]);
+  const normalizedTags = normalizeTagsForStatus(tags, current.status);
+  store.sessions[idx].tags = normalizedTags;
+  if (store.sessions[idx].data) store.sessions[idx].data.tags = normalizedTags;
   await writeStore(store);
-  return tags;
+  return normalizedTags;
 }
 
 async function getSession(id) {
@@ -118,19 +121,23 @@ async function saveSession(data, markdown) {
     goal: data.sessionGoal,
     createdAt: new Date().toISOString(),
     sortOrder: nextSortOrder(store.sessions),
-    tags: Array.isArray(data.tags) ? data.tags : [],
-    status: ACTIVE,
+    tags: normalizeTagsForStatus(data.tags, data.status || ACTIVE),
+    status: data.status === DRAFT ? DRAFT : ACTIVE,
     data: { ...data, id },
     markdown,
   };
+  session.data.tags = session.tags;
 
   const idx = store.sessions.findIndex(s => s.id === id);
   if (idx >= 0) {
     session.createdAt = store.sessions[idx].createdAt;
     session.sortOrder = orderValue(store.sessions[idx], idx);
     session.status = normalizeRecord(store.sessions[idx]).status;
+    session.tags = normalizeTagsForStatus(data.tags, session.status);
+    session.data.tags = session.tags;
     if (store.sessions[idx].archivedAt) session.archivedAt = store.sessions[idx].archivedAt;
     if (store.sessions[idx].trashedAt) session.trashedAt = store.sessions[idx].trashedAt;
+    if (store.sessions[idx].restorableStatus) session.restorableStatus = store.sessions[idx].restorableStatus;
     store.sessions[idx] = session;
   } else {
     store.sessions.push(session);

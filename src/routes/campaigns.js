@@ -7,7 +7,8 @@ const sessionStore   = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
 const npcStore       = require('../services/npcStore');
 const locationStore  = require('../services/locationStore');
-const { isActive } = require('../services/recordLifecycle');
+const factionStore   = require('../services/factionStore');
+const { isLive } = require('../services/recordLifecycle');
 
 // GET /api/campaigns — list all + active flag
 router.get('/', async (_req, res) => {
@@ -45,7 +46,7 @@ router.post('/', async (req, res) => {
 // POST /api/campaigns/import — import a full campaign bundle as a new campaign
 router.post('/import', async (req, res) => {
   try {
-    const { campaign = {}, sessions = [], encounters = [], npcs = [], locations = [] } = req.body || {};
+    const { campaign = {}, sessions = [], encounters = [], npcs = [], locations = [], factions = [] } = req.body || {};
 
     const created = await campaignStore.createCampaign({
       name:        campaign.name || 'Imported Campaign',
@@ -56,26 +57,27 @@ router.post('/import', async (req, res) => {
     });
 
     const remap = r => ({ ...r, campaignId: created.id });
-    const [importedSessions, importedEncounters, importedNpcs, importedLocations] = await Promise.all([
+    const [importedSessions, importedEncounters, importedNpcs, importedLocations, importedFactions] = await Promise.all([
       sessionStore.importSessions(sessions.map(remap)),
       encounterStore.importEncounters(encounters.map(remap)),
       npcStore.importNpcs(npcs.map(remap)),
       locationStore.importLocations(locations.map(remap)),
+      factionStore.importFactions(factions.map(remap)),
     ]);
 
-    const totalIncoming = sessions.length + encounters.length + npcs.length + locations.length;
-    const totalImported = importedSessions + importedEncounters + importedNpcs + importedLocations;
+    const totalIncoming = sessions.length + encounters.length + npcs.length + locations.length + factions.length;
+    const totalImported = importedSessions + importedEncounters + importedNpcs + importedLocations + importedFactions;
 
     // All records already exist by ID (e.g. re-importing the same campaign on the
     // same install) — the new campaign would be an empty shell. Clean it up.
     if (totalIncoming > 0 && totalImported === 0) {
       await campaignStore.deleteCampaign(created.id);
       return res.status(409).json({
-        error: 'Every session, encounter, NPC, and location in this bundle already exists in this installation (matching IDs), so nothing could be imported. This usually happens when re-importing a campaign on the install it was exported from — try importing on a different installation instead.',
+        error: 'Every session, encounter, NPC, location, and faction in this bundle already exists in this installation (matching IDs), so nothing could be imported. This usually happens when re-importing a campaign on the install it was exported from — try importing on a different installation instead.',
       });
     }
 
-    res.json({ campaign: created, importedSessions, importedEncounters, importedNpcs, importedLocations });
+    res.json({ campaign: created, importedSessions, importedEncounters, importedNpcs, importedLocations, importedFactions });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -120,11 +122,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const id = req.params.id;
     // Delete all records belonging to this campaign
-    const [sessions, encounters, npcs, locations] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
       npcStore.getAllFull(),
       locationStore.getAllFull(),
+      factionStore.getAllFull(),
     ]);
     const belongsHere = r => r.campaignId === id || (!r.campaignId && id === 'c-default');
     await Promise.all([
@@ -132,6 +135,7 @@ router.delete('/:id', async (req, res) => {
       ...encounters.filter(belongsHere).map(e => encounterStore.deleteEncounter(e.id)),
       ...npcs.filter(belongsHere).map(n => npcStore.deleteNpc(n.id)),
       ...locations.filter(belongsHere).map(l => locationStore.deleteLocation(l.id)),
+      ...factions.filter(belongsHere).map(f => factionStore.deleteFaction(f.id)),
     ]);
     await campaignStore.deleteCampaign(id);
     res.json({ success: true });
@@ -148,11 +152,12 @@ router.get('/:id/export', async (req, res) => {
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     const belongsHere = r => r.campaignId === id || (!r.campaignId && id === 'c-default');
-    const [sessions, encounters, npcs, locations] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
       npcStore.getAllFull(),
       locationStore.getAllFull(),
+      factionStore.getAllFull(),
     ]);
 
     res.json({
@@ -163,10 +168,11 @@ router.get('/:id/export', async (req, res) => {
         description: campaign.description,
         partyRoster: campaign.partyRoster || [],
       },
-      sessions:   sessions.filter(record => belongsHere(record) && isActive(record)),
-      encounters: encounters.filter(record => belongsHere(record) && isActive(record)),
-      npcs:       npcs.filter(record => belongsHere(record) && isActive(record)),
-      locations:  locations.filter(record => belongsHere(record) && isActive(record)),
+      sessions:   sessions.filter(record => belongsHere(record) && isLive(record)),
+      encounters: encounters.filter(record => belongsHere(record) && isLive(record)),
+      npcs:       npcs.filter(record => belongsHere(record) && isLive(record)),
+      locations:  locations.filter(record => belongsHere(record) && isLive(record)),
+      factions:   factions.filter(record => belongsHere(record) && isLive(record)),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -178,17 +184,19 @@ router.get('/:id/counts', async (req, res) => {
   try {
     const id = req.params.id;
     const belongsHere = r => r.campaignId === id || (!r.campaignId && id === 'c-default');
-    const [sessions, encounters, npcs, locations] = await Promise.all([
+    const [sessions, encounters, npcs, locations, factions] = await Promise.all([
       sessionStore.getAllFull(),
       encounterStore.getAllFull(),
       npcStore.getAllFull(),
       locationStore.getAllFull(),
+      factionStore.getAllFull(),
     ]);
     res.json({
-      sessions:   sessions.filter(record => belongsHere(record) && isActive(record)).length,
-      encounters: encounters.filter(record => belongsHere(record) && isActive(record)).length,
-      npcs:       npcs.filter(record => belongsHere(record) && isActive(record)).length,
-      locations:  locations.filter(record => belongsHere(record) && isActive(record)).length,
+      sessions:   sessions.filter(record => belongsHere(record) && isLive(record)).length,
+      encounters: encounters.filter(record => belongsHere(record) && isLive(record)).length,
+      npcs:       npcs.filter(record => belongsHere(record) && isLive(record)).length,
+      locations:  locations.filter(record => belongsHere(record) && isLive(record)).length,
+      factions:   factions.filter(record => belongsHere(record) && isLive(record)).length,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

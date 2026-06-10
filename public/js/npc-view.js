@@ -67,6 +67,7 @@ const SKILL_PREFIXES = {
   // Tags
   mountTagEditor(id, npc.tags || [], '/api/npcs', '#tags-anchor');
   setupConnectionsPanel(npc, linkedSessionDetails, linkedEncounterDetails);
+  setupDraftActions(npc, id);
 
   // Link buttons
   document.getElementById('btn-edit').addEventListener('click', () => {
@@ -174,6 +175,31 @@ const SKILL_PREFIXES = {
     });
   });
 })();
+
+function setupDraftActions(npc, id) {
+  const promoteBtn = document.getElementById('btn-promote-draft');
+  if (!promoteBtn || npc.status !== 'draft') return;
+  promoteBtn.classList.remove('hidden');
+  promoteBtn.addEventListener('click', async () => {
+    promoteBtn.disabled = true;
+    promoteBtn.textContent = 'Promoting…';
+    try {
+      const res = await fetch(`/api/npcs/${id}/state`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Promotion failed');
+      showToast('Draft promoted to NPC.', 'success');
+      setTimeout(() => location.reload(), 700);
+    } catch (err) {
+      showToast('Promote failed: ' + err.message, 'error');
+      promoteBtn.disabled = false;
+      promoteBtn.textContent = 'Promote Draft';
+    }
+  });
+}
 
 function buildHTML(npc, linkedSessionDetails = []) {
   const parts = [];
