@@ -7,3 +7,4 @@ dist-client/
 builder-debug.yml
 .DS_Store
 Agents.md
+.claude/

@@ -49,12 +49,18 @@ router.get('/', async (req, res) => {
     if (!raw) return res.json([]);
 
     const { type, q } = parseQuery(raw);
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const belongsToCampaign = s =>
+      !campaignId ||
+      s.campaignId === campaignId ||
+      (!s.campaignId && campaignId === 'c-default');
     const results = [];
 
     if (!type || type === 'session') {
       const sessions = await sessionStore.getAllFull();
       for (const s of sessions) {
         if (!isLive(s)) continue;
+        if (!belongsToCampaign(s)) continue;
         const d = s.data || {};
         const sc = q
           ? best([String(s.sessionNumber), s.date, s.goal, (s.tags || []).join(' '),
@@ -72,7 +78,7 @@ router.get('/', async (req, res) => {
     }
 
     if (!type || type === 'enc') {
-      const encounters = await encounterStore.getAllEncounters();
+      const encounters = await encounterStore.getAllEncounters(campaignId);
       for (const e of encounters) {
         const sc = q
           ? best([e.name, (e.tags || []).join(' '), e.fiction], q)
@@ -89,7 +95,7 @@ router.get('/', async (req, res) => {
     }
 
     if (!type || type === 'npc') {
-      const npcs = await npcStore.getAllNpcs();
+      const npcs = await npcStore.getAllNpcs(campaignId);
       for (const n of npcs) {
         const sc = q
           ? best([n.name, n.nickname, n.situation, (n.tags || []).join(' ')], q)
@@ -106,7 +112,6 @@ router.get('/', async (req, res) => {
     }
 
     if (!type || type === 'location') {
-      const campaignId = await campaignStore.getActiveCampaignId();
       const locations = await locationStore.getAllLocations(campaignId);
       for (const l of locations) {
         const sc = q
@@ -124,7 +129,6 @@ router.get('/', async (req, res) => {
     }
 
     if (!type || type === 'faction') {
-      const campaignId = await campaignStore.getActiveCampaignId();
       const factions = await factionStore.getAllFactions(campaignId);
       for (const faction of factions) {
         const sc = q

@@ -250,6 +250,19 @@ router.patch('/:id/state', async (req, res) => {
   }
 });
 
+// Persist runtime run-state (initiative, beats, notes, etc.) for a session
+router.patch('/:id/run-state', async (req, res) => {
+  try {
+    const session = await sessionStore.getSession(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const runState = req.body;
+    await sessionStore.updateRunState(req.params.id, runState);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 // Delete session
 router.delete('/:id', async (req, res) => {
   try {

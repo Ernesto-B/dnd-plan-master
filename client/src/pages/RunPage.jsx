@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast, confirmDialog, wikiPreload } from '../lib/vanilla.js';
 import { renderMarkdown } from '../lib/markdown.js';
@@ -9,11 +9,14 @@ let idc = 0;
 const genId = () => `${Date.now().toString(36)}-${(idc++).toString(36)}`;
 const nl = s => String(s ?? '').split('\n').map((line, i) => <React.Fragment key={i}>{i ? <br /> : null}{line}</React.Fragment>);
 
-function useLocal(key, def) {
-  const [v, setV] = useState(() => { try { const r = JSON.parse(localStorage.getItem(key)); return r ?? def; } catch { return def; } });
-  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }, [key, v]);
-  return [v, setV];
-}
+const RUN_STATE_DEFAULTS = {
+  beats: { open: false, middle: false, escalate: false, close: false, times: {} },
+  init: { combatants: [], round: 1, activeIdx: -1 },
+  sects: {},
+  combat: { active: false, selection: 'blank' },
+  notes: { text: '', lastSavedAt: '' },
+  encDone: {},
+};
 
 function ScrollTopBtn() {
   const [visible, setVisible] = useState(false);
@@ -43,12 +46,37 @@ export default function RunPage() {
   const [npcIndex, setNpcIndex] = useState([]);
   const [locIndex, setLocIndex] = useState([]);
 
-  const [beats, setBeats] = useLocal(`dnd-beats-${id}`, { open: false, middle: false, escalate: false, close: false, times: {} });
-  const [init, setInit] = useLocal(`dnd-init-${id}`, { combatants: [], round: 1, activeIdx: -1 });
-  const [sects, setSects] = useLocal(`dnd-sect-${id}`, {});
-  const [combat, setCombat] = useLocal(`dnd-combat-${id}`, { active: false, selection: 'blank' });
-  const [notes, setNotes] = useLocal(`dnd-notes-${id}`, { text: '', lastSavedAt: '' });
-  const [encDone, setEncDone] = useLocal(`dnd-enc-done-${id}`, {});
+  // Run state — hydrated from server on mount, synced back via debounced PATCH
+  const [beats, setBeats] = useState(RUN_STATE_DEFAULTS.beats);
+  const [init, setInit] = useState(RUN_STATE_DEFAULTS.init);
+  const [sects, setSects] = useState(RUN_STATE_DEFAULTS.sects);
+  const [combat, setCombat] = useState(RUN_STATE_DEFAULTS.combat);
+  const [notes, setNotes] = useState(RUN_STATE_DEFAULTS.notes);
+  const [encDone, setEncDone] = useState(RUN_STATE_DEFAULTS.encDone);
+
+  // Whether we have loaded run state from the server yet (prevents premature syncs)
+  const runStateLoaded = useRef(false);
+  const syncTimerRef = useRef(null);
+
+  // Collect current run state into a single object for server PATCH
+  const runStateRef = useRef(null);
+  runStateRef.current = { beats, init, sects, combat, notes, encDone };
+
+  const scheduleSync = useCallback(() => {
+    if (!runStateLoaded.current) return;
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(`/api/sessions/${id}/run-state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(runStateRef.current),
+        });
+      } catch {
+        // Non-fatal — state will sync on next change
+      }
+    }, 500);
+  }, [id]);
 
   const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupQ, setLookupQ] = useState('');
@@ -72,6 +100,16 @@ export default function RunPage() {
         const s = await res.json();
         setSession(s);
         document.title = isPopout ? `⚔ Initiative — Session #${s.sessionNumber}` : `▶ Session #${s.sessionNumber} — Run Mode`;
+
+        // Hydrate run state from server, falling back to defaults for missing fields
+        const rs = s.runState || {};
+        setBeats(rs.beats ?? RUN_STATE_DEFAULTS.beats);
+        setInit(rs.init ?? RUN_STATE_DEFAULTS.init);
+        setSects(rs.sects ?? RUN_STATE_DEFAULTS.sects);
+        setCombat(rs.combat ?? RUN_STATE_DEFAULTS.combat);
+        setNotes(rs.notes ?? RUN_STATE_DEFAULTS.notes);
+        setEncDone(rs.encDone ?? RUN_STATE_DEFAULTS.encDone);
+        runStateLoaded.current = true;
       } catch { setError(true); return; }
       wikiPreload();
       try {
@@ -83,12 +121,35 @@ export default function RunPage() {
     })();
   }, [id, isPopout]);
 
-  // Cross-window initiative sync (main ⇄ popout).
+  // Cross-window initiative sync (main ⇄ popout) — uses localStorage only as a
+  // broadcast channel between tabs; NOT the primary persistence mechanism.
   useEffect(() => {
-    const onStorage = e => { if (e.key === `dnd-init-${id}`) { try { setInit(JSON.parse(e.newValue)); } catch {} } };
+    const onStorage = e => {
+      if (e.key === `dnd-init-${id}`) {
+        try { setInit(JSON.parse(e.newValue)); } catch {}
+      }
+    };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [id, setInit]);
+  }, [id]);
+
+  // Mirror initiative into localStorage so the popout window can pick it up via
+  // the storage event above. This is broadcast-only — not used to restore state.
+  useEffect(() => {
+    if (!runStateLoaded.current) return;
+    try { localStorage.setItem(`dnd-init-${id}`, JSON.stringify(init)); } catch {}
+    scheduleSync();
+  }, [id, init, scheduleSync]);
+
+  // Sync remaining run state to the server
+  useEffect(() => { scheduleSync(); }, [beats, scheduleSync]);
+  useEffect(() => { scheduleSync(); }, [sects, scheduleSync]);
+  useEffect(() => { scheduleSync(); }, [combat, scheduleSync]);
+  useEffect(() => { scheduleSync(); }, [notes, scheduleSync]);
+  useEffect(() => { scheduleSync(); }, [encDone, scheduleSync]);
+
+  // Clean up sync timer on unmount
+  useEffect(() => () => clearTimeout(syncTimerRef.current), []);
 
   // Lazy-load the selected combat encounter's full plan (markdown). Kept above
   // the early returns to satisfy the Rules of Hooks; guarded on session/combat.
@@ -218,7 +279,7 @@ export default function RunPage() {
   }
   async function clearNotes() {
     if (!notes.text.trim()) return;
-    if (await confirmDialog('Clear your live notes? This only empties the local scratchpad.', { title: 'Clear Live Notes', confirmLabel: 'Clear' })) setNotes(n => ({ ...n, text: '' }));
+    if (await confirmDialog('Clear your live notes?', { title: 'Clear Live Notes', confirmLabel: 'Clear' })) setNotes(n => ({ ...n, text: '' }));
   }
   async function promoteNotes() {
     const text = notes.text.trim(); if (!text) return;
@@ -270,7 +331,7 @@ export default function RunPage() {
         </div>
       </div>
       <textarea className="run-notes-textarea" placeholder="Jot quick notes as you play…" value={notes.text} onChange={e => setNotes(n => ({ ...n, text: e.target.value }))} />
-      <div className="run-notes-foot"><span className="run-notes-hint">{notes.lastSavedAt ? `Last saved ${notes.lastSavedAt}` : 'Saved locally as you type'}</span><button className="run-sm-btn run-sm-danger" onClick={clearNotes}>Clear</button></div>
+      <div className="run-notes-foot"><span className="run-notes-hint">{notes.lastSavedAt ? `Last promoted ${notes.lastSavedAt}` : 'Auto-saved to server as you type'}</span><button className="run-sm-btn run-sm-danger" onClick={clearNotes}>Clear</button></div>
     </div>
   );
 

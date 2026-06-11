@@ -205,6 +205,15 @@ async function updateStatus(id, status) {
   return normalizeRecord(store.sessions[idx]);
 }
 
+async function updateRunState(id, runState) {
+  const store = await readStore();
+  const idx = store.sessions.findIndex(s => s.id === id);
+  if (idx < 0) throw new Error(`Session ${id} not found`);
+  store.sessions[idx].runState = runState;
+  await writeStore(store);
+  return runState;
+}
+
 async function listByStatuses(campaignId, statuses = [ACTIVE]) {
   const store = await readStore();
   const belongs = s =>
@@ -214,4 +223,4 @@ async function listByStatuses(campaignId, statuses = [ACTIVE]) {
   return orderedSessions(store.sessions.map(normalizeRecord)).filter(s => belongs(s) && matchesStatus(s, statuses));
 }
 
-module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, updateLinks, reorderSessions, replaceAllFull, updateStatus, listByStatuses };
+module.exports = { getAllSessions, getAllFull, importSessions, getSession, saveSession, deleteSession, updateTags, updateLinks, reorderSessions, replaceAllFull, updateStatus, listByStatuses, updateRunState };
