@@ -3,6 +3,10 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import TopBar from './TopBar.jsx';
 import GlobalShortcutsPanel from './GlobalShortcutsPanel.jsx';
+import AppDialogs from './AppDialogs.jsx';
+import ConnectionsPanelPortal from './ConnectionsPanelPortal.jsx';
+import ExportDialogPortal from './ExportDialogPortal.jsx';
+import ShortcutsRuntime from './ShortcutsRuntime.jsx';
 
 function ScrollTopBtn() {
   const [visible, setVisible] = useState(false);
@@ -44,11 +48,15 @@ export default function Layout() {
 
   return (
     <>
+      <ShortcutsRuntime />
       <Sidebar />
       <TopBar />
       <Outlet />
       <ScrollTopBtn />
       {showShortcuts && <GlobalShortcutsPanel onClose={() => setShowShortcuts(false)} />}
+      <AppDialogs />
+      <ConnectionsPanelPortal />
+      <ExportDialogPortal />
     </>
   );
 }

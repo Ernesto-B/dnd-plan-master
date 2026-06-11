@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
 import LinksEditor from '../components/LinksEditor.jsx';
-import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
+import TagEditor from '../components/TagEditor.jsx';
+import { wikiRender, wikiPreload, toast, confirmDialog, openExport, openConnections } from '../lib/vanilla.js';
 
 const Prose = ({ text, className, style }) => <p className={className} style={style} dangerouslySetInnerHTML={{ __html: wikiRender(text) }} />;
 const Grid = ({ items }) => (
@@ -23,8 +24,6 @@ export default function LocationView() {
   const [sessions, setSessions] = useState([]);
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
-  const tagsMounted = useRef(false);
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -44,11 +43,6 @@ export default function LocationView() {
     return () => { alive = false; };
   }, [id]);
 
-  useEffect(() => {
-    if (!loc || tagsMounted.current) return;
-    const anchor = document.getElementById('loc-tags-container');
-    if (anchor) { anchor.innerHTML = ''; mountTags(id, loc.tags || [], '/api/locations', '#loc-tags-container'); tagsMounted.current = true; }
-  }, [loc, id]);
 
   if (error) return (
     <div className="view-layout"><main className="view-main">
@@ -151,7 +145,7 @@ export default function LocationView() {
           <div className="npc-view-body">
             <div className="npc-view-header" id="loc-section-identity">
               <h1 className="npc-view-name">{loc.name}</h1>
-              <div id="loc-tags-container" className="npc-view-tags" />
+              <TagEditor id={id} initialTags={loc.tags || []} apiBase="/api/locations" className="npc-view-tags" />
             </div>
 
             {general.length > 0 && (

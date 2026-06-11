@@ -149,6 +149,7 @@ router.delete('/:id', async (req, res) => {
       ...locations.filter(belongsHere).map(l => locationStore.deleteLocation(l.id)),
       ...factions.filter(belongsHere).map(f => factionStore.deleteFaction(f.id)),
       mapStore.deleteMap(id),
+      graphViewStore.deleteViewsForCampaign(id),
     ]);
     await campaignStore.deleteCampaign(id);
     res.json({ success: true });
@@ -235,9 +236,9 @@ router.get('/:id/graph-views', async (req, res) => {
 // POST /api/campaigns/:id/graph-views
 router.post('/:id/graph-views', async (req, res) => {
   try {
-    const { name, filters, positions, viewport } = req.body || {};
+    const { name, filters, positions, viewport, groups, isDefault } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
-    res.status(201).json(await graphViewStore.createView(req.params.id, { name, filters, positions, viewport }));
+    res.status(201).json(await graphViewStore.createView(req.params.id, { name, filters, positions, viewport, groups, isDefault }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -249,6 +250,17 @@ router.put('/:id/graph-views/:viewId', async (req, res) => {
     const updated = await graphViewStore.updateView(req.params.viewId, req.body || {});
     if (!updated) return res.status(404).json({ error: 'View not found' });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/campaigns/:id/graph-views/:viewId/set-default
+router.post('/:id/graph-views/:viewId/set-default', async (req, res) => {
+  try {
+    const result = await graphViewStore.setDefaultView(req.params.id, req.params.viewId);
+    if (!result) return res.status(404).json({ error: 'View not found' });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

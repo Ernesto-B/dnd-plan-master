@@ -36,16 +36,6 @@
 <body>
   <div id="root"></div>
   <div id="toast" class="toast"></div>
-  <!-- Shared vanilla helpers reused by ported pages during the React migration.
-       Classic scripts (not modules) so their globals are reachable from React:
-       window.showConfirm, mountTagEditor/TagInput, WikiLinks,
-       RecordConnectionsPanel, ExportDialog. Served by Express from /js. -->
-  <script src="/js/dialog.js"></script>
-  <script src="/js/shortcuts.js"></script>
-  <script src="/js/tags.js"></script>
-  <script src="/js/wiki-links.js"></script>
-  <script src="/js/connections-panel.js"></script>
-  <script src="/js/export-dialog.js"></script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

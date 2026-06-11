@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
-import { wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
+import TagEditor from '../components/TagEditor.jsx';
+import { wikiPreload, toast, confirmDialog, openExport, openConnections } from '../lib/vanilla.js';
 import { renderMarkdown, buildMarkdownToc } from '../lib/markdown.js';
 
 export default function EncounterView() {
@@ -12,7 +13,6 @@ export default function EncounterView() {
   const [npcs, setNpcs] = useState([]);
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
-  const tagsMounted = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -36,18 +36,7 @@ export default function EncounterView() {
     return () => { alive = false; };
   }, [id]);
 
-  useEffect(() => {
-    if (!enc || tagsMounted.current) return;
-    buildMarkdownToc();
-    const h1 = document.querySelector('.markdown-body h1');
-    const selector = h1 ? '.markdown-body h1' : '#tags-anchor';
-    const anchor = document.querySelector(selector);
-    if (anchor) {
-      if (!h1) anchor.innerHTML = '';
-      mountTags(id, enc.data?.tags || [], '/api/encounters', selector);
-      tagsMounted.current = true;
-    }
-  }, [enc, id]);
+  useEffect(() => { if (enc) buildMarkdownToc(); }, [enc]);
 
   if (error) return (
     <div className="view-layout"><main className="view-main">
@@ -132,6 +121,7 @@ export default function EncounterView() {
         />
         <main className="view-main">
           <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(enc.markdown || '') }} />
+          <TagEditor id={id} initialTags={enc.data?.tags || []} apiBase="/api/encounters" />
         </main>
       </div>
       <aside id="toc-nav" className="toc-nav" />

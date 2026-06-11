@@ -1,6 +1,7 @@
 // Ported from view.js renderDmTablePanel — builds the print-ready DM Table HTML
-// string for a session. Uses the shared WikiLinks renderer for prose.
-const wiki = raw => (window.WikiLinks ? window.WikiLinks.render(raw || '') : String(raw ?? ''));
+// string for a session. Uses the WikiLinks renderer for prose.
+import { render as _wikiRender } from './wikiLinks.js';
+const wiki = raw => _wikiRender(raw || '');
 
 function escHtml(str) {
   const div = document.createElement('div');

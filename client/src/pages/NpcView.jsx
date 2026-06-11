@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
 import LinksEditor from '../components/LinksEditor.jsx';
-import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
+import TagEditor from '../components/TagEditor.jsx';
+import { wikiRender, wikiPreload, toast, confirmDialog, openExport, openConnections } from '../lib/vanilla.js';
 
 const SKILL_LABELS = {
   perception: 'Perception', insight: 'Insight', medicine: 'Medicine', investigation: 'Investigation',
@@ -26,7 +27,6 @@ export default function NpcView() {
   const [encounters, setEncounters] = useState([]);
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
-  const tagsMounted = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -50,12 +50,6 @@ export default function NpcView() {
     return () => { alive = false; };
   }, [id]);
 
-  // Mount the shared tag editor once the content (and its anchor) is in the DOM.
-  useEffect(() => {
-    if (!npc || tagsMounted.current) return;
-    const anchor = document.getElementById('npc-tags-container');
-    if (anchor) { anchor.innerHTML = ''; mountTags(id, npc.tags || [], '/api/npcs', '#npc-tags-container'); tagsMounted.current = true; }
-  }, [npc, id]);
 
   if (error) return (
     <div className="view-layout"><main className="view-main">
@@ -169,7 +163,7 @@ export default function NpcView() {
           <div className="npc-view-body">
             <div className="npc-view-header" id="npc-section-identity">
               <h1 className="npc-view-name">{npc.name}{npc.nickname && <span className="npc-view-nickname">"{npc.nickname}"</span>}</h1>
-              <div id="npc-tags-container" className="npc-view-tags" />
+              <TagEditor id={id} initialTags={npc.tags || []} apiBase="/api/npcs" className="npc-view-tags" />
             </div>
 
             {npc.commonPhrase && <blockquote className="npc-phrase" id="npc-section-phrase" dangerouslySetInnerHTML={{ __html: wikiRender(npc.commonPhrase) }} />}

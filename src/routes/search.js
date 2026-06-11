@@ -26,7 +26,7 @@ function best(fields, q) {
 
 // Parse sigil prefix: "npc: foo" → { type: 'npc', q: 'foo' }
 function parseQuery(raw) {
-  const m = raw.match(/^(npc|session|sessions|sess|enc|encounter|encounters|loc|location|locations|fac|faction|factions|tag):\s*(.*)/i);
+  const m = raw.match(/^(npc|session|sessions|ses|sess|enc|encounter|encounters|loc|location|locations|fac|faction|factions|tag):\s*(.*)/i);
   if (m) {
     const prefix = m[1].toLowerCase();
     const type = prefix.startsWith('enc')
@@ -35,7 +35,7 @@ function parseQuery(raw) {
         ? 'faction'
       : prefix.startsWith('loc')
         ? 'location'
-        : prefix.startsWith('sess')
+        : prefix.startsWith('ses')
           ? 'session'
           : prefix;
     return { type, q: m[2].trim() };

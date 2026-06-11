@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
 import LinksEditor from '../components/LinksEditor.jsx';
-import { wikiRender, wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
+import TagEditor from '../components/TagEditor.jsx';
+import { wikiRender, wikiPreload, toast, confirmDialog, openExport, openConnections } from '../lib/vanilla.js';
 
 const Prose = ({ text, className }) => <p className={className} dangerouslySetInnerHTML={{ __html: wikiRender(text) }} />;
 function reputationLabel(value) {
@@ -18,8 +19,6 @@ export default function FactionView() {
   const [links, setLinks] = useState({ sessions: [], encounters: [], npcs: [], locations: [] });
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
-  const tagsMounted = useRef(false);
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -44,11 +43,6 @@ export default function FactionView() {
     return () => { alive = false; };
   }, [id]);
 
-  useEffect(() => {
-    if (!f || tagsMounted.current) return;
-    const anchor = document.getElementById('faction-tags-container');
-    if (anchor) { anchor.innerHTML = ''; mountTags(id, f.tags || [], '/api/factions', '#faction-tags-container'); tagsMounted.current = true; }
-  }, [f, id]);
 
   if (error) return (
     <div className="view-layout"><main className="view-main">
@@ -156,7 +150,7 @@ export default function FactionView() {
           <div className="npc-view-body">
             <div className="npc-view-header" id="faction-section-identity">
               <h1 className="npc-view-name">{f.name}</h1>
-              <div id="faction-tags-container" className="npc-view-tags" />
+              <TagEditor id={id} initialTags={f.tags || []} apiBase="/api/factions" className="npc-view-tags" />
             </div>
 
             {snapshot.length > 0 && (

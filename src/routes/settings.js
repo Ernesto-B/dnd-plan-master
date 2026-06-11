@@ -390,6 +390,189 @@ router.post('/import-preview', async (req, res) => {
   }
 });
 
+async function detectBrokenLinks(campaignId) {
+  const [sessions, encounters, npcs, locations, factions] = await Promise.all([
+    sessionStore.getAllFull(),
+    encounterStore.getAllFull(),
+    npcStore.getAllFull(),
+    locationStore.getAllFull(),
+    factionStore.getAllFull(),
+  ]);
+
+  const filter = r => belongsToCampaign(r, campaignId) && isLive(r);
+  const activeSessions  = sessions.filter(filter);
+  const activeEncounters = encounters.filter(filter);
+  const activeNpcs      = npcs.filter(filter);
+  const activeLocations = locations.filter(filter);
+  const activeFactions  = factions.filter(filter);
+
+  const sessionIds  = new Set(activeSessions.map(r => r.id));
+  const encounterIds = new Set(activeEncounters.map(r => r.id));
+  const npcIds      = new Set(activeNpcs.map(r => r.id));
+  const locationIds = new Set(activeLocations.map(r => r.id));
+
+  const getLabel = {
+    session:  r => r.data?.sessionGoal || r.goal || `Session ${r.id}`,
+    encounter: r => r.name || r.id,
+    npc:      r => r.name || r.id,
+    location: r => r.name || r.id,
+    faction:  r => r.name || r.id,
+  };
+
+  const broken = [];
+  function addBroken(ownerType, owner, field, brokenId, targetType) {
+    broken.push({ ownerType, ownerId: owner.id, ownerLabel: getLabel[ownerType](owner), field, brokenId, targetType });
+  }
+
+  for (const s of activeSessions) {
+    for (const id of s.data?.linkedNpcs || []) if (!npcIds.has(id)) addBroken('session', s, 'linkedNpcs', id, 'npc');
+    for (const id of s.data?.linkedLocations || []) if (!locationIds.has(id)) addBroken('session', s, 'linkedLocations', id, 'location');
+    for (const enc of s.data?.encounters || []) {
+      if (enc.encounterPlanId && !encounterIds.has(enc.encounterPlanId))
+        addBroken('session', s, 'encounters[encounterPlanId]', enc.encounterPlanId, 'encounter');
+    }
+  }
+  for (const e of activeEncounters) {
+    if (e.sessionId && !sessionIds.has(e.sessionId)) addBroken('encounter', e, 'sessionId', e.sessionId, 'session');
+  }
+  for (const n of activeNpcs) {
+    for (const id of n.linkedSessions || []) if (!sessionIds.has(id)) addBroken('npc', n, 'linkedSessions', id, 'session');
+    for (const id of n.linkedEncounters || []) if (!encounterIds.has(id)) addBroken('npc', n, 'linkedEncounters', id, 'encounter');
+  }
+  for (const l of activeLocations) {
+    for (const id of l.linkedSessions || []) if (!sessionIds.has(id)) addBroken('location', l, 'linkedSessions', id, 'session');
+  }
+  for (const f of activeFactions) {
+    for (const id of f.linkedSessions || []) if (!sessionIds.has(id)) addBroken('faction', f, 'linkedSessions', id, 'session');
+    for (const id of f.linkedEncounters || []) if (!encounterIds.has(id)) addBroken('faction', f, 'linkedEncounters', id, 'encounter');
+    for (const id of f.linkedNpcs || []) if (!npcIds.has(id)) addBroken('faction', f, 'linkedNpcs', id, 'npc');
+    for (const id of f.linkedLocations || []) if (!locationIds.has(id)) addBroken('faction', f, 'linkedLocations', id, 'location');
+  }
+
+  return broken;
+}
+
+async function repairBrokenLinks(broken, campaignId) {
+  if (!broken.length) return { repaired: 0 };
+
+  const byOwner = new Map();
+  for (const link of broken) {
+    const key = `${link.ownerType}:${link.ownerId}`;
+    if (!byOwner.has(key)) byOwner.set(key, { type: link.ownerType, id: link.ownerId, links: [] });
+    byOwner.get(key).links.push(link);
+  }
+
+  const [sessions, encounters, npcs, locations, factions] = await Promise.all([
+    sessionStore.getAllFull(),
+    encounterStore.getAllFull(),
+    npcStore.getAllFull(),
+    locationStore.getAllFull(),
+    factionStore.getAllFull(),
+  ]);
+
+  const brokenByOwner = [...byOwner.values()];
+  const affectedTypes = new Set(brokenByOwner.map(o => o.type));
+
+  function removeIds(arr, idsToRemove) {
+    const set = new Set(idsToRemove);
+    return (arr || []).filter(id => !set.has(id));
+  }
+
+  if (affectedTypes.has('session')) {
+    const brokenSessions = new Map(brokenByOwner.filter(o => o.type === 'session').map(o => [o.id, o.links]));
+    const updated = sessions.map(s => {
+      const links = brokenSessions.get(s.id);
+      if (!links) return s;
+      const npcIds = links.filter(l => l.field === 'linkedNpcs').map(l => l.brokenId);
+      const locIds = links.filter(l => l.field === 'linkedLocations').map(l => l.brokenId);
+      const encIds = links.filter(l => l.field === 'encounters[encounterPlanId]').map(l => l.brokenId);
+      const encIdSet = new Set(encIds);
+      return {
+        ...s,
+        data: {
+          ...s.data,
+          linkedNpcs: removeIds(s.data?.linkedNpcs, npcIds),
+          linkedLocations: removeIds(s.data?.linkedLocations, locIds),
+          encounters: (s.data?.encounters || []).map(enc =>
+            encIdSet.has(enc.encounterPlanId) ? { ...enc, encounterPlanId: null } : enc
+          ),
+        },
+      };
+    });
+    await sessionStore.replaceAllFull(updated);
+  }
+
+  if (affectedTypes.has('encounter')) {
+    const brokenEnc = new Set(brokenByOwner.filter(o => o.type === 'encounter').map(o => o.id));
+    const updated = encounters.map(e => brokenEnc.has(e.id) ? { ...e, sessionId: null, data: { ...e.data, sessionId: null } } : e);
+    await encounterStore.replaceAllFull(updated);
+  }
+
+  if (affectedTypes.has('npc')) {
+    const brokenNpcs = new Map(brokenByOwner.filter(o => o.type === 'npc').map(o => [o.id, o.links]));
+    const updated = npcs.map(n => {
+      const links = brokenNpcs.get(n.id);
+      if (!links) return n;
+      return {
+        ...n,
+        linkedSessions: removeIds(n.linkedSessions, links.filter(l => l.field === 'linkedSessions').map(l => l.brokenId)),
+        linkedEncounters: removeIds(n.linkedEncounters, links.filter(l => l.field === 'linkedEncounters').map(l => l.brokenId)),
+      };
+    });
+    await npcStore.replaceAllFull(updated);
+  }
+
+  if (affectedTypes.has('location')) {
+    const brokenLocs = new Map(brokenByOwner.filter(o => o.type === 'location').map(o => [o.id, o.links]));
+    const updated = locations.map(l => {
+      const links = brokenLocs.get(l.id);
+      if (!links) return l;
+      return { ...l, linkedSessions: removeIds(l.linkedSessions, links.filter(lk => lk.field === 'linkedSessions').map(lk => lk.brokenId)) };
+    });
+    await locationStore.replaceAllFull(updated);
+  }
+
+  if (affectedTypes.has('faction')) {
+    const brokenFacts = new Map(brokenByOwner.filter(o => o.type === 'faction').map(o => [o.id, o.links]));
+    const updated = factions.map(f => {
+      const links = brokenFacts.get(f.id);
+      if (!links) return f;
+      return {
+        ...f,
+        linkedSessions: removeIds(f.linkedSessions, links.filter(l => l.field === 'linkedSessions').map(l => l.brokenId)),
+        linkedEncounters: removeIds(f.linkedEncounters, links.filter(l => l.field === 'linkedEncounters').map(l => l.brokenId)),
+        linkedNpcs: removeIds(f.linkedNpcs, links.filter(l => l.field === 'linkedNpcs').map(l => l.brokenId)),
+        linkedLocations: removeIds(f.linkedLocations, links.filter(l => l.field === 'linkedLocations').map(l => l.brokenId)),
+      };
+    });
+    await factionStore.replaceAllFull(updated);
+  }
+
+  return { repaired: broken.length };
+}
+
+router.get('/broken-links', async (_req, res) => {
+  try {
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const broken = await detectBrokenLinks(campaignId);
+    res.json({ broken, total: broken.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/repair-links', async (req, res) => {
+  try {
+    const campaignId = await campaignStore.getActiveCampaignId();
+    const { broken } = req.body || {};
+    if (!Array.isArray(broken)) return res.status(400).json({ error: 'broken must be an array' });
+    const result = await repairBrokenLinks(broken, campaignId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/backups', async (_req, res) => {
   try {
     res.json(await backupStore.listBackups());

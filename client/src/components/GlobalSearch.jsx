@@ -12,7 +12,7 @@ const TYPE_LABELS = {
 const HINT_CHIPS = ['enc:', 'ses:', 'npc:', 'loc:', 'fac:'];
 
 function detectScope(q) {
-  const m = q.match(/^(enc|encounter|encounters|ses|session|sessions|npc|loc|location|locations|fac|faction|factions):/i);
+  const m = q.match(/^(enc|encounter|encounters|ses|sess|session|sessions|npc|loc|location|locations|fac|faction|factions):/i);
   if (!m) return null;
   const p = m[1].toLowerCase();
   if (p.startsWith('enc'))  return 'Encounters';

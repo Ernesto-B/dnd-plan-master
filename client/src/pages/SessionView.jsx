@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import ViewActionSidebar from '../components/ViewActionSidebar.jsx';
 import LinksEditor from '../components/LinksEditor.jsx';
-import { wikiPreload, toast, confirmDialog, mountTags, openExport, openConnections } from '../lib/vanilla.js';
+import TagEditor from '../components/TagEditor.jsx';
+import { wikiPreload, toast, confirmDialog, openExport, openConnections } from '../lib/vanilla.js';
 import { renderMarkdown, buildMarkdownToc } from '../lib/markdown.js';
 import { renderDmTableHTML } from '../lib/dmTable.js';
 
@@ -19,8 +20,6 @@ export default function SessionView() {
   const [error, setError] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
-  const tagsMounted = useRef(false);
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -45,18 +44,7 @@ export default function SessionView() {
     return () => { alive = false; };
   }, [id]);
 
-  useEffect(() => {
-    if (!session || tagsMounted.current) return;
-    buildMarkdownToc();
-    const h1 = document.querySelector('#session-markdown h1');
-    const selector = h1 ? '#session-markdown h1' : '#tags-anchor';
-    const anchor = document.querySelector(selector);
-    if (anchor) {
-      if (!h1) anchor.innerHTML = '';
-      mountTags(id, session.data?.tags || [], '/api/sessions', selector);
-      tagsMounted.current = true;
-    }
-  }, [session, id]);
+  useEffect(() => { if (session) buildMarkdownToc(); }, [session]);
 
   // Lock body scroll + Escape-to-close while the DM modal is open.
   useEffect(() => {
@@ -159,6 +147,7 @@ export default function SessionView() {
         />
         <main className="view-main">
           <div className="markdown-body" id="session-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(session.markdown || '') }} />
+          <TagEditor id={id} initialTags={session.data?.tags || []} apiBase="/api/sessions" />
           <div className="view-links-section">
             <p className="view-links-section-head">Connections</p>
             <LinksEditor

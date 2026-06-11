@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import TagInputComponent from '../TagInput.jsx';
+import { enableAutocomplete } from '../../lib/wikiLinks.js';
 
 // Section card with a numbered header (reuses the legacy .section-header/.card CSS).
 export function Section({ num, title, note, id, children }) {
@@ -31,24 +33,14 @@ export function AutoTextArea({ value, onChange, className = 'short', ...rest }) 
   return <textarea ref={ref} className={className} value={value} onChange={onChange} onInput={resize} {...rest} />;
 }
 
-// Mounts the shared vanilla TagInput; exposes the instance via tagRef so the
-// form can read getTags() on save. Re-syncs when initialTags arrives (edit).
+// React TagInput; exposes the instance via tagRef so the form can read getTags() on save.
 export function TagField({ initialTags, tagRef }) {
-  const containerRef = useRef(null);
-  useEffect(() => {
-    if (!containerRef.current || !window.TagInput) return;
-    containerRef.current.innerHTML = '';
-    tagRef.current = new window.TagInput(containerRef.current, []);
-  }, [tagRef]);
-  useEffect(() => {
-    if (tagRef.current && Array.isArray(initialTags)) tagRef.current.setTags(initialTags);
-  }, [initialTags, tagRef]);
-  return <div ref={containerRef} />;
+  return <TagInputComponent ref={tagRef} initialTags={initialTags || []} />;
 }
 
-// Calls the shared [[wiki link]] autocomplete (document-level) once mounted.
+// Wires [[wiki link]] autocomplete (document-level) once mounted.
 export function useWikiAutocomplete() {
-  useEffect(() => { if (window.WikiLinks?.enableAutocomplete) window.WikiLinks.enableAutocomplete(); }, []);
+  useEffect(() => { enableAutocomplete(); }, []);
 }
 
 // Section navigation rail with active-section tracking.

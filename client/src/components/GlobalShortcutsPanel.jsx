@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { loadStoredShortcuts } from '../lib/shortcuts.js';
 
 const CATEGORIES = [
   {
@@ -42,8 +43,7 @@ function fmtCombo(combo) {
 }
 
 export default function GlobalShortcutsPanel({ onClose }) {
-  const SC = window.Shortcuts;
-  const shortcuts = SC ? SC.loadStoredShortcuts() : {};
+  const shortcuts = loadStoredShortcuts();
 
   useEffect(() => {
     const onKey = e => {

@@ -38,6 +38,37 @@ async function withIsolatedDataDir(run) {
   }
 }
 
+async function withIsolatedServer(run) {
+  await withIsolatedDataDir(async ({ dataDir, projectRoot, requireProject }) => {
+    const { initApp, createApp } = requireProject('src/createApp.js');
+    await initApp();
+
+    const app = createApp();
+    const server = await new Promise((resolve, reject) => {
+      const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+      instance.on('error', reject);
+    });
+
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      return await run({
+        dataDir,
+        projectRoot,
+        requireProject,
+        app,
+        server,
+        baseUrl,
+      });
+    } finally {
+      await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+    }
+  });
+}
+
 module.exports = {
   withIsolatedDataDir,
+  withIsolatedServer,
 };

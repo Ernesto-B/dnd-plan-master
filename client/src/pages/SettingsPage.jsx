@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormToc } from '../components/form/FormKit.jsx';
 import { toast, toastAction, confirmDialog, openExport } from '../lib/vanilla.js';
+import {
+  getDefinitions, getDefaultShortcuts, canonicalizeShortcutString, eventToCombo,
+  loadStoredShortcuts, saveStoredShortcuts,
+} from '../lib/shortcuts.js';
 
 const SECTIONS = [
   { id: 'settings-appearance', num: '01', label: 'Appearance' },
@@ -8,8 +12,10 @@ const SECTIONS = [
   { id: 'settings-export-import', num: '03', label: 'Export & Import' },
   { id: 'settings-backups', num: '04', label: 'Backups' },
   { id: 'settings-trash', num: '05', label: 'Archive & Trash' },
+  { id: 'settings-link-health', num: '06', label: 'Link Health' },
   { id: 'settings-danger', num: '!', label: 'Danger Zone' },
 ];
+const PREVIEW_TYPES = ['session', 'encounter', 'npc', 'location', 'faction'];
 const TYPE_LABEL = { session: 'Session', encounter: 'Encounter', npc: 'NPC', location: 'Location', faction: 'Faction', map: 'Map' };
 const clampScale = v => { const n = Number(v); return Number.isFinite(n) ? Math.max(0.85, Math.min(1.25, Math.round(n * 100) / 100)) : 1; };
 const slug = (v, fb = 'campaign') => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || fb;
@@ -78,9 +84,9 @@ export default function SettingsPage() {
           party: cfg.party || [], theme: cfg.theme || document.documentElement.getAttribute('data-theme') || 'dark',
           uiScale: clampScale(cfg.uiScale || 1), autosaveEnabled: cfg.autosaveEnabled !== false,
           scheduledBackupsEnabled: cfg.scheduledBackupsEnabled === true, scheduledBackupIntervalHours: cfg.scheduledBackupIntervalHours || 24,
-          shortcuts: cfg.shortcuts || (window.Shortcuts ? window.Shortcuts.loadStoredShortcuts() : {}),
+          shortcuts: cfg.shortcuts || loadStoredShortcuts(),
         });
-        if (cfg.shortcuts && window.Shortcuts) window.Shortcuts.saveStoredShortcuts(cfg.shortcuts);
+        if (cfg.shortcuts) saveStoredShortcuts(cfg.shortcuts);
       } catch { /* defaults */ }
       loaded.current = true;
     })();
@@ -242,6 +248,31 @@ export default function SettingsPage() {
       setImportName('No file selected'); setImportFile(null); setImportPreview(null);
       loadExport(); loadBackups(); loadLifecycle();
     } catch (err) { toast('Import failed: ' + err.message, 'error'); } finally { setImportBusy(false); }
+  }
+
+  // ── Link Health ────────────────────────────────────────────────────────────
+  const [brokenLinks, setBrokenLinks] = useState(null); // null = not scanned yet, [] = clean, [...] = results
+  const [linkScanBusy, setLinkScanBusy] = useState(false);
+  const [linkRepairBusy, setLinkRepairBusy] = useState(false);
+  async function scanBrokenLinks() {
+    setLinkScanBusy(true);
+    try {
+      const r = await (await fetch('/api/settings/broken-links')).json();
+      if (r.error) throw new Error(r.error);
+      setBrokenLinks(r.broken || []);
+    } catch (err) { toast('Scan failed: ' + err.message, 'error'); } finally { setLinkScanBusy(false); }
+  }
+  async function repairLinks() {
+    if (!brokenLinks?.length) return;
+    const ok = await confirmDialog(`Remove ${brokenLinks.length} broken link reference(s)? This only removes dead pointers — no records are deleted.`, { title: 'Repair Broken Links', confirmLabel: 'Repair' });
+    if (!ok) return;
+    setLinkRepairBusy(true);
+    try {
+      const r = await (await fetch('/api/settings/repair-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ broken: brokenLinks }) })).json();
+      if (r.error) throw new Error(r.error);
+      toast(`Repaired ${r.repaired} broken link(s).`, 'success');
+      setBrokenLinks([]);
+    } catch (err) { toast('Repair failed: ' + err.message, 'error'); } finally { setLinkRepairBusy(false); }
   }
 
   // ── Backups ────────────────────────────────────────────────────────────────
@@ -437,6 +468,36 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* 06 Link Health */}
+        <div className="settings-section-head" id="settings-link-health"><h2 className="settings-section-h">Link Health</h2></div>
+        <div className="card">
+          <h3 className="settings-subhead">Broken Link Scanner</h3>
+          <p className="settings-hint">Scan for link references that point to records that no longer exist. Broken links can accumulate when records are deleted or trashed.</p>
+          <div className="export-controls">
+            <button type="button" className="btn btn-primary" disabled={linkScanBusy} onClick={scanBrokenLinks}>{linkScanBusy ? 'Scanning…' : 'Scan for Broken Links'}</button>
+            {brokenLinks?.length > 0 && <button type="button" className="btn btn-ghost" disabled={linkRepairBusy} onClick={repairLinks} style={{ color: 'var(--danger)' }}>{linkRepairBusy ? 'Repairing…' : `Auto-repair ${brokenLinks.length} Broken Link(s)`}</button>}
+          </div>
+          {brokenLinks !== null && (
+            <div className="export-list" style={{ marginTop: 12 }}>
+              {brokenLinks.length === 0
+                ? <p style={{ padding: 12, color: 'var(--muted)', fontStyle: 'italic' }}>No broken links found — all references are valid.</p>
+                : brokenLinks.map((lk, i) => (
+                    <div className="import-report-row" key={i} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span className={`export-type-badge ${lk.ownerType}`}>{TYPE_LABEL[lk.ownerType] || lk.ownerType}</span>
+                        <span className="import-report-label">{lk.ownerLabel || lk.ownerId}</span>
+                        <span className="import-item-status conflict">broken link</span>
+                      </div>
+                      <div className="import-report-id" style={{ paddingLeft: 0 }}>
+                        field <code>{lk.field}</code> → missing <span className={`export-type-badge ${lk.targetType}`}>{TYPE_LABEL[lk.targetType] || lk.targetType}</span> <code>{lk.brokenId}</code>
+                      </div>
+                    </div>
+                  ))
+              }
+            </div>
+          )}
+        </div>
+
         {/* Danger zone */}
         <div className="settings-section-head danger" id="settings-danger"><h2 className="settings-section-h">Danger Zone</h2></div>
         <div className="card" style={{ borderColor: 'rgba(191,58,46,0.35)' }}>
@@ -453,19 +514,94 @@ export default function SettingsPage() {
 // ─── Import preview / conflict resolution ──────────────────────────────────
 const IMPORT_STATUS = { new: 'New', duplicate: 'Duplicate', conflict: 'Conflict', 'missing-id': 'Missing ID' };
 const IMPORT_ACTION = { import: 'Import', skip: 'Skip', clone: 'Clone With New ID', replace: 'Replace Existing' };
+const IMPORT_REASON = { duplicate: 'exact duplicate', conflict: 'data conflict', 'missing-id': 'no source ID', new: 'new' };
+
+function TypeBreakdown({ byType, mode }) {
+  const rows = PREVIEW_TYPES.filter(t => byType[t]?.total > 0);
+  if (!rows.length) return null;
+  return (
+    <div className="import-type-breakdown">
+      {rows.map(type => {
+        const t = byType[type];
+        return (
+          <div className="import-type-row" key={type}>
+            <span className={`export-type-badge ${type}`}>{TYPE_LABEL[type]}</span>
+            <span className="import-type-counts">
+              {mode === 'preview' ? <>
+                {t.new > 0 && <span className="import-summary-pill success">{t.new} new</span>}
+                {t.duplicate > 0 && <span className="import-summary-pill warn">{t.duplicate} dup</span>}
+                {t.conflict > 0 && <span className="import-summary-pill danger">{t.conflict} conflict</span>}
+                {t['missing-id'] > 0 && <span className="import-summary-pill">{t['missing-id']} no-id</span>}
+              </> : <>
+                {t.imported > 0 && <span className="import-summary-pill success">{t.imported} imported</span>}
+                {t.cloned > 0 && <span className="import-summary-pill accent">{t.cloned} cloned</span>}
+                {t.replaced > 0 && <span className="import-summary-pill warn">{t.replaced} replaced</span>}
+                {t.skipped > 0 && <span className="import-summary-pill">{t.skipped} skipped</span>}
+              </>}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ImportPreview({ state, report, action, setDefault, setOverride }) {
+  const [showSkipped, setShowSkipped] = React.useState(false);
   const reportBlock = report ? (
     <div className="import-preview-panel" style={{ marginTop: 14 }}>
-      <div className="import-preview-head"><div><div className="settings-subhead" style={{ margin: 0 }}>Last Import Report</div>
-        <p className="settings-hint" style={{ marginTop: 6 }}>{report.totals.imported} imported, {report.totals.cloned} cloned, {report.totals.replaced} replaced, {report.totals.skipped} skipped.</p></div></div>
-      <div className="import-preview-summary"><span className="import-summary-pill success">Processed {report.totals.processed}</span><span className="import-summary-pill">Remapped {report.remappedIds.length}</span></div>
-      <div className="import-report-list">
-        {report.remappedIds.length ? report.remappedIds.map((it, i) => (
-          <div className="import-report-row" key={i}><span className={`export-type-badge ${it.type}`}>{TYPE_LABEL[it.type] || it.type}</span><span className="import-report-label">{it.label || it.fromId || 'Untitled'}</span><span className="import-report-id">{it.fromId} → {it.toId}</span></div>
-        )) : <p className="settings-hint" style={{ margin: '10px 0 0' }}>No IDs had to be remapped in the last import.</p>}
+      <div className="import-preview-head">
+        <div>
+          <div className="settings-subhead" style={{ margin: 0 }}>Last Import Report</div>
+          <p className="settings-hint" style={{ marginTop: 6 }}>
+            {report.totals.imported} imported · {report.totals.cloned} cloned · {report.totals.replaced} replaced · {report.totals.skipped} skipped
+          </p>
+        </div>
       </div>
+      <div className="import-preview-summary">
+        <span className="import-summary-pill success">Processed {report.totals.processed}</span>
+        <span className="import-summary-pill">Remapped {report.remappedIds.length}</span>
+        {report.skippedItems?.length > 0 && <span className="import-summary-pill">{report.skippedItems.length} skipped</span>}
+      </div>
+      <TypeBreakdown byType={report.byType} mode="report" />
+      {report.remappedIds.length > 0 && (
+        <>
+          <p className="settings-hint" style={{ margin: '12px 0 6px', fontWeight: 600, color: 'var(--text2)' }}>Remapped IDs</p>
+          <div className="import-report-list">
+            {report.remappedIds.map((it, i) => (
+              <div className="import-report-row" key={i}>
+                <span className={`export-type-badge ${it.type}`}>{TYPE_LABEL[it.type] || it.type}</span>
+                <span className="import-report-label">{it.label || it.fromId || 'Untitled'}</span>
+                <span className="import-report-id">{it.fromId} → {it.toId}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {report.skippedItems?.length > 0 && (
+        <>
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 10, fontSize: 12, padding: '3px 10px' }} onClick={() => setShowSkipped(s => !s)}>
+            {showSkipped ? '▲ Hide' : '▶ Show'} {report.skippedItems.length} skipped record(s)
+          </button>
+          {showSkipped && (
+            <div className="import-report-list" style={{ marginTop: 6 }}>
+              {report.skippedItems.map((it, i) => (
+                <div className="import-report-row" key={i}>
+                  <span className={`export-type-badge ${it.type}`}>{TYPE_LABEL[it.type] || it.type}</span>
+                  <span className="import-report-label">{it.label || it.sourceId || 'Untitled'}</span>
+                  <span className="import-report-id">skipped · {IMPORT_REASON[it.reason] || it.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {!report.remappedIds.length && !report.skippedItems?.length && (
+        <p className="settings-hint" style={{ margin: '10px 0 0' }}>No IDs remapped and no records skipped.</p>
+      )}
     </div>
   ) : null;
+
   if (!state) return <div className="settings-hint" style={{ marginTop: 12 }}>{reportBlock}</div>;
   const { preview, resolution } = state;
   const decisionItems = preview.items.filter(i => i.status !== 'new');
@@ -481,6 +617,7 @@ function ImportPreview({ state, report, action, setDefault, setOverride }) {
           <span className="import-summary-pill">{preview.counts['missing-id']} missing IDs</span>
           <span className="import-summary-pill accent">{selectedCount} selected</span>
         </div>
+        <TypeBreakdown byType={preview.byType} mode="preview" />
         <div className="import-defaults-row">
           <label className="import-action-select-wrap"><span>Duplicates</span>
             <select className="import-action-select" value={resolution.defaults.duplicate} onChange={e => setDefault('duplicate', e.target.value)}><option value="skip">Skip</option><option value="clone">Clone With New ID</option><option value="replace">Replace Existing</option></select></label>
@@ -515,9 +652,8 @@ const SC_CATEGORIES = [
 ];
 
 function ShortcutsModal({ open, onClose, current, onSaved }) {
-  const SC = window.Shortcuts;
-  const defs = SC ? SC.getDefinitions() : [];
-  const defaults = SC ? SC.getDefaultShortcuts() : {};
+  const defs     = getDefinitions();
+  const defaults = getDefaultShortcuts();
   const [draft, setDraft] = useState({});
   const [capturing, setCapturing] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -533,18 +669,18 @@ function ShortcutsModal({ open, onClose, current, onSaved }) {
       e.preventDefault(); e.stopPropagation();
       if (e.key === 'Escape') { setCapturing(null); return; }
       if (e.key === 'Backspace' || e.key === 'Delete') { setDraft(d => ({ ...d, [capturing]: '' })); setCapturing(null); return; }
-      const combo = SC ? SC.eventToCombo(e) : '';
+      const combo = eventToCombo(e);
       if (combo) { setDraft(d => ({ ...d, [capturing]: combo })); setCapturing(null); }
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [open, capturing, SC, onClose]);
+  }, [open, capturing, onClose]);
 
   const duplicates = useMemo(() => {
     const seen = new Map();
-    Object.entries(draft).forEach(([action, combo]) => { const c = SC ? SC.canonicalizeShortcutString(combo) : combo; if (!c) return; if (!seen.has(c)) seen.set(c, []); seen.get(c).push(action); });
+    Object.entries(draft).forEach(([action, combo]) => { const c = canonicalizeShortcutString(combo); if (!c) return; if (!seen.has(c)) seen.set(c, []); seen.get(c).push(action); });
     return [...seen.entries()].filter(([, a]) => a.length > 1);
-  }, [draft, SC]);
+  }, [draft]);
 
   if (!open) return null;
 
@@ -552,10 +688,10 @@ function ShortcutsModal({ open, onClose, current, onSaved }) {
     if (duplicates.length) return;
     setSaving(true);
     try {
-      const normalized = SC ? SC.saveStoredShortcuts(draft) : { ...draft };
+      const normalized = saveStoredShortcuts(draft);
       const r = await (await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shortcuts: normalized }) })).json();
       const saved = r.shortcuts || normalized;
-      if (SC) SC.saveStoredShortcuts(saved);
+      saveStoredShortcuts(saved);
       window.dispatchEvent(new CustomEvent('dnd-shortcuts-updated'));
       onSaved(saved); onClose(); toast('Keyboard shortcuts saved.', 'success');
     } catch (err) { toast('Could not save shortcuts: ' + err.message, 'error'); } finally { setSaving(false); }

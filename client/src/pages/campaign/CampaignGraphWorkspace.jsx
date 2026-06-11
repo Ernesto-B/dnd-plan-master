@@ -48,33 +48,57 @@ function resolveCol(node, sessionIdxMap) {
   return 0;
 }
 
+// How many sub-columns to use within a session column for above/below nodes.
+// Using 2 sub-columns with a small offset reduces vertical stacking clutter.
+const SUB_COL_OFFSET = (NODE_W + 8); // horizontal shift between sub-columns
+
 function computeLayout(nodes) {
   const sessions = sortSessions(nodes.filter(n => n.entityType === 'session'));
   const sessionIdxMap = new Map(sessions.map((s, i) => [s.id, i]));
   const numCols = Math.max(sessions.length, 1);
 
+  // Count nodes per column per zone to determine required height above/below
   const aboveCounts = Array(numCols).fill(0);
   for (const node of nodes) {
     if (!ABOVE_TYPES.includes(node.entityType)) continue;
     aboveCounts[resolveCol(node, sessionIdxMap)]++;
   }
-  const sessionY = TOP_MARGIN + Math.max(...aboveCounts, 0) * ITEM_H + SESSION_GAP;
+  // Each column uses 2 sub-cols; compute rows needed = ceil(count / 2)
+  const maxAboveRows = Math.max(...aboveCounts.map(c => Math.ceil(c / 2)), 0);
+  const sessionY = TOP_MARGIN + maxAboveRows * ITEM_H + SESSION_GAP;
 
   const positions = new Map();
   sessions.forEach((s, i) => {
     positions.set(s.id, { x: 60 + i * COL_W, y: sessionY });
   });
 
-  const upCursor = Array(numCols).fill(sessionY - SESSION_GAP);
-  const downCursor = Array(numCols).fill(sessionY + NODE_H + SESSION_GAP);
+  // For above/below nodes, use 2 sub-columns per session column to reduce overlap.
+  // Sub-col 0: same x as session, Sub-col 1: offset right by SUB_COL_OFFSET
+  const upCursorA = Array(numCols).fill(sessionY - SESSION_GAP); // sub-col 0
+  const upCursorB = Array(numCols).fill(sessionY - SESSION_GAP); // sub-col 1
+  const upSubIdx  = Array(numCols).fill(0); // which sub-col to place next node in
+
+  const downCursorA = Array(numCols).fill(sessionY + NODE_H + SESSION_GAP);
+  const downCursorB = Array(numCols).fill(sessionY + NODE_H + SESSION_GAP);
+  const downSubIdx  = Array(numCols).fill(0);
 
   for (const type of ABOVE_TYPES) {
     for (const node of nodes) {
       if (node.entityType !== type) continue;
       const col = resolveCol(node, sessionIdxMap);
-      const y = upCursor[col] - NODE_H;
-      upCursor[col] = y - 12;
-      positions.set(node.id, { x: 60 + col * COL_W, y });
+      const sub = upSubIdx[col] % 2;
+      upSubIdx[col]++;
+      if (sub === 0) {
+        const y = upCursorA[col] - NODE_H;
+        upCursorA[col] = y - 12;
+        // Sync the other cursor to the same row when we start a new row
+        if (upSubIdx[col] % 2 === 0) upCursorB[col] = upCursorA[col];
+        positions.set(node.id, { x: 60 + col * COL_W, y });
+      } else {
+        const y = upCursorB[col] - NODE_H;
+        upCursorB[col] = y - 12;
+        positions.set(node.id, { x: 60 + col * COL_W + SUB_COL_OFFSET, y });
+      }
     }
   }
 
@@ -82,9 +106,18 @@ function computeLayout(nodes) {
     for (const node of nodes) {
       if (node.entityType !== type) continue;
       const col = resolveCol(node, sessionIdxMap);
-      const y = downCursor[col];
-      downCursor[col] = y + ITEM_H;
-      positions.set(node.id, { x: 60 + col * COL_W, y });
+      const sub = downSubIdx[col] % 2;
+      downSubIdx[col]++;
+      if (sub === 0) {
+        const y = downCursorA[col];
+        downCursorA[col] = y + ITEM_H;
+        if (downSubIdx[col] % 2 === 0) downCursorB[col] = downCursorA[col];
+        positions.set(node.id, { x: 60 + col * COL_W, y });
+      } else {
+        const y = downCursorB[col];
+        downCursorB[col] = y + ITEM_H;
+        positions.set(node.id, { x: 60 + col * COL_W + SUB_COL_OFFSET, y });
+      }
     }
   }
 
@@ -113,10 +146,15 @@ function edgeEndpoints(sp, tp) {
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
+// localStorage is kept only as a fast read-through cache; the server is the
+// source of truth. The special name "__workspace__" is used for an implicit
+// auto-save view so positions survive without the user explicitly naming a view.
+
 function storageKey(campaignId) { return `dnd-graph:positions:${campaignId || 'c-default'}`; }
 function groupsStorageKey(campaignId) { return `dnd-graph:groups:${campaignId || 'c-default'}`; }
+function viewportStorageKey(campaignId) { return `dnd-graph:viewport:${campaignId || 'c-default'}`; }
 
-function loadSavedPositions(campaignId, ref) {
+function loadCachedPositions(campaignId, ref) {
   try {
     const raw = localStorage.getItem(storageKey(campaignId));
     if (!raw) return;
@@ -126,19 +164,41 @@ function loadSavedPositions(campaignId, ref) {
   } catch {}
 }
 
-function persistPositions(campaignId, ref) {
+function cachePositions(campaignId, ref) {
   try { localStorage.setItem(storageKey(campaignId), JSON.stringify(Object.fromEntries(ref.current))); } catch {}
 }
 
-function loadSavedGroups(campaignId) {
+// Persist positions — cache locally. The component also runs a reactive effect
+// that schedules a debounced server workspace save whenever positionsTick changes.
+function persistPositions(campaignId, ref) {
+  cachePositions(campaignId, ref);
+}
+
+function loadCachedGroups(campaignId) {
   try {
     const raw = localStorage.getItem(groupsStorageKey(campaignId));
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
-function persistGroups(campaignId, groups) {
+function cacheGroups(campaignId, groups) {
   try { localStorage.setItem(groupsStorageKey(campaignId), JSON.stringify(groups)); } catch {}
+}
+
+// Persist groups — cache locally. Server save is handled by reactive effect.
+function persistGroups(campaignId, groups) {
+  cacheGroups(campaignId, groups);
+}
+
+function loadCachedViewport(campaignId) {
+  try {
+    const raw = localStorage.getItem(viewportStorageKey(campaignId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function cacheViewport(campaignId, vp) {
+  try { localStorage.setItem(viewportStorageKey(campaignId), JSON.stringify(vp)); } catch {}
 }
 
 function genGroupId() { return 'grp-' + Math.random().toString(36).slice(2, 8); }
@@ -225,6 +285,9 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
 
   const [showContinuityNotes, setShowContinuityNotes] = useState(true);
   const [expandedEdgeNotes, setExpandedEdgeNotes] = useState(new Set());
+
+  // Isolation mode: when non-null, only these IDs + the selected node are rendered
+  const [isolatedIds, setIsolatedIds] = useState(null);
 
   const allNodes = useMemo(() => graphData?.nodes || [], [graphData]);
   const allEdges = useMemo(() => graphData?.edges || [], [graphData]);
@@ -340,28 +403,143 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Ref to the workspace auto-save debounce timer
+  const persistWorkspaceTimerRef = useRef(null);
+  // Cached ID of the __workspace__ view so we don't GET every time
+  const workspaceViewIdRef = useRef(null);
+  // Ref that points to the current activeTypes Set (so the debounce callback can read it)
+  const activeTypesRef = useRef(activeTypes);
+  useEffect(() => { activeTypesRef.current = activeTypes; }, [activeTypes]);
+
+  // ── Workspace auto-save (server-backed, no named view) ────────────────────
+  // Saves positions/groups/viewport to the server as a hidden "__workspace__" view
+  // so layout survives without the user needing to name a view.
+  const doWorkspaceSave = useCallback(async (cid, posRef, grpsRef, tRef) => {
+    try {
+      const payload = {
+        name: '__workspace__',
+        filters: [...activeTypesRef.current],
+        positions: Object.fromEntries(posRef.current),
+        viewport: { scale: tRef.current.scale, ox: tRef.current.ox, oy: tRef.current.oy },
+        groups: grpsRef.current,
+      };
+      if (workspaceViewIdRef.current) {
+        const r = await fetch(`/api/campaigns/${cid}/graph-views/${workspaceViewIdRef.current}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (r.status === 404) {
+          // View was deleted externally; fall back to creating a new one
+          workspaceViewIdRef.current = null;
+        } else { return; }
+      }
+      // No cached ID: create a new __workspace__ view
+      const res = await fetch(`/api/campaigns/${cid}/graph-views`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        workspaceViewIdRef.current = created.id;
+      }
+    } catch {}
+  }, []);
+
+  const scheduleWorkspaceSave = useCallback(() => {
+    if (persistWorkspaceTimerRef.current) clearTimeout(persistWorkspaceTimerRef.current);
+    persistWorkspaceTimerRef.current = setTimeout(() => {
+      doWorkspaceSave(campaignId, nodePositionsRef, groupsRef, t);
+    }, 2000); // 2-second debounce
+  }, [campaignId, doWorkspaceSave]);
+
+  // Expose scheduleWorkspaceSave as a stable ref for use inside event handlers
+  const scheduleWorkspaceSaveRef = useRef(scheduleWorkspaceSave);
+  useEffect(() => { scheduleWorkspaceSaveRef.current = scheduleWorkspaceSave; }, [scheduleWorkspaceSave]);
+
   // ── Data load ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     nodePositionsRef.current.clear();
-    loadSavedPositions(campaignId, nodePositionsRef);
-    const savedGroups = loadSavedGroups(campaignId);
-    groupsRef.current = savedGroups;
-    setGroups(savedGroups);
+    workspaceViewIdRef.current = null;
+    // Reset state immediately while we fetch from server
     setPositionsTick(v => v + 1);
     setActiveViewId(null);
     setSelectedGroupId(null);
+    setIsolatedIds(null);
     setUndoStack([]);
     undoStackRef.current = [];
 
     fetch(`/api/campaigns/${campaignId}/graph-views`)
       .then(r => r.ok ? r.json() : [])
-      .then(setViews)
-      .catch(() => {});
+      .then(viewsList => {
+        setViews(viewsList.filter(v => v.name !== '__workspace__'));
+
+        // Load default view if one exists, otherwise fall back to __workspace__, then localStorage
+        const defaultView = viewsList.find(v => v.isDefault && v.name !== '__workspace__');
+        const workspaceView = viewsList.find(v => v.name === '__workspace__');
+        // Cache the workspace view ID so the auto-save can PUT instead of POST
+        if (workspaceView) workspaceViewIdRef.current = workspaceView.id;
+        const toLoad = defaultView || workspaceView;
+
+        if (toLoad) {
+          nodePositionsRef.current.clear();
+          for (const [id, pos] of Object.entries(toLoad.positions || {})) {
+            if (typeof pos?.x === 'number' && typeof pos?.y === 'number') nodePositionsRef.current.set(id, pos);
+          }
+          if (Array.isArray(toLoad.groups)) {
+            groupsRef.current = toLoad.groups;
+            setGroups(toLoad.groups);
+            cacheGroups(campaignId, toLoad.groups);
+          } else {
+            groupsRef.current = [];
+            setGroups([]);
+          }
+          if (toLoad.viewport) {
+            t.current.scale = toLoad.viewport.scale || 1;
+            t.current.ox = toLoad.viewport.ox || 0;
+            t.current.oy = toLoad.viewport.oy || 0;
+            // viewport will be applied once canvas is ready (autoFitTick or applyTransform)
+            cacheViewport(campaignId, toLoad.viewport);
+          }
+          if (Array.isArray(toLoad.filters) && toLoad.filters.length > 0) {
+            setActiveTypes(new Set([...toLoad.filters, 'session']));
+          }
+          if (defaultView) setActiveViewId(defaultView.id);
+        } else {
+          // Fall back to localStorage cache
+          loadCachedPositions(campaignId, nodePositionsRef);
+          const cached = loadCachedGroups(campaignId);
+          groupsRef.current = cached;
+          setGroups(cached);
+          const cachedVp = loadCachedViewport(campaignId);
+          if (cachedVp) {
+            t.current.scale = cachedVp.scale || 1;
+            t.current.ox = cachedVp.ox || 0;
+            t.current.oy = cachedVp.oy || 0;
+          }
+        }
+
+        cachePositions(campaignId, nodePositionsRef);
+        setPositionsTick(v => v + 1);
+      })
+      .catch(() => {
+        // Network error: fall back to localStorage
+        loadCachedPositions(campaignId, nodePositionsRef);
+        const cached = loadCachedGroups(campaignId);
+        groupsRef.current = cached;
+        setGroups(cached);
+        setPositionsTick(v => v + 1);
+      });
   }, [campaignId]);
 
   // Keep groupsRef in sync for onUp closure
   useEffect(() => { groupsRef.current = groups; }, [groups]);
+
+  // ── Server workspace auto-save ─────────────────────────────────────────────
+  // Whenever positions or groups change (positionsTick or groups state), schedule
+  // a debounced server-side save to the hidden "__workspace__" view.
+  useEffect(() => {
+    scheduleWorkspaceSaveRef.current?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsTick, groups]);
 
   // Close views menu on outside click
   useEffect(() => {
@@ -376,8 +554,12 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
   const q = query.trim().toLowerCase();
 
   const visibleNodes = useMemo(() =>
-    allNodes.filter(n => activeTypes.has(n.entityType) && (!q || (n.searchText || '').includes(q))),
-    [allNodes, activeTypes, q]
+    allNodes.filter(n =>
+      activeTypes.has(n.entityType) &&
+      (!q || (n.searchText || '').includes(q)) &&
+      (!isolatedIds || isolatedIds.has(n.id))
+    ),
+    [allNodes, activeTypes, q, isolatedIds]
   );
   const visibleIds = useMemo(() => new Set(visibleNodes.map(n => n.id)), [visibleNodes]);
   const nodesById = useMemo(() => new Map(allNodes.map(n => [n.id, n])), [allNodes]);
@@ -642,10 +824,16 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
 
     const onUp = () => {
       if (drag.current.active) {
+        const panned = drag.current.moved;
         drag.current.active = false;
         drag.current.start = null;
         vp.classList.remove('gwc-dragging');
         setTimeout(() => { drag.current.moved = false; }, 0);
+        if (panned) {
+          // Cache viewport locally and schedule a server workspace save
+          cacheViewport(campaignId, { scale: t.current.scale, ox: t.current.ox, oy: t.current.oy });
+          scheduleWorkspaceSaveRef.current?.();
+        }
       }
 
       if (dragNodeRef.current) {
@@ -954,6 +1142,16 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
     } catch {}
   }
 
+  async function handleSetDefaultView(viewId) {
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/graph-views/${viewId}/set-default`, { method: 'POST' });
+      if (res.ok) {
+        const updated = await res.json();
+        setViews(prev => prev.map(v => ({ ...v, isDefault: v.id === updated.id })));
+      }
+    } catch {}
+  }
+
   // ── Wiki-link renderer ─────────────────────────────────────────────────────
 
   function renderWikiText(text) {
@@ -975,6 +1173,58 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
       }
       return <span key={idx} className="gwc-edge-note-wikilink--missing">{name}</span>;
     });
+  }
+
+  // ── Graph quick actions ────────────────────────────────────────────────────
+
+  function centerOnNode(nodeId) {
+    const pos = effectivePositionsRef.current.get(nodeId);
+    if (!pos) return;
+    const { vw, vh } = vpSize();
+    t.current.ox = vw / 2 - (pos.x + NODE_W / 2) * t.current.scale;
+    t.current.oy = vh / 2 - (pos.y + NODE_H / 2) * t.current.scale;
+    applyTransform();
+  }
+
+  function isolateSelection(nodeId) {
+    const node = nodesById.get(nodeId);
+    if (!node) return;
+    const neighbors = new Set(node.links || []);
+    neighbors.add(nodeId);
+    // Always include sessions so the spine stays visible for context
+    for (const n of allNodes) {
+      if (n.entityType === 'session') neighbors.add(n.id);
+    }
+    setIsolatedIds(neighbors);
+    // Make sure all types in the neighbor set are visible
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      for (const nid of neighbors) {
+        const nd = nodesById.get(nid);
+        if (nd) next.add(nd.entityType);
+      }
+      return next;
+    });
+  }
+
+  function revealNeighbors(nodeId) {
+    const node = nodesById.get(nodeId);
+    if (!node) return;
+    // Make all neighbor types visible
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      for (const lid of (node.links || [])) {
+        const nd = nodesById.get(lid);
+        if (nd) next.add(nd.entityType);
+      }
+      return next;
+    });
+    // Clear isolation so neighbors become visible
+    setIsolatedIds(null);
+  }
+
+  function clearIsolation() {
+    setIsolatedIds(null);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -1052,6 +1302,15 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
             <span className="gwc-ctb-sep" />
             <button type="button" className="map-tool-btn" onClick={() => fit()}>Fit View</button>
             <button type="button" className="map-tool-btn" onClick={handleAutoLayout}>Auto Layout</button>
+            {isolatedIds && (
+              <>
+                <span className="gwc-ctb-sep" />
+                <button type="button" className="map-tool-btn gwc-isolation-btn active"
+                  onClick={clearIsolation} title="Exit isolation mode — show all nodes">
+                  Isolated ✕
+                </button>
+              </>
+            )}
             <span className="gwc-ctb-sep" />
             <button type="button" className="map-tool-btn" onClick={handleAddGroup}>+ Group</button>
             <button
@@ -1090,8 +1349,15 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
                       <div key={view.id} className={`gwc-view-row${view.id === cleanActiveViewId ? ' is-active' : ''}`}>
                         <button type="button" className="gwc-view-load" onClick={() => loadView(view)}>
                           {view.id === cleanActiveViewId && <span className="gwc-view-check">✓</span>}
+                          {view.isDefault && <span className="gwc-view-default-star" title="Default view">★</span>}
                           {view.name}
                         </button>
+                        <button
+                          type="button"
+                          className={`gwc-view-setdefault${view.isDefault ? ' is-default' : ''}`}
+                          title={view.isDefault ? 'This is the default view' : 'Set as default view'}
+                          onClick={() => handleSetDefaultView(view.id)}
+                        >★</button>
                         <button type="button" className="gwc-view-del" title="Delete view"
                           onClick={() => handleDeleteView(view.id)}>×</button>
                       </div>
@@ -1437,6 +1703,31 @@ export default function CampaignGraphWorkspace({ graphData, campaignId = 'c-defa
             <div className="gwc-detail-actions">
               <AppLink to={selectedNode.url} className="btn btn-primary btn-sm">Open Record</AppLink>
               <span className="graph-node-badge">{selectedNode.connectionCount} link{selectedNode.connectionCount === 1 ? '' : 's'}</span>
+            </div>
+            {/* Quick actions */}
+            <div className="gwc-detail-quick-actions">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm gwc-qa-btn"
+                title="Pan the canvas so this node is centered"
+                onClick={() => centerOnNode(selectedNode.id)}
+              >Center</button>
+              {(selectedNode.links || []).length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className={`btn btn-ghost btn-sm gwc-qa-btn${isolatedIds ? ' active' : ''}`}
+                    title={isolatedIds ? 'Exit isolation mode' : 'Hide all nodes except this one and its direct neighbors'}
+                    onClick={() => isolatedIds ? clearIsolation() : isolateSelection(selectedNode.id)}
+                  >{isolatedIds ? 'Show All' : 'Isolate'}</button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm gwc-qa-btn"
+                    title="Make all direct neighbors visible (enable their entity-type filters)"
+                    onClick={() => revealNeighbors(selectedNode.id)}
+                  >Reveal Neighbors</button>
+                </>
+              )}
             </div>
             {selectedNode.tags?.length > 0 && (
               <div className="gwc-detail-tags">

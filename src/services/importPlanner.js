@@ -323,6 +323,7 @@ async function executeImport(bundle, resolution, campaignId) {
       faction: buildTypeReport(),
     },
     items: [],
+    skippedItems: [],
     remappedIds: [],
   };
 
@@ -356,6 +357,7 @@ async function executeImport(bundle, resolution, campaignId) {
         report.totals.skipped++;
         report.byType[type].skipped++;
         report.items.push(itemReport);
+        report.skippedItems.push({ type, sourceId: plan.sourceId, label: plan.label, reason: plan.status });
         continue;
       }
 
