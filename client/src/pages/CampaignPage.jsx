@@ -81,45 +81,30 @@ function Dashboard({ campaign, sessions, encounters, npcs, locations, factions, 
         <StatCard label="Factions" value={factions.length} listHref="/factions" latest={latestFac && { href: `/faction/view/${latestFac.id}`, title: latestFac.name || latestFac.id, tooltip: latestFac.goal || latestFac.origin || 'No faction goal recorded.' }} />
       </section>
 
-      <section className="dashboard-secondary-grid">
-        <div className="dashboard-secondary-column">
-          <SectionHeader n="01" title="Continuity Snapshot" />
-          <div className="dashboard-side-stack">
+      <section className="dashboard-secondary-column">
+        <SectionHeader n="01" title="Party Roster" />
+        <div className="dashboard-side-stack">
+          {party.length ? (
             <div className="dashboard-side-card card">
-              <div className="dashboard-side-list">
-                {[['Tracked Sessions', c.trackedSessions], ['World Changes', c.worldChanges], ['Open Threads', c.unresolvedThreads], ['NPC Updates', c.npcUpdates], ['Rewards', c.treasureRewards]].map(([l, v]) => (
-                  <div className="dashboard-side-metric" key={l}><span>{l}</span><strong>{v}</strong></div>
-                ))}
-              </div>
-              <a href="#campaign-guide" className="btn btn-ghost dashboard-side-btn">Jump to Continuity</a>
-            </div>
-          </div>
-        </div>
-        <div className="dashboard-secondary-column">
-          <SectionHeader n="02" title="Party Roster" />
-          <div className="dashboard-side-stack">
-            {party.length ? (
-              <div className="dashboard-side-card card">
-                <div className="dashboard-scroll-area">
-                  <div className="dashboard-party-list">
-                    {party.map((m, i) => (
-                      <div className="dashboard-party-item" key={i}>
-                        <div className="dashboard-party-name">{m.name || 'Unnamed'}</div>
-                        <div className="dashboard-party-meta">{m.playerClass || 'Class not set'}</div>
-                        {m.characterUrl && <a className="dashboard-party-link" href={m.characterUrl} target="_blank" rel="noopener">Character Sheet ↗</a>}
-                      </div>
-                    ))}
-                  </div>
+              <div className="dashboard-scroll-area">
+                <div className="dashboard-party-list">
+                  {party.map((m, i) => (
+                    <div className="dashboard-party-item" key={i}>
+                      <div className="dashboard-party-name">{m.name || 'Unnamed'}</div>
+                      <div className="dashboard-party-meta">{m.playerClass || 'Class not set'}</div>
+                      {m.characterUrl && <a className="dashboard-party-link" href={m.characterUrl} target="_blank" rel="noopener">Character Sheet ↗</a>}
+                    </div>
+                  ))}
                 </div>
-                <a href="/settings#sec-party" className="btn btn-ghost dashboard-side-btn">Edit Party Roster</a>
               </div>
-            ) : (
-              <div className="dashboard-side-card card">
-                <p className="dashboard-empty-copy">No party roster yet. Add the current adventuring party in Settings so encounter planning and campaign overview stay grounded.</p>
-                <a href="/settings#sec-party" className="btn btn-primary dashboard-side-btn">Add Party Roster</a>
-              </div>
-            )}
-          </div>
+              <a href="/settings#sec-party" className="btn btn-ghost dashboard-side-btn">Edit Party Roster</a>
+            </div>
+          ) : (
+            <div className="dashboard-side-card card">
+              <p className="dashboard-empty-copy">No party roster yet. Add the current adventuring party in Settings so encounter planning and campaign overview stay grounded.</p>
+              <a href="/settings#sec-party" className="btn btn-primary dashboard-side-btn">Add Party Roster</a>
+            </div>
+          )}
         </div>
       </section>
     </>
@@ -129,6 +114,7 @@ function Dashboard({ campaign, sessions, encounters, npcs, locations, factions, 
 // ─── Continuity (guide + stats + pickup + boards + timeline) ─────────────────
 function Continuity({ continuitySessions, allSessions, graphData }) {
   const [query, setQuery] = useState('');
+  const [expandedSet, setExpandedSet] = useState(null); // null = default (index 0 expanded)
   const sorted = useMemo(() => [...continuitySessions].sort((a, b) => {
     const d = (Number(b.sessionNumber) || 0) - (Number(a.sessionNumber) || 0);
     return d !== 0 ? d : String(b.date || '').localeCompare(String(a.date || ''));
@@ -150,6 +136,18 @@ function Continuity({ continuitySessions, allSessions, graphData }) {
     npcStatusChanges: a.npcStatusChanges + s.continuity.npcStatusChanges.length,
     treasureRewardsLog: a.treasureRewardsLog + s.continuity.treasureRewardsLog.length,
   }), { sessions: 0, worldStateChanges: 0, unresolvedThreads: 0, npcStatusChanges: 0, treasureRewardsLog: 0 });
+
+  const isExpanded = (id, idx) => expandedSet === null ? idx === 0 : expandedSet.has(id);
+  const toggleSession = (id) => {
+    setExpandedSet(prev => {
+      const base = prev ?? new Set(items.length ? [items[0].id] : []);
+      const next = new Set(base);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const expandAll = () => setExpandedSet(new Set(items.map(s => s.id)));
+  const collapseAll = () => setExpandedSet(new Set());
 
   const boardDefs = [
     { key: 'worldStateChanges', title: 'World-State Changes', empty: 'No world-state changes logged yet.' },
@@ -176,15 +174,17 @@ function Continuity({ continuitySessions, allSessions, graphData }) {
   return (
     <>
       <div className="campaign-hero">
-        <div>
-          <h1 className="page-title">Campaign Continuity</h1>
-          <p className="page-subtitle">Review what changed, what is still unresolved, and what the party has earned across the whole campaign.</p>
+        <div className="campaign-hero-top">
+          <div>
+            <h1 className="page-title">Campaign Continuity</h1>
+            <p className="page-subtitle">Review what changed, what is still unresolved, and what the party has earned across the whole campaign.</p>
+          </div>
+          <AppLink to="/map" className="btn btn-ghost btn-sm">World Map</AppLink>
         </div>
         <div className="campaign-search-wrap">
           <input type="search" className="search-input campaign-search-input" value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search recap, threads, NPC updates, rewards, tags, or session goal…" />
         </div>
-        <AppLink to="/map" className="btn btn-ghost btn-sm" style={{ flexShrink: 0, alignSelf: 'flex-start' }}>World Map</AppLink>
       </div>
 
       <div id="campaign-guide" className="campaign-guide">
@@ -284,41 +284,72 @@ function Continuity({ continuitySessions, allSessions, graphData }) {
         </section>
 
         <section className="campaign-column">
-          <SectionHeader n="02" title="Session Timeline" />
+          <div className="campaign-tl-header">
+            <SectionHeader n="02" title="Session Timeline" />
+            {items.length > 1 && (
+              <div className="campaign-tl-controls">
+                <button className="btn btn-ghost btn-sm" onClick={expandAll}>Expand All</button>
+                <button className="btn btn-ghost btn-sm" onClick={collapseAll}>Collapse All</button>
+              </div>
+            )}
+          </div>
           <div className="campaign-timeline">
             {!items.length
               ? <div className="empty-state"><p>{isFiltered ? 'No sessions match your search.' : 'No continuity sessions yet.'}</p></div>
-              : items.map(s => (
-                  <article className="campaign-session card" key={s.id}>
-                    <div className="campaign-session-head">
-                      <div>
-                        <AppLink className="campaign-session-link" to={`/view/${s.id}`}>{sessionLabelId(s)}</AppLink>
-                        <div className="campaign-session-sub">{s.goal || 'No session goal recorded.'}</div>
+              : items.map((s, i) => {
+                  const expanded = isExpanded(s.id, i);
+                  const prev = i > 0 ? items[i - 1] : null;
+                  const showLevel = prev && prev.partyLevel && s.partyLevel &&
+                    Number(prev.partyLevel) > Number(s.partyLevel);
+                  return (
+                    <React.Fragment key={s.id}>
+                      {showLevel && (
+                        <div className="campaign-tl-level-marker">
+                          <span className="campaign-tl-level-badge">▲ Party reached Level {prev.partyLevel}</span>
+                        </div>
+                      )}
+                      <div className={`campaign-tl-node${i === 0 ? ' campaign-tl-node--latest' : ''}`}>
+                        <div className="campaign-tl-dot" />
+                        <article className="campaign-session card">
+                          <div className="campaign-session-toggle" onClick={() => toggleSession(s.id)}>
+                            <div className="campaign-session-head">
+                              <div>
+                                <AppLink className="campaign-session-link" to={`/view/${s.id}`} onClick={e => e.stopPropagation()}>{sessionLabel(s)}</AppLink>
+                                <div className="campaign-session-sub">{s.goal || 'No session goal recorded.'}</div>
+                              </div>
+                              <div className="campaign-session-meta">
+                                {s.date && <span>{fmtDate(s.date)}</span>}
+                                {s.partyLevel && <span>Lv {String(s.partyLevel)}</span>}
+                                <span className={`campaign-tl-chevron${expanded ? ' is-open' : ''}`}>▸</span>
+                              </div>
+                            </div>
+                            <Tags tags={s.tags} className="campaign-session-tags" />
+                          </div>
+                          {expanded && (
+                            <div className="campaign-session-body">
+                              {s.continuity.sessionRecap && (
+                                <div className="campaign-session-recap"><div className="campaign-mini-label">Session Recap</div><p><WT text={s.continuity.sessionRecap} /></p></div>
+                              )}
+                              <div className="campaign-session-grid">
+                                {[['World-State Changes', s.continuity.worldStateChanges, 'No world-state changes noted.'],
+                                  ['Unresolved Threads', s.continuity.unresolvedThreads, 'No unresolved threads noted.'],
+                                  ['NPC Status Changes', s.continuity.npcStatusChanges, 'No NPC updates noted.'],
+                                  ['Treasure & Rewards', s.continuity.treasureRewardsLog, 'No rewards logged.']].map(([title, list, empty]) => (
+                                  <section className="campaign-mini-card" key={title}>
+                                    <div className="campaign-mini-label">{title}</div>
+                                    {list.length
+                                      ? <div className="campaign-mini-list">{list.map((it, j) => <div className="campaign-mini-item" key={j}><WT text={it} /></div>)}</div>
+                                      : <p className="campaign-mini-empty">{empty}</p>}
+                                  </section>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </article>
                       </div>
-                      <div className="campaign-session-meta">
-                        {s.date && <span>{fmtDate(s.date)}</span>}
-                        {s.partyLevel && <span>Level {String(s.partyLevel)}</span>}
-                      </div>
-                    </div>
-                    <Tags tags={s.tags} className="campaign-session-tags" />
-                    {s.continuity.sessionRecap && (
-                      <div className="campaign-session-recap"><div className="campaign-mini-label">Session Recap</div><p><WT text={s.continuity.sessionRecap} /></p></div>
-                    )}
-                    <div className="campaign-session-grid">
-                      {[['World-State Changes', s.continuity.worldStateChanges, 'No world-state changes noted.'],
-                        ['Unresolved Threads', s.continuity.unresolvedThreads, 'No unresolved threads noted.'],
-                        ['NPC Status Changes', s.continuity.npcStatusChanges, 'No NPC updates noted.'],
-                        ['Treasure & Rewards', s.continuity.treasureRewardsLog, 'No rewards logged.']].map(([title, list, empty]) => (
-                        <section className="campaign-mini-card" key={title}>
-                          <div className="campaign-mini-label">{title}</div>
-                          {list.length
-                            ? <div className="campaign-mini-list">{list.map((it, i) => <div className="campaign-mini-item" key={i}><WT text={it} /></div>)}</div>
-                            : <p className="campaign-mini-empty">{empty}</p>}
-                        </section>
-                      ))}
-                    </div>
-                  </article>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
           </div>
         </section>
       </div>

@@ -30,6 +30,7 @@ export const ICONS = {
   search: '<circle cx="11" cy="11" r="5.5"></circle><path d="M15.5 15.5l4 4"></path>',
   save: '<path d="M5.5 5.5h10l3 3v10h-13z"></path><path d="M8 5.5v5h6v-5"></path><path d="M8 18v-5h8v5"></path>',
   table: '<path d="M4.5 6h15v12h-15z"></path><path d="M4.5 10h15"></path><path d="M9 6v12"></path><path d="M14 6v12"></path>',
+  graph: '<circle cx="4" cy="14" r="2"></circle><circle cx="12" cy="14" r="2"></circle><circle cx="20" cy="14" r="2"></circle><circle cx="12" cy="7" r="2"></circle><path d="M6 14h4M14 14h4M12 9v3"></path>',
   default: '<path d="M5 12h14"></path>',
 };
 

@@ -4,6 +4,7 @@ import { Icon } from '../lib/icons.jsx';
 import AppLink from './AppLink.jsx';
 import { CREATE_ITEMS } from '../lib/nav.js';
 import { useApi } from '../lib/useApi.js';
+import GlobalSearch from './GlobalSearch.jsx';
 
 // Closes a dropdown when clicking anywhere outside the given ref.
 function useOutsideClose(ref, onClose) {
@@ -86,6 +87,9 @@ export default function TopBar() {
           <button type="button" className="nav-history-btn" aria-label="Forward" title="Forward" onClick={() => window.history.forward()}>→</button>
         </div>
         <CampaignSwitcher />
+      </div>
+      <div className="topbar-center">
+        <GlobalSearch />
       </div>
       <div className="topbar-right">
         <Link

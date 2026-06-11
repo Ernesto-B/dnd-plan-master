@@ -1,36 +1,49 @@
 # D&D Session Master
 
-A local web and desktop app for planning and running D&D / TTRPG campaigns. Build and link sessions, encounters, NPCs, locations, factions, and campaign maps; generate clean PDF + Markdown exports; manage multiple campaigns; and run live sessions from a local-first tool with no external backend.
+Local-first campaign prep and live-play app for D&D / TTRPGs. It runs as:
+
+- a browser app backed by a local Express server
+- an Electron desktop app backed by the same local server
+
+The frontend is a Vite + React SPA in `client/`. The backend in `src/` owns all `/api/*` routes, JSON stores, import/export, backups, map persistence, and PDF generation.
+
+## What It Does
+
+- Plan and run sessions
+- Build encounter plans
+- Manage NPCs, locations, and factions
+- Link records across entity types
+- Organize multiple campaigns
+- Upload and annotate a campaign map
+- Explore campaign continuity and relationship graphs
+- Export Markdown and PDF files
+- Import/export JSON bundles
+- Create and restore backups
 
 ## Requirements
 
-- Node.js 18 or later
+- Node.js 18+
 - npm
 
 ## Install
 
 ```bash
-cd dnd-plan-master
 npm install
 ```
 
-Puppeteer will automatically download a compatible version of Chromium on first install (~170 MB).
+`puppeteer` downloads a compatible Chromium build during install.
 
 ## Run
+
+Web app:
 
 ```bash
 npm start
 ```
 
-Open **http://localhost:3000** in your browser.
+Open `http://localhost:3000`.
 
-Landing page:
-- `/` opens the campaign overview dashboard
-- `/sessions` opens the sessions list
-
-## Dev Mode
-
-To run the current React + Vite frontend in development alongside the Express API:
+Development mode:
 
 ```bash
 npm run dev
@@ -39,302 +52,216 @@ npm run dev
 This starts:
 
 - Express on `http://localhost:3000`
-- Vite on its dev server with `/api`, `/vendor`, and `/fonts` proxied to Express
+- Vite with `/api`, `/vendor`, and `/fonts` proxied to Express
 
-## Desktop Run
-
-To launch the standalone Electron app during development:
+Desktop app:
 
 ```bash
 npm run start:desktop
 ```
 
-This opens D&D Session Master in its own desktop window rather than a browser tab.
-
-## Desktop Builds
-
-For local desktop packaging:
+Desktop packaging:
 
 ```bash
 npm run build:desktop
-```
-
-For a distributable build on the current machine:
-
-```bash
 npm run dist
 ```
 
-For explicit platform-targeted builds:
+Platform-specific distributables:
 
 ```bash
 npm run dist:mac
 npm run dist:win
 ```
 
-Notes:
-- macOS builds should be produced on macOS.
-- Windows builds are best produced on Windows.
-- In desktop mode, app data is stored in the OS app-data folder rather than the repo `data/` directory.
-- `npm run build:desktop` creates an unpacked app bundle for local smoke testing.
-- `npm run dist` creates installable/release artifacts in `dist/`.
-- Current configured outputs:
-  - macOS: `.dmg` and `.zip`
-  - Windows: NSIS installer `.exe` and portable `.exe`
+## Test
 
-## Release Workflow
+```bash
+npm test
+```
 
-1. Run `npm install`
-2. Run `npm run start:desktop` and smoke-test create / view / export flows
-3. Run `npm run build:desktop` and verify the unpacked app launches
-4. Run `npm run dist` on the target OS
-5. Test the generated installer or app bundle from `dist/`
+The repo currently includes Node test coverage for key stores and import/persistence logic.
 
-Practical notes:
-- Build mac releases on a Mac.
-- Build Windows releases on Windows.
-- Unsigned builds are fine for local use, but macOS Gatekeeper and Windows SmartScreen may warn when distributing to other machines.
+## Main Routes
 
-## Usage
+| Route | Purpose |
+|------|---------|
+| `/` or `/campaign` | Campaign dashboard and continuity overview |
+| `/graph` | Campaign graph workspace |
+| `/sessions` | Session list |
+| `/form` | New/edit session form |
+| `/view/:id` | Session view |
+| `/run/:id` | Full-screen session runner |
+| `/encounters` | Encounter list |
+| `/encounter/new` | New encounter form |
+| `/encounter/edit/:id` | Edit encounter |
+| `/encounter/view/:id` | Encounter view |
+| `/npcs` | NPC list |
+| `/npc/new` | New NPC form |
+| `/npc/edit/:id` | Edit NPC |
+| `/npc/view/:id` | NPC view |
+| `/locations` | Location list |
+| `/location/new` | New location form |
+| `/location/edit/:id` | Edit location |
+| `/location/view/:id` | Location view |
+| `/factions` | Faction list |
+| `/faction/new` | New faction form |
+| `/faction/edit/:id` | Edit faction |
+| `/faction/view/:id` | Faction view |
+| `/campaigns` | Campaign manager |
+| `/map` | Campaign map editor |
+| `/settings` | Settings, import/export, backups, archive/trash |
 
-| Page | URL | Description |
-|------|-----|-------------|
-| Campaign Dashboard | `localhost:3000` | Active campaign overview with stats, recent records, party snapshot, and continuity summary. |
-| Sessions | `localhost:3000/sessions` | Lists all saved sessions. Click any row to view. |
-| New Session | `localhost:3000/form` | Session planning form (9 sections). |
-| View Session | `localhost:3000/view/:id` | Renders session as formatted markdown. Shows linked encounters and NPCs. |
-| Run Session | `localhost:3000/run/:id` | Live session runner — beats tracker, initiative tracker, collapsible sections. |
-| Encounters | `localhost:3000/encounters` | Lists all encounter plans. |
-| New Encounter | `localhost:3000/encounter/new` | 8-step encounter design form. |
-| View Encounter | `localhost:3000/encounter/view/:id` | Renders encounter plan. |
-| NPCs | `localhost:3000/npcs` | NPC database — browse, search, and manage all NPCs. |
-| New NPC | `localhost:3000/npc/new` | Full NPC creation form (identity, voice, skills, inventory). |
-| View NPC | `localhost:3000/npc/view/:id` | NPC profile with linked sessions and encounters. |
-| Locations | `localhost:3000/locations` | Location database with linked-session browsing and export support. |
-| New Location | `localhost:3000/location/new` | Location creation form for setting, hooks, atmosphere, and linked sessions. |
-| View Location | `localhost:3000/location/view/:id` | Location profile with tags and linked sessions. |
-| Factions | `localhost:3000/factions` | Faction database for guilds, houses, cults, and other power groups. |
-| New Faction | `localhost:3000/faction/new` | Faction creation form for goals, clocks, leverage, reputation, and linked records. |
-| View Faction | `localhost:3000/faction/view/:id` | Faction profile with linked sessions, encounters, NPCs, and locations. |
-| Campaign | `localhost:3000/campaign` | Campaign-level overview: continuity, timeline, and entity graph. |
-| Campaigns | `localhost:3000/campaigns` | Campaign manager — create, switch, rename, and delete campaigns. |
-| Map | `localhost:3000/map` | Campaign map with uploaded image and clickable pins. |
-| Settings | `localhost:3000/settings` | Party roster, theme, UI scale, autosave, export/import, backups, and keyboard shortcuts. |
+## Core Features
 
-### Creating a session
+- Session planning with continuity tracking, linked records, preview, PDF, and live run mode
+- Encounter planning with preview/export and session linkage
+- NPC, location, and faction databases with linked-record navigation
+- Campaign dashboard with continuity boards, pickup summary, and relationship explorer
+- Dedicated campaign graph workspace at `/graph`
+- Map editor with uploaded image, draggable pins, and record links
+- Campaign switching and campaign-level import/export
+- Archive and trash lifecycle for records
+- Manual and scheduled backups
+- Theme, UI scale, shortcuts, and party-roster settings
 
-1. Go to `localhost:3000/form`
-2. Fill in the sections (Session Info, Goal & Hook, Beats, Continuity, NPCs, Locations, Faction Clocks, Combat, Notes)
-3. In the NPCs and Locations sections, link any existing records you want available from the session
-4. Click **Preview Session**
-5. Review the rendered markdown, then click **Save to App**
+## Campaign Graph Workspace
 
-Session data is stored locally. In web mode it uses the repo `data/` folder; in desktop mode it uses the OS app-data directory.
+The graph workspace is now a first-class route at `/graph`.
 
-### Multiple campaigns
+Current capabilities:
 
-Each campaign has its own sessions, encounters, NPCs, and party roster. The active campaign is shown in the top nav as a pill button — click it to switch campaigns or go to the campaign manager. Settings are split: appearance (theme, UI scale, shortcuts) is global; party roster is per-campaign.
+- auto-layout with sessions arranged horizontally as the campaign spine
+- relationship edges between sessions, encounters, NPCs, locations, and factions
+- pan and zoom canvas controls
+- search and type filters
+- draggable node positions
+- named saved views via `graph-views.json`
+- grouping boxes for visual organization
 
-Existing records without a `campaignId` automatically belong to the default campaign — no migration needed.
+Relevant implementation:
 
-From the campaign manager (`/campaigns`) you can also **export** a campaign to a single JSON file (its sessions, encounters, NPCs, locations, factions, and party roster) and **import** that file back in — to move a campaign to another machine, share it with another DM, or keep an off-app backup. Importing always creates a brand-new campaign, so it's safe to try without affecting your existing data.
+- [client/src/pages/CampaignGraphPage.jsx](/Users/ernestobarreto/Documents/tech_home/personal/dnd-plan-master/client/src/pages/CampaignGraphPage.jsx:1)
+- [client/src/pages/campaign/CampaignGraphWorkspace.jsx](/Users/ernestobarreto/Documents/tech_home/personal/dnd-plan-master/client/src/pages/campaign/CampaignGraphWorkspace.jsx:1)
+- [src/services/entityConnections.js](/Users/ernestobarreto/Documents/tech_home/personal/dnd-plan-master/src/services/entityConnections.js:1)
+- [src/services/graphViewStore.js](/Users/ernestobarreto/Documents/tech_home/personal/dnd-plan-master/src/services/graphViewStore.js:1)
 
-### Exporting documents
+## Data Storage
 
-Every session, encounter, NPC, location, and faction view has export actions in the sidebar:
+Web mode stores live data in the repo `data/` directory.
 
-- **Export** — exports the current record only (Markdown and/or PDF)
-- **Export with Connections** — exports the record plus all linked records in a single batch
+Electron mode stores live data in the OS app-data directory. Seed files still ship from the app bundle, but user-created data does not live in the repo once packaged.
 
-Both open a preview popup listing the files to be saved, format checkboxes (Markdown / PDF), and a **Choose Save Folder** button that opens the OS native folder picker.
+Main persisted files include:
 
-### Backups and import/export
+- `campaigns.json`
+- `sessions.json`
+- `encounters.json`
+- `npcs.json`
+- `locations.json`
+- `factions.json`
+- `maps.json`
+- `graph-views.json`
+- `settings.json`
 
-Settings includes:
+Seed/demo content includes:
 
-- manual backup creation
-- backup restore from timestamped snapshots
-- archive / trash restore and permanent delete controls
-- move-all-active-records-to-trash safety reset
-- selective JSON export/import for sessions, encounters, NPCs, locations, and factions
-- full campaign export/import from the campaign manager for moving an entire campaign between machines
+- `seed.json`
+- `encounters.seed.json`
+- `npcs.seed.json`
+- `locations.seed.json`
 
-### Running a session
+On first launch, the app initializes a default campaign and seeds a demo campaign.
 
-Open any session and click **Run Session** to enter live-session mode. Features:
-- Beats tracker with open / middle / escalate / close checkpoints
-- Initiative tracker: add combatants, track rounds, and mark the active participant
-- Collapsible sections to focus on what matters right now
+## Import, Export, and Backups
 
-### Theme and scale persistence
+- Record views support export of the current record or the record plus its connections
+- Settings supports selective JSON export/import for records in the active campaign
+- Campaign manager supports full-campaign export/import bundles
+- Backups can be created manually and restored from Settings
+- Record lifecycle tools support archive, trash, restore, and permanent delete
 
-Theme (dark / light) and UI scale are saved server-side and restored across Electron restarts — they do not depend on `localStorage` or port number.
+## Architecture
 
-## Frontend Architecture
+## Frontend
 
-The app is now served as a React SPA built with Vite and mounted from `client/`. Express still owns the `/api/*` routes, local file-backed stores, import/export, and PDF generation.
+- `client/index.html` bootstraps the SPA and theme
+- `client/src/App.jsx` defines React Router routes
+- `client/src/components/` contains chrome and shared UI
+- `client/src/pages/` contains list, view, campaign, map, run, settings, and form pages
+- `client/src/lib/` contains markdown, icons, API helpers, and bridges to a few reused vanilla helpers
 
-- `npm run dev` runs Express + Vite together for development
-- `npm run build` outputs the SPA to `dist-client/`
-- Electron loads the SPA root and talks to the same local Express server
-- A small number of classic scripts from `public/js/*` are still reused by the React app during the migration cleanup phase (dialogs, export dialog, tags, wiki rendering, connections panel)
+## Backend
+
+- `src/createApp.js` wires routes and serves the built SPA from `dist-client/`
+- `src/routes/` contains all API routes
+- `src/services/` contains stores, import/export logic, graph building, lifecycle helpers, and PDF generation
+- `src/templates/` contains HTML templates for PDF output
+
+## Shared Browser Helpers
+
+The app still reuses a small set of classic scripts from `public/js/`:
+
+- `dialog.js`
+- `shortcuts.js`
+- `tags.js`
+- `wiki-links.js`
+- `connections-panel.js`
+- `export-dialog.js`
+- `theme.js`
+
+These are consumed from React via `client/src/lib/vanilla.js`.
 
 ## Project Structure
 
-```
+```text
 dnd-plan-master/
 ├── client/
-│   ├── index.html                         # SPA entry + theme bootstrap
+│   ├── index.html
 │   └── src/
-│       ├── main.jsx                       # React mount + global CSS import
-│       ├── App.jsx                        # React Router app shell
-│       ├── components/                    # Layout, sidebar, top bar, shared UI
-│       ├── lib/                           # Icons, API hooks, vanilla bridges, markdown helpers
-│       └── pages/                         # React pages and forms
-├── src/
-│   ├── app.js                              # Web server launcher
-│   ├── createApp.js                        # Express app factory + API registration + SPA serving
-│   ├── server.js                           # Server bootstrap (port binding, backup scheduler)
-│   ├── routes/
-│   │   ├── sessions.js                     # Session CRUD, links, linked-npcs, preview, export
-│   │   ├── encounters.js                   # Encounter CRUD, session linking, preview, export
-│   │   ├── npcs.js                         # NPC CRUD, linked sessions/encounters, export
-│   │   ├── locations.js                    # Location CRUD, linked sessions, tags, export
-│   │   ├── factions.js                     # Faction CRUD, links, preview, export
-│   │   ├── maps.js                         # Campaign map image + pin persistence
-│   │   ├── campaigns.js                    # Campaign CRUD, switch active, per-campaign settings
-│   │   ├── settings.js                     # Global settings, export/import data, and backups
-│   │   ├── search.js                       # Global search + entity connection graph
-│   │   └── export.js                       # Multi-file save-to-folder endpoint
-│   ├── services/
-│   │   ├── appPaths.js                     # Web vs Electron data path resolution
-│   │   ├── sessionStore.js                 # Session JSON store (CRUD, seed, campaign filter)
-│   │   ├── encounterStore.js               # Encounter JSON store (CRUD, seed, campaign filter)
-│   │   ├── npcStore.js                     # NPC JSON store (CRUD, seed, link sync)
-│   │   ├── locationStore.js                # Location JSON store (CRUD, seed, campaign filter)
-│   │   ├── factionStore.js                 # Faction JSON store (CRUD, links, campaign filter)
-│   │   ├── mapStore.js                     # Campaign map record + image persistence
-│   │   ├── campaignStore.js                # Campaign JSON store (active campaign, per-campaign settings)
-│   │   ├── settingsStore.js                # Global settings JSON store
-│   │   ├── recordLifecycle.js              # Active / archived / trashed record status helpers
-│   │   ├── importPlanner.js                # Conflict-aware import preview and execution
-│   │   ├── planRelations.js                # Session ↔ encounter bidirectional link index
-│   │   ├── entityConnections.js            # Full entity connection graph builder
-│   │   ├── markdownGenerator.js            # Session markdown renderer
-│   │   ├── encounterMarkdownGenerator.js   # Encounter markdown renderer
-│   │   ├── npcMarkdownGenerator.js         # NPC profile markdown renderer
-│   │   ├── locationMarkdownGenerator.js    # Location profile markdown renderer
-│   │   ├── factionMarkdownGenerator.js     # Faction profile markdown renderer
-│   │   ├── pdfGenerator.js                 # Runtime-aware PDF generation (Puppeteer / Electron)
-│   │   ├── electronPdfGenerator.js         # Electron-specific PDF via webFrame.printToPDF
-│   │   ├── folderPicker.js                 # Native OS folder picker (web + Electron)
-│   │   ├── backupScheduler.js              # Scheduled backup interval timer
-│   │   └── backupStore.js                  # Backup snapshots: create, list, restore, auto-prune
-│   └── templates/
-│       ├── pdfTemplate.js                  # Session PDF: two-column print layout
-│       ├── encounterPdfTemplate.js         # Encounter PDF: design breakdown, enemies, tactics
-│       ├── npcPdfTemplate.js               # NPC PDF: identity, voice, skills, inventory
-│       ├── locationPdfTemplate.js          # Location PDF: summary, hooks, atmosphere, links
-│       └── factionPdfTemplate.js           # Faction PDF: agenda, reputation, clocks, leverage
-├── electron/
-│   └── main.js                             # Electron desktop entry (BrowserWindow, server lifecycle)
-├── public/
-│   ├── fonts/                              # Bundled local fonts (Cinzel, Crimson Pro)
-│   ├── css/style.css                       # Shared visual system used by React and legacy helpers
-│   └── js/
-│       ├── export-dialog.js                # Shared export overlay (format picker, folder save)
-│       ├── global-search.js                # Cross-entity search (sigil prefixes, ranked results)
-│       ├── connections-panel.js            # Connections panel (session ↔ encounter ↔ NPC)
-│       ├── shortcuts.js                    # Keyboard shortcuts (definitions, capture UI, rebind)
-│       ├── tags.js                         # TagInput widget
-│       ├── dialog.js                       # Confirm/alert/prompt modal dialogs
-│       └── wiki-links.js                   # Wiki-style link rendering and preload
+│       ├── App.jsx
+│       ├── components/
+│       ├── lib/
+│       └── pages/
 ├── data/
-│   ├── seed.json                           # Default session seed data
-│   ├── sessions.json                       # Live session store
-│   ├── encounters.seed.json                # Default encounter seed data
-│   ├── encounters.json                     # Live encounter store
-│   ├── npcs.seed.json                      # Default NPC seed data
-│   ├── npcs.json                           # Live NPC store
-│   ├── locations.seed.json                 # Default location seed data
-│   ├── locations.json                      # Live location store
-│   ├── factions.seed.json                  # Default faction seed data
-│   ├── factions.json                       # Live faction store
-│   ├── maps.json                           # Campaign map metadata + pin records
-│   ├── campaigns.json                      # Campaign list + active campaign ID
-│   ├── settings.json                       # Global settings (theme, autosave, shortcuts)
-│   └── backups/                            # Timestamped backup snapshots
-├── dist-client/                            # Built Vite SPA output
-└── package.json
+│   ├── *.seed.json
+│   ├── campaigns.json
+│   ├── graph-views.json
+│   ├── locations.json
+│   ├── maps.json
+│   └── npcs.json
+├── electron/
+│   ├── main.js
+│   └── preload.js
+├── public/
+│   ├── css/style.css
+│   ├── fonts/
+│   └── js/
+├── src/
+│   ├── app.js
+│   ├── createApp.js
+│   ├── routes/
+│   ├── services/
+│   └── templates/
+├── test/
+├── AGENTS.md
+├── package.json
+└── vite.config.js
 ```
 
-## PDF Layout
+Note: some live JSON files are created lazily after first write, so a fresh checkout may not contain every store file yet.
 
-Sessions use a two-column, print-optimized layout:
+## Desktop Build Notes
 
-- **Left column**: Opening read-aloud, session beats table, combat encounters
-- **Right column**: NPCs, locations, faction clocks
-- **Full width**: Session notes (if any)
+- `npm run start:desktop` builds the SPA first, then launches Electron
+- `npm run build:desktop` creates an unpacked Electron bundle for local testing
+- `npm run dist` creates packaged artifacts in `dist/`
+- macOS builds should be produced on macOS
+- Windows builds should be produced on Windows
 
-Designed for Letter paper at ~8.2pt font — fits 1–2 pages for a fully-populated session.
+## Current Status
 
-Encounter and NPC PDFs use a single-column layout optimized for their own content.
-
-## Feature Status
-
-- [x] Session planning (9-section structured form)
-- [x] Encounter planning (8-step design framework with puzzle-enemy support)
-- [x] NPC database — full CRUD with identity, voice, skills, spell list, and inventory
-- [x] Location database — full CRUD with tags, linked sessions, and document export
-- [x] Faction database — full CRUD with reputation, linked entities, and document export
-- [x] Campaign map with uploaded image and persistent pins
-- [x] Link encounters to sessions (bidirectional)
-- [x] Link NPCs to sessions and encounters
-- [x] Link locations to sessions
-- [x] Link factions to sessions, encounters, NPCs, and locations
-- [x] Tagging across sessions, encounters, NPCs, and locations
-- [x] Archive, trash, restore, and permanent delete lifecycle for records
-- [x] Multiple campaigns — per-campaign sessions, encounters, NPCs, and party roster
-- [x] Campaign switcher in the top nav on every page
-- [x] Campaign manager page (create, rename, switch, delete with cascading record removal)
-- [x] Campaign dashboard landing page
-- [x] Campaign continuity view with searchable timeline boards
-- [x] Entity relationship graph for sessions, encounters, NPCs, locations, and factions
-- [x] Unified export dialog — Markdown and/or PDF, choose save folder, single or with connections
-- [x] Conflict-aware import preview and duplicate handling
-- [x] Settings export/import for sessions, encounters, NPCs, locations, and factions
-- [x] Campaign bundle export/import for full-campaign transfer
-- [x] Manual backups plus restore flow
-- [x] Scheduled backups
-- [x] Move-all-active-records-to-trash reset in settings
-- [x] Party roster with character sheet URL — names become clickable links in all documents
-- [x] Light/dark theme persistence and UI scale persistence
-- [x] Run-session mode — beats tracker, initiative tracker, collapsible sections
-- [x] Search and filtering on list pages
-- [x] Global search across sessions, encounters, NPCs, locations, factions, and tags (with sigil prefix support)
-- [x] Right-click context menu and multi-select bulk actions on list pages
-
-## Suggested Next Improvements
-
-The app already covers the main CRUD and export flows well. The next step is less about adding more record types and more about making the planning workflow safer, easier to maintain, and more reusable across long campaigns.
-
-1. Schema versioning and migrations
-   Add explicit `schemaVersion` support for stored records and import bundles, plus migration functions on load/import. This matters now that the app has local data files, backups, lifecycle states, campaign import/export, Electron app data paths, and a growing number of entity types.
-2. Automated tests for stores and routes
-   Add a real test script and cover the high-risk stateful flows: CRUD, import/export merge behavior, campaign isolation, lifecycle state transitions, tag updates, link sync, map persistence, and backup/restore.
-3. Duplicate and template workflows
-   Add first-class reusable templates for sessions, encounters, NPCs, locations, and factions so prep can start from existing material instead of a blank form.
-4. React migration cleanup
-   Replace the remaining classic-script bridges used by the SPA with native React implementations for dialogs, tags, export flows, toasts, and connections panels.
-5. Conflict-aware import
-   Expand the current preview/import system with stronger post-import reporting, broken-link repair tools, and clearer remap summaries for moved IDs.
-6. Cross-entity tagging and filtering
-   Keep tags first-class across sessions, encounters, NPCs, locations, factions, and campaigns, then add stronger filters, saved tag views, and better use of tags in global search.
-7. Campaign timeline and chronology tools
-   Build a true campaign timeline that highlights world-state changes, unresolved threads, NPC status changes, and major events in order.
-8. Run-mode persistence and live-play tools
-   Expand run mode with persistent initiative state, beat completion, scratch notes, and quick side-panel lookup for linked NPCs, locations, and encounters.
-9. Relationship editing from view pages
-   Let users add and remove linked sessions, encounters, NPCs, locations, and factions directly from the view pages instead of forcing a trip back through edit forms.
-10. Roadmap and documentation cleanup
-   Keep `AGENTS.md` and this README aligned with the actual app surface area, especially now that the project includes React SPA routing, factions, maps, lifecycle states, desktop packaging, and richer import/export flows.
+- The legacy multi-page frontend has been removed from active use
+- Express serves the built SPA for every non-API route
+- The React app now owns all user-facing pages
+- `AGENTS.md` contains the implementation roadmap, migration log, and pending feature specs

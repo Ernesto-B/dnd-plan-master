@@ -5,6 +5,8 @@
 export const NAV = [
   { href: '/campaign',   icon: 'campaign',   label: 'Campaign',   group: 'overview', native: true,
     match: p => p === '/' || p === '/campaign' || p === '/campaigns' },
+  { href: '/graph',      icon: 'graph',      label: 'Graph',      group: 'overview', native: true,
+    match: p => p === '/graph' },
   { href: '/sessions',   icon: 'sessions',   label: 'Sessions',   group: 'play', native: true,
     match: p => p === '/sessions' || p === '/view' || p === '/form' || p.startsWith('/view/') || p.startsWith('/run/') },
   { href: '/encounters', icon: 'encounters', label: 'Encounters', group: 'play', native: true,

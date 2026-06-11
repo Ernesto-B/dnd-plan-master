@@ -506,6 +506,14 @@ function ImportPreview({ state, report, action, setDefault, setOverride }) {
 }
 
 // ─── Keyboard shortcuts modal ──────────────────────────────────────────────
+
+const SC_CATEGORIES = [
+  { label: 'Create', actions: ['newSession', 'newEncounter', 'newNpc', 'newFaction'] },
+  { label: 'Go To', actions: ['goSessions', 'goEncounters', 'goNpcs', 'goCampaign', 'goFactions', 'goSettings'] },
+  { label: 'History', actions: ['historyBack', 'historyForward'] },
+  { label: 'Interface', actions: ['focusSearch', 'savePrimary'] },
+];
+
 function ShortcutsModal({ open, onClose, current, onSaved }) {
   const SC = window.Shortcuts;
   const defs = SC ? SC.getDefinitions() : [];
@@ -513,6 +521,8 @@ function ShortcutsModal({ open, onClose, current, onSaved }) {
   const [draft, setDraft] = useState({});
   const [capturing, setCapturing] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const defsByAction = useMemo(() => Object.fromEntries(defs.map(d => [d.action, d])), [defs]);
 
   useEffect(() => { if (open) { setDraft({ ...current }); setCapturing(null); } }, [open, current]);
   useEffect(() => {
@@ -537,7 +547,6 @@ function ShortcutsModal({ open, onClose, current, onSaved }) {
   }, [draft, SC]);
 
   if (!open) return null;
-  const labelBy = Object.fromEntries(defs.map(d => [d.action, d.label]));
 
   async function save() {
     if (duplicates.length) return;
@@ -556,21 +565,51 @@ function ShortcutsModal({ open, onClose, current, onSaved }) {
     <div className="shortcut-modal-overlay" role="dialog" aria-modal="true" onClick={e => { if (e.target.classList.contains('shortcut-modal-overlay')) onClose(); }}>
       <div className="shortcut-modal-box">
         <div className="shortcut-modal-head">
-          <div><h3 className="shortcut-modal-title">Keyboard Shortcuts</h3><p className="shortcut-modal-subtitle">Choose shortcuts that feel natural. Changes apply after saving.</p></div>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>✕ Close</button>
+          <div>
+            <h3 className="shortcut-modal-title">Keyboard Shortcuts</h3>
+            <p className="shortcut-modal-subtitle">Click a binding to rebind · Backspace or Delete to clear · Changes apply after saving.</p>
+          </div>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>✕</button>
         </div>
-        {duplicates.length > 0 && <div className="shortcut-warning">{duplicates.map(([combo, actions]) => `${combo} is assigned to ${actions.map(a => labelBy[a] || a).join(', ')}.`).join(' ')}</div>}
+        {duplicates.length > 0 && (
+          <div className="shortcut-warning">
+            {duplicates.map(([combo, actions]) => `${combo} is assigned to ${actions.map(a => defsByAction[a]?.label || a).join(', ')}.`).join(' ')}
+          </div>
+        )}
         <div className="shortcut-list">
-          {defs.map(def => {
-            const combo = draft[def.action] || '';
+          {SC_CATEGORIES.map(cat => {
+            const catDefs = cat.actions.map(a => defsByAction[a]).filter(Boolean);
+            if (!catDefs.length) return null;
             return (
-              <div className={`shortcut-row${capturing === def.action ? ' capturing' : ''}`} key={def.action}>
-                <div className="shortcut-meta"><div className="shortcut-meta-label">{def.label}</div><div className="shortcut-meta-desc">{def.description}</div></div>
-                <button type="button" className={`btn btn-ghost shortcut-capture-btn${combo ? '' : ' is-empty'}`} onClick={() => setCapturing(def.action)}>{capturing === def.action ? 'Press keys…' : (combo || 'Unassigned')}</button>
-                <div className="shortcut-row-actions">
-                  <button type="button" className="btn btn-ghost" onClick={() => { setDraft(d => ({ ...d, [def.action]: defaults[def.action] })); setCapturing(null); }}>Reset</button>
-                  <button type="button" className="btn btn-ghost" onClick={() => { setDraft(d => ({ ...d, [def.action]: '' })); setCapturing(null); }}>Clear</button>
-                </div>
+              <div key={cat.label} className="shortcut-category">
+                <div className="shortcut-category-label">{cat.label}</div>
+                {catDefs.map(def => {
+                  const combo = draft[def.action] || '';
+                  const isCapturing = capturing === def.action;
+                  return (
+                    <div className={`shortcut-row${isCapturing ? ' capturing' : ''}`} key={def.action}>
+                      <div className="shortcut-meta">
+                        <div className="shortcut-meta-label">{def.label}</div>
+                        <div className="shortcut-meta-desc">{def.description}</div>
+                      </div>
+                      <div className="shortcut-controls">
+                        {isCapturing ? (
+                          <span className="shortcut-capturing-hint">Press keys… <kbd className="shortcut-esc-hint">Esc</kbd></span>
+                        ) : (
+                          <button type="button" className={`shortcut-capture-btn${combo ? '' : ' is-empty'}`} onClick={() => setCapturing(def.action)} title="Click to rebind">
+                            {combo || 'Unassigned'}
+                          </button>
+                        )}
+                        {!isCapturing && (
+                          <div className="shortcut-row-actions">
+                            <button type="button" className="btn btn-ghost" title="Reset to default" onClick={() => { setDraft(d => ({ ...d, [def.action]: defaults[def.action] })); setCapturing(null); }}>↺</button>
+                            <button type="button" className="btn btn-ghost" title="Clear" onClick={() => { setDraft(d => ({ ...d, [def.action]: '' })); setCapturing(null); }}>✕</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

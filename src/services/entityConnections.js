@@ -101,6 +101,12 @@ async function buildEntityConnections(campaignId = 'c-default') {
     link(edge.target, edge.source);
   }
 
+  function toItems(val) {
+    if (Array.isArray(val)) return val.filter(Boolean);
+    if (typeof val === 'string') return val.split('\n').map(s => s.trim()).filter(Boolean);
+    return [];
+  }
+
   const nodes = [
     ...campaignSessions.map(session => ({
       id: nodeId('session', session.id),
@@ -123,6 +129,13 @@ async function buildEntityConnections(campaignId = 'c-default') {
         session.data?.npcStatusChanges,
         session.data?.treasureRewardsLog,
       ].join(' ').toLowerCase(),
+      continuity: {
+        recap: session.data?.sessionRecap || '',
+        threads: toItems(session.data?.unresolvedThreads),
+        worldChanges: toItems(session.data?.worldStateChanges),
+        npcChanges: toItems(session.data?.npcStatusChanges),
+        treasure: toItems(session.data?.treasureRewardsLog),
+      },
     })),
     ...campaignEncounters.map(encounter => ({
       id: nodeId('encounter', encounter.id),

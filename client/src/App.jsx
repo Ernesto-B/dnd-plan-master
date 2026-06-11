@@ -8,6 +8,7 @@ import LocationView from './pages/LocationView.jsx';
 import FactionView from './pages/FactionView.jsx';
 import SessionView from './pages/SessionView.jsx';
 import CampaignPage from './pages/CampaignPage.jsx';
+import CampaignGraphPage from './pages/CampaignGraphPage.jsx';
 import CampaignsPage from './pages/CampaignsPage.jsx';
 import MapPage from './pages/MapPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/" element={<CampaignPage />} />
         <Route path="/campaign" element={<CampaignPage />} />
         <Route path="/campaigns" element={<CampaignsPage />} />
+        <Route path="/graph" element={<CampaignGraphPage />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/sessions" element={<ListPage config={LIST_CONFIGS.sessions} />} />

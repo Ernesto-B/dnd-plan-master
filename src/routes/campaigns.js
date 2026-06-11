@@ -1,7 +1,8 @@
 const express = require('express');
 const router  = express.Router();
 
-const campaignStore  = require('../services/campaignStore');
+const campaignStore    = require('../services/campaignStore');
+const graphViewStore   = require('../services/graphViewStore');
 const demoSeed       = require('../services/demoSeed');
 const sessionStore   = require('../services/sessionStore');
 const encounterStore = require('../services/encounterStore');
@@ -215,6 +216,50 @@ router.get('/:id/counts', async (req, res) => {
       factions:   factions.filter(record => belongsHere(record) && isLive(record)).length,
       maps:       map ? 1 : 0,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Graph views ───────────────────────────────────────────────────────────────
+
+// GET /api/campaigns/:id/graph-views
+router.get('/:id/graph-views', async (req, res) => {
+  try {
+    res.json(await graphViewStore.getViewsForCampaign(req.params.id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/campaigns/:id/graph-views
+router.post('/:id/graph-views', async (req, res) => {
+  try {
+    const { name, filters, positions, viewport } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    res.status(201).json(await graphViewStore.createView(req.params.id, { name, filters, positions, viewport }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/campaigns/:id/graph-views/:viewId
+router.put('/:id/graph-views/:viewId', async (req, res) => {
+  try {
+    const updated = await graphViewStore.updateView(req.params.viewId, req.body || {});
+    if (!updated) return res.status(404).json({ error: 'View not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/campaigns/:id/graph-views/:viewId
+router.delete('/:id/graph-views/:viewId', async (req, res) => {
+  try {
+    const deleted = await graphViewStore.deleteView(req.params.viewId);
+    if (!deleted) return res.status(404).json({ error: 'View not found' });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
